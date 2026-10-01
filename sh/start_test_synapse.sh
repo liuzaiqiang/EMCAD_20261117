@@ -54,13 +54,62 @@ RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 LOG_FILE="${LOG_DIR}/test_${DATASET}__img${IMG_SIZE}_${TS}.log"
 
 # RUN_ID会注入Python进程环境，PID文件位于已cd到的项目根目录。
-RUN_ID="test_${DATASET}_imgSize_${IMG_SIZE}_supervision_${SUPERVISION}_batchSize_${BATCH_SIZE}_seed${seed}_maxepochs_${MAX_EPOCHS}_${TS}_RAND${RAND}"
+RUN_ID="test_${DATASET}_imgSize_${IMG_SIZE}_supervision_batchSize_${BATCH_SIZE}_seed_${seed}_maxepochs_${MAX_EPOCHS}_${TS}_RAND${RAND}"
 PID_FILE="${RUN_ID}.pid"
-# tee -a把关键路径和运行标识写入日志，RUN_ID另行输出到终端供停止脚本使用。
-echo "[INFO] PROJECT_DIR=${PROJECT_DIR}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] VOLUME_PATH=${VOLUME_PATH}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}"  | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}"
+
+num_classes=9
+encoder=pvt_v2_b2
+expansion_factor=2
+kernel_sizes=[1, 3, 5]
+lgag_ks=3
+activation_mscb=relu6
+
+
+
+PARAM_NAMES=(
+  CONDA_BASE
+  CONDA_ENV_PREFIX
+  PROJECT_DIR
+  LOG_DIR
+  CUDA_VISIBLE_DEVICES 
+  SEED
+  MAX_EPOCHS
+  DATASET
+  IMG_SIZE
+  BATCH_SIZE
+  SUPERVISION
+  VOLUME_PATH
+  LIST_PATH
+  BASE_LR
+  TS
+  RAND
+  LOG_FILE
+  RUN_ID
+  PID_FILE
+
+  FUSION_MODE
+  FUSION_LOSS_WEIGHT
+  RELIABILITY_LOSS_WEIGHT
+
+  num_classes
+  encoder
+  expansion_factor
+  kernel_sizes
+  lgag_ks
+  activation_mscb
+
+)
+
+{
+  echo "[INFO] parameters:"
+  for name in "${PARAM_NAMES[@]}"; do
+    printf '[INFO] %-24s=%s\n' "$name" "${!name}"
+  done
+  echo "---------------------------ready to run---------------------------------"
+} | tee -a "${LOG_FILE}"
+echo "---------------------------ready to train---------------------------------" | tee -a "${LOG_FILE}" > /dev/null
+
+
 
 
 # VOLUME_PATH不存在时右侧错误块执行并返回退出码1，不会启动后台测试。
@@ -74,6 +123,12 @@ nohup env RUN_ID="${RUN_ID}"   python test_synapse.py \
   --img_size "${IMG_SIZE}" \
   --list_dir "${LIST_PATH}" \
    --seed "${SEED}" \
+  --num_classes "${num_classes}" \
+  --encoder "${encoder}" \
+  --expansion_factor "${expansion_factor}" \
+  --kernel_sizes "${kernel_sizes}" \
+  --lgag_ks "${lgag_ks}" \
+  --activation_mscb "${activation_mscb}" \
   >> "${LOG_FILE}" 2>&1 &
 
 # $!取得最近后台任务PID并写入与RUN_ID同名文件；成功启动后脚本本身随即结束。

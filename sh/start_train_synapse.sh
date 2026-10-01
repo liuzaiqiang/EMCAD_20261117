@@ -53,6 +53,15 @@ RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
+num_classes=9
+encoder=pvt_v2_b2
+expansion_factor=2
+kernel_sizes=[1, 3, 5]
+lgag_ks=3
+activation_mscb=relu6
+
+
+
 PARAM_NAMES=(
   CONDA_BASE
   CONDA_ENV_PREFIX
@@ -76,6 +85,13 @@ PARAM_NAMES=(
   FUSION_LOSS_WEIGHT
   RELIABILITY_LOSS_WEIGHT
 
+  num_classes
+  encoder
+  expansion_factor
+  kernel_sizes
+  lgag_ks
+  activation_mscb
+
 )
 
 {
@@ -97,6 +113,12 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --base_lr "${BASE_LR}" \
   --seed "${SEED}" \
   --supervision "${SUPERVISION}" \
+  --num_classes "${num_classes}" \
+  --encoder "${encoder}" \
+  --expansion_factor "${expansion_factor}" \
+  --kernel_sizes "${kernel_sizes}" \
+  --lgag_ks "${lgag_ks}" \
+  --activation_mscb "${activation_mscb}" \
   --fusion_mode "${FUSION_MODE}" \
   --fusion_loss_weight "${FUSION_LOSS_WEIGHT}" \
   --reliability_loss_weight "${RELIABILITY_LOSS_WEIGHT}" \
