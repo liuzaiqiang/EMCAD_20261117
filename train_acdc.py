@@ -71,6 +71,7 @@ from utils.acdc_utils import (
 )
 # ACDCdataset 读取训练二维切片；ACDCVolumeDataset 读取/重组验证体；RandomGenerator 做同步增强。
 from utils.dataset_ACDC import ACDCVolumeDataset, ACDCdataset, RandomGenerator
+from utils.surface_distance_loss import surface_distance_loss
 
 
 # 集中定义全部训练参数；函数返回 Namespace，不在 import 阶段直接解析命令行。
@@ -109,6 +110,13 @@ def parse_args():
     parser.add_argument("--fusion_mode", choices=["p1", "fixed_sum", "global_scalar", "pixel_reliability"], default="p1")
     parser.add_argument("--fusion_loss_weight", type=float, default=0.0)
     parser.add_argument("--reliability_loss_weight", type=float, default=1.0)
+    # 候选方法：对最终融合 logits 添加表面距离联合监督；默认 0.0 保持当前基线。
+    parser.add_argument("--surface_loss_weight", type=float, default=0.0,
+                        help="weight of final-output surface-distance loss; 0 disables it")
+    parser.add_argument("--surface_distance_clip", type=float, default=20.0,
+                        help="distance-map clipping value in preprocessed 2D pixels")
+    parser.add_argument("--surface_include_background", action="store_true", default=False,
+                        help="also include background in surface-distance supervision")
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -309,6 +317,10 @@ def main():
         args.run_name = "acdc_{}".format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     # 本次实验目录=<output_dir>/<run_name>。
     snapshot_path = os.path.join(args.output_dir, args.run_name)
+    if args.surface_loss_weight != 0:
+        snapshot_path += "_surface_sw{}_clip{}".format(
+            args.surface_loss_weight, args.surface_distance_clip
+        )
     # 递归创建目录；已存在时复用。
     os.makedirs(snapshot_path, exist_ok=True)
 
@@ -455,6 +467,17 @@ def main():
                 fusion_model = model.module if hasattr(model, "module") else model
                 if args.fusion_loss_weight > 0 and getattr(fusion_model, "fusion_mode", "p1") != "p1":
                     loss = loss + args.fusion_loss_weight * fusion_model.fusion_auxiliary_loss( outputs, labels, ce_loss, dice_loss,reliability_loss_weight=args.reliability_loss_weight)
+
+                # 创新点：对最终融合 logits 增加可开关的二维 signed distance 联合监督。时间：20261002
+                # 权重为 0 时完全跳过距离图生成，保证关闭候选方法时沿用当前基线损失路径。
+                if args.surface_loss_weight > 0:
+                    surface_logits = fusion_model.fuse_outputs(outputs) if hasattr(fusion_model, "fuse_outputs") else outputs[-1]
+                    loss = loss + args.surface_loss_weight * surface_distance_loss(
+                        surface_logits,
+                        labels,
+                        distance_clip=args.surface_distance_clip,
+                        include_background=args.surface_include_background,
+                    )
             
             
             scaler.scale(loss).backward()

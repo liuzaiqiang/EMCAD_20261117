@@ -47,6 +47,7 @@ from torch.cuda.amp import GradScaler, autocast
 from utils.dataset_synapse import Synapse_dataset, RandomGenerator
 # powerset生成监督组合；DiceLoss 计算多类软Dice；两个volume函数负责整体验证。
 from utils.utils import powerset, one_hot_encoder, DiceLoss, val_single_volume
+from utils.surface_distance_loss import surface_distance_loss
 
 
 # 训练过程中调用的整病例评估函数；它返回所有病例、所有前景类别的平均 Dice 标量。
@@ -267,6 +268,18 @@ def trainer_synapse(args, model, snapshot_path):
                 loss = loss + float(args.fusion_loss_weight) * fusion_model.fusion_auxiliary_loss(
                     P, label_batch, ce_loss, dice_loss,
                     reliability_loss_weight=getattr(args, 'reliability_loss_weight', 1.0))
+
+            # 创新点：对最终融合 logits 增加可开关的二维 signed distance 联合监督。时间：20261002
+            # 权重为 0 时完全跳过距离图生成，保证关闭候选方法时沿用当前基线损失路径。
+            surface_weight = float(getattr(args, 'surface_loss_weight', 0.0))
+            if surface_weight > 0:
+                surface_logits = fusion_model.fuse_outputs(P) if hasattr(fusion_model, 'fuse_outputs') else P[-1]
+                loss = loss + surface_weight * surface_distance_loss(
+                    surface_logits,
+                    label_batch,
+                    distance_clip=float(getattr(args, 'surface_distance_clip', 20.0)),
+                    include_background=bool(getattr(args, 'surface_include_background', False)),
+                )
             """
             用两个输出的极小例子模拟
             若只有 P=[P0,P1]，使用 mutation：

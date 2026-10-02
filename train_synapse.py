@@ -82,6 +82,13 @@ parser.add_argument('--fusion_loss_weight', type=float, default=0.0,
                     help='weight of the fused-output CE+Dice auxiliary loss; keep 0 for the original baseline')
 parser.add_argument('--reliability_loss_weight', type=float, default=1.0,
                     help='pixel reliability BCE weight used only by pixel_reliability')
+# 候选方法：对最终融合 logits 添加表面距离联合监督；默认 0.0 以保持当前基线行为。
+parser.add_argument('--surface_loss_weight', type=float, default=0.0,
+                    help='weight of final-output surface-distance loss; 0 disables it')
+parser.add_argument('--surface_distance_clip', type=float, default=20.0,
+                    help='distance-map clipping value in preprocessed 2D pixels')
+parser.add_argument('--surface_include_background', action='store_true', default=False,
+                    help='also include background in surface-distance supervision')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。
@@ -222,6 +229,8 @@ if __name__ == "__main__":
     snapshot_path = os.path.join("model_pth", exp_name)
     if args.fusion_mode != 'p1' or args.fusion_loss_weight != 0:
         snapshot_path += '_fusion_{}_fw{}'.format(args.fusion_mode, args.fusion_loss_weight)
+    if args.surface_loss_weight != 0:
+        snapshot_path += '_surface_sw{}_clip{}'.format(args.surface_loss_weight, args.surface_distance_clip)
 
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)
