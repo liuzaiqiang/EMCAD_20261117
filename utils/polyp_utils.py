@@ -80,7 +80,7 @@ def resolve_device(requested):
 def build_model(args, pretrain):
     return build_research_model(
         use_full_resolution_detail_branch=args.use_full_resolution_detail_branch,
-        use_semantic_gated_residual=args.use_semantic_gated_residual,
+        use_axial_context_refinement=args.use_axial_context_refinement,
         # 二分类分割头的输出形状为 [B,1,H,W]。
         num_classes=1,
         # MSDC 多尺度深度卷积核；论文主文 PDF 第6页/印刷第6页 §4.1 使用 [1,3,5]。

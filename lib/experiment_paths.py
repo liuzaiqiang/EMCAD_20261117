@@ -41,9 +41,9 @@ def make_experiment_dir(args, family, output_root=None):
 
     dataset = _value(args, "dataset_name", _value(args, "dataset", family))
     use_full_resolution_detail_branch = int(_value(args, "use_full_resolution_detail_branch", 0))
-    use_semantic_gated_residual = int(_value(args, "use_semantic_gated_residual", 0))
-    variant = {(0, 0): "baseline", (1, 0): "full_resolution_detail", (0, 1): "semantic_gated_residual",
-               (1, 1): "detail_and_semantic_gate"}[(use_full_resolution_detail_branch, use_semantic_gated_residual)]
+    use_axial_context_refinement = int(_value(args, "use_axial_context_refinement", 0))
+    variant = {(0, 0): "baseline", (1, 0): "full_resolution_detail", (0, 1): "axial_context_refinement",
+               (1, 1): "detail_and_axial_context"}[(use_full_resolution_detail_branch, use_axial_context_refinement)]
     values = [
         ("dataset", dataset),
         ("variant", variant),

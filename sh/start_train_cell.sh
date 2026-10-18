@@ -72,5 +72,5 @@ export N_GPU="${N_GPU:-1}"
 cd "${PROJECT_DIR}"
 # DSB18/EM 与通用二分类入口使用同名开关；这里也显式给出默认值。
 USE_FULL_RESOLUTION_DETAIL_BRANCH="${USE_FULL_RESOLUTION_DETAIL_BRANCH:-0}" # 原图全分辨率细节支路：0关，1开
-USE_SEMANTIC_GATED_RESIDUAL="${USE_SEMANTIC_GATED_RESIDUAL:-0}"         # d1语义门控残差：0关，1开
+USE_AXIAL_CONTEXT_REFINEMENT="${USE_AXIAL_CONTEXT_REFINEMENT:-0}"         # d1轴向上下文精炼：0关，1开
 source "${SCRIPT_DIR}/start_train_polyp.sh"

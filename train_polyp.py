@@ -173,7 +173,7 @@ def parse_args():
         default="./pretrained_pth/pvt/",
     )
     parser.add_argument("--use_full_resolution_detail_branch", type=int, choices=[0, 1], default=0)
-    parser.add_argument("--use_semantic_gated_residual", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_axial_context_refinement", type=int, choices=[0, 1], default=0)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 

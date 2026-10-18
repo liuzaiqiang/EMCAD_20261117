@@ -159,7 +159,7 @@ def parse_args():
         default="./pretrained_pth/pvt/",
     )
     parser.add_argument("--use_full_resolution_detail_branch", type=int, choices=[0, 1], default=0)
-    parser.add_argument("--use_semantic_gated_residual", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_axial_context_refinement", type=int, choices=[0, 1], default=0)
 
 
     # 推理输入的统一正方形边长。
@@ -284,11 +284,11 @@ def restore_checkpoint_model_options(args):
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",
         "use_full_resolution_detail_branch": "--use_full_resolution_detail_branch",
-        "use_semantic_gated_residual": "--use_semantic_gated_residual",
+        "use_axial_context_refinement": "--use_axial_context_refinement",
     }
     for field, option in options.items():
         if field not in config:
-            if field in ("use_full_resolution_detail_branch", "use_semantic_gated_residual") and getattr(args, field) != 0:
+            if field in ("use_full_resolution_detail_branch", "use_axial_context_refinement") and getattr(args, field) != 0:
                 raise RuntimeError("{} is absent from checkpoint config; expected 0".format(option))
             continue
         requested = getattr(args, field)

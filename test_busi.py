@@ -63,7 +63,7 @@ EXPECTED_CLASS_COUNTS = {
 # 会影响模型结构/输入的 config 字段与命令行开关映射。
 ARCHITECTURE_OPTIONS = {
     "use_full_resolution_detail_branch": "--use_full_resolution_detail_branch",
-    "use_semantic_gated_residual": "--use_semantic_gated_residual",
+    "use_axial_context_refinement": "--use_axial_context_refinement",
     # 编码器。
     "encoder": "--encoder",
     # MSDC 核尺寸。
@@ -259,7 +259,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 缺字段无法确定 state_dict shape。
-        if field not in config and field not in {"use_full_resolution_detail_branch", "use_semantic_gated_residual"}:
+        if field not in config and field not in {"use_full_resolution_detail_branch", "use_axial_context_refinement"}:
             # 报告字段。
             raise RuntimeError(
                 # 错误正文。

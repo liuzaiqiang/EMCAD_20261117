@@ -48,7 +48,7 @@ def build_model(args, pretrain):
     # 直接返回统一模型实例；本函数只集中参数映射，不改变网络结构。
     return build_research_model(
         use_full_resolution_detail_branch=args.use_full_resolution_detail_branch,
-        use_semantic_gated_residual=args.use_semantic_gated_residual,
+        use_axial_context_refinement=args.use_axial_context_refinement,
         # ACDC 固定输出 4 个互斥类别 logits。
         num_classes=ACDC_NUM_CLASSES,
         # MSDC 各深度卷积分支的卷积核尺寸。

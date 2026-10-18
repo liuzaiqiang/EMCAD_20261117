@@ -36,7 +36,7 @@ EXPECTED_PROTOCOLS = {
 # 必须从训练 config.json 恢复并检查的模型结构字段及其命令行选项。
 ARCHITECTURE_OPTIONS = {
     "use_full_resolution_detail_branch": "--use_full_resolution_detail_branch",
-    "use_semantic_gated_residual": "--use_semantic_gated_residual",
+    "use_axial_context_refinement": "--use_axial_context_refinement",
     # 编码器类型。
     "encoder": "--encoder",
     # MSDC 多尺度核。
@@ -190,7 +190,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 配置缺字段意味着无法完整重建训练模型。
-        if field not in config and field not in {"use_full_resolution_detail_branch", "use_semantic_gated_residual"}:
+        if field not in config and field not in {"use_full_resolution_detail_branch", "use_axial_context_refinement"}:
             # 报告具体字段。
             raise RuntimeError(
                 # 错误正文。

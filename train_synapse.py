@@ -77,7 +77,7 @@ parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/
 parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
 parser.add_argument('--use_full_resolution_detail_branch', type=int, choices=[0, 1], default=0)
-parser.add_argument('--use_semantic_gated_residual', type=int, choices=[0, 1], default=0)
+parser.add_argument('--use_axial_context_refinement', type=int, choices=[0, 1], default=0)
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
     # 创建完整分割网络：这些参数会继续传入 EMCAD 解码器，决定真正的模型结构。
     # 对 Synapse，num_classes=9，所以四个预测头各输出 9 通道原始 logits；这里不做 softmax。
-    model = build_research_model(use_full_resolution_detail_branch=args.use_full_resolution_detail_branch, use_semantic_gated_residual=args.use_semantic_gated_residual,
+    model = build_research_model(use_full_resolution_detail_branch=args.use_full_resolution_detail_branch, use_axial_context_refinement=args.use_axial_context_refinement,
                      num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,

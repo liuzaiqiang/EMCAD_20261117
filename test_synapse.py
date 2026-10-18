@@ -100,7 +100,7 @@ parser.add_argument('--checkpoint', type=str, default='',
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
 parser.add_argument('--use_full_resolution_detail_branch', type=int, choices=[0, 1], default=0)
-parser.add_argument('--use_semantic_gated_residual', type=int, choices=[0, 1], default=0)
+parser.add_argument('--use_axial_context_refinement', type=int, choices=[0, 1], default=0)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
@@ -138,11 +138,11 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'use_full_resolution_detail_branch', 'use_semantic_gated_residual',
+        'pretrained_dir', 'supervision', 'use_full_resolution_detail_branch', 'use_axial_context_refinement',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
-        if config_key in ('use_full_resolution_detail_branch', 'use_semantic_gated_residual'):
+        if config_key in ('use_full_resolution_detail_branch', 'use_axial_context_refinement'):
             saved = int(training_config.get(config_key, 0))
             option = '--' + config_key
             explicit = any(item == option or item.startswith(option + '=') for item in sys.argv[1:])
@@ -369,7 +369,7 @@ if __name__ == "__main__":
 
 
     # 按与 checkpoint 一致的结构构造空模型；num_classes=9 决定四个分割头通道数。
-    model = build_research_model(use_full_resolution_detail_branch=args.use_full_resolution_detail_branch, use_semantic_gated_residual=args.use_semantic_gated_residual,
+    model = build_research_model(use_full_resolution_detail_branch=args.use_full_resolution_detail_branch, use_axial_context_refinement=args.use_axial_context_refinement,
                      num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,

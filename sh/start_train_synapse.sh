@@ -21,11 +21,11 @@ cd "${PROJECT_DIR}"
 # ===== 研究模块开关：直接把下面默认值 0 改为 1，或在启动命令前传入同名环境变量 =====
 # USE_FULL_RESOLUTION_DETAIL_BRANCH：全分辨率细节支路。1=从原图学习细节残差并修正最终 p1 logits；0=关闭。
 USE_FULL_RESOLUTION_DETAIL_BRANCH="${USE_FULL_RESOLUTION_DETAIL_BRANCH:-0}"
-# USE_SEMANTIC_GATED_RESIDUAL：语义门控残差。1=用 d1 语义门控制原图局部高频残差；0=关闭。
-USE_SEMANTIC_GATED_RESIDUAL="${USE_SEMANTIC_GATED_RESIDUAL:-0}"
+# USE_AXIAL_CONTEXT_REFINEMENT：轴向上下文精炼。1=用 d1 的横纵向上下文修正最终预测；0=关闭。
+USE_AXIAL_CONTEXT_REFINEMENT="${USE_AXIAL_CONTEXT_REFINEMENT:-0}"
 # 两个值依次为 0/0：原始 EMCAD；1/0：仅全分辨率细节支路；
-# 0/1：仅语义门控残差；1/1：两者都启用。
-# 例如：USE_FULL_RESOLUTION_DETAIL_BRANCH=1 USE_SEMANTIC_GATED_RESIDUAL=0 bash sh/start_train_synapse.sh
+# 0/1：仅轴向上下文精炼；1/1：两者都启用。
+# 例如：USE_FULL_RESOLUTION_DETAIL_BRANCH=1 USE_AXIAL_CONTEXT_REFINEMENT=0 bash sh/start_train_synapse.sh
 # 下方共用文件只校验 0/1、生成实验标识，并把值传给 Python。
 source "${PROJECT_DIR}/sh/detail_module_flags.sh"
 test -f "${PROJECT_DIR}/train_synapse.py" || { echo "[ERROR] train_synapse.py missing" >&2; exit 2; }
@@ -134,7 +134,7 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   USE_FULL_RESOLUTION_DETAIL_BRANCH
-  USE_SEMANTIC_GATED_RESIDUAL
+  USE_AXIAL_CONTEXT_REFINEMENT
   DETAIL_VARIANT
 )
 

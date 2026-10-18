@@ -13,9 +13,9 @@ class ExperimentPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             created = {}
             for a, b, label in ((0, 0, "baseline"), (1, 0, "full_resolution_detail"),
-                                (0, 1, "semantic_gated_residual"), (1, 1, "detail_and_semantic_gate")):
+                                (0, 1, "axial_context_refinement"), (1, 1, "detail_and_axial_context")):
                 args = SimpleNamespace(output_dir=root, dataset_name="ClinicDB",
-                                       use_full_resolution_detail_branch=a, use_semantic_gated_residual=b, seed=2222)
+                                       use_full_resolution_detail_branch=a, use_axial_context_refinement=b, seed=2222)
                 path = Path(make_experiment_dir(args, "Polyp"))
                 self.assertTrue(path.is_dir())
                 self.assertIn("variant_" + label, path.parts)
@@ -23,7 +23,7 @@ class ExperimentPathTests(unittest.TestCase):
             self.assertEqual(len(set(created.values())), 4)
             same = Path(make_experiment_dir(SimpleNamespace(
                 output_dir=root, dataset_name="ClinicDB", use_full_resolution_detail_branch=0,
-                use_semantic_gated_residual=0, seed=2222), "Polyp"))
+                use_axial_context_refinement=0, seed=2222), "Polyp"))
             self.assertNotEqual(same, created["baseline"])
 
 
