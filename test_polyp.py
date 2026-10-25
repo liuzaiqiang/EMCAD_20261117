@@ -49,6 +49,7 @@ def parse_args():
         description="Evaluate EMCAD on one Polyp split"
     )
     parser.add_argument("--use_class_conditional_scale_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_complementary_skip_fusion", type=int, choices=[0, 1], default=0)
 
     # 必填：要评估的模型检查点。
     parser.add_argument(
@@ -282,6 +283,8 @@ def restore_checkpoint_model_options(args):
         "img_size": "--img_size",
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",
+        "use_class_conditional_scale_fusion": "--use_class_conditional_scale_fusion",
+        "use_complementary_skip_fusion": "--use_complementary_skip_fusion",
     }
     for field, option in options.items():
         if field not in config:

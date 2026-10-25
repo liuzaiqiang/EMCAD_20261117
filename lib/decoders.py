@@ -879,7 +879,7 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6'):
+                 add=True, lgag_ks=3, activation='relu6', use_complementary_skip_fusion=False):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -943,6 +943,18 @@ class EMCAD(nn.Module):
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
 
+        if use_complementary_skip_fusion:
+            from research_emcad.complementary_skip_fusion import ComplementarySkipFusion
+            # 新分支不消耗基础模型后续 head/尺度融合的随机初始化序列。
+            with torch.random.fork_rng(devices=[]):
+                self.complementary_skip3 = ComplementarySkipFusion(channels[1])
+                self.complementary_skip2 = ComplementarySkipFusion(channels[2])
+                self.complementary_skip1 = ComplementarySkipFusion(channels[3])
+        else:
+            self.complementary_skip3 = None
+            self.complementary_skip2 = None
+            self.complementary_skip1 = None
+
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
         # 本方法没有显式检查 len(skips)、通道或尺寸。若顺序误传为 [x1,x2,x3]，通常会在 LGAG 卷积
@@ -972,7 +984,10 @@ class EMCAD(nn.Module):
         # Additive aggregation 3
         # 解码特征与筛选后的 skip 逐元素相加，不采用通道拼接，因此 d3 仍为 C3。
         # 相比 concat，相加不会把通道翻倍，也不需要额外卷积立即降维；代价是两路必须提前严格对齐 shape。
-        d3 = d3 + x3
+        if self.complementary_skip3 is None:
+            d3 = d3 + x3
+        else:
+            d3 = self.complementary_skip3(d3, x3)
 
         # MSCAM3
         # 第三级通道注意力。
@@ -996,7 +1011,10 @@ class EMCAD(nn.Module):
         # Additive aggregation 2
         # 与门控 skip 相加，形状保持 (B,C2,H/8,W/8)。
         # 这一层重复 d3 的融合范式，使网络逐级把高层语义与更高分辨率边缘信息结合。
-        d2 = d2 + x2
+        if self.complementary_skip2 is None:
+            d2 = d2 + x2
+        else:
+            d2 = self.complementary_skip2(d2, x2)
 
         # MSCAM2
         # 第二级通道注意力。
@@ -1018,7 +1036,10 @@ class EMCAD(nn.Module):
 
         # Additive aggregation 1
         # 相加后 d1 保持 (B,C1,H/4,W/4)。
-        d1 = d1 + x1
+        if self.complementary_skip1 is None:
+            d1 = d1 + x1
+        else:
+            d1 = self.complementary_skip1(d1, x1)
 
         # MSCAM1
         # 第一级通道注意力。
