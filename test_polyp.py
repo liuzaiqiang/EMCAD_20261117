@@ -61,7 +61,7 @@ def parse_args():
         # 选项名。
         "--data_root",
         # 目录下预期包含 ClinicDB、Kvasir 等数据集子目录。
-        default="../data/polyp/target",
+        default="../../data/polyp/target",
     )
     # 当前要评估的数据集子目录名。
     parser.add_argument(
@@ -160,6 +160,8 @@ def parse_args():
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。
+    parser.add_argument("--use_wavelet_detail", type=int, choices=[0, 1], default=0,
+                        help="directional wavelet detail compensation; 0 restores the original path")
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
 
@@ -272,6 +274,7 @@ def restore_checkpoint_model_options(args):
         )
     with config_path.open("r", encoding="utf-8") as stream:
         config = json.load(stream)
+    config.setdefault("use_wavelet_detail", 0)
 
     options = {
         "encoder": "--encoder",
@@ -285,6 +288,7 @@ def restore_checkpoint_model_options(args):
         "grayscale": "--grayscale",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "use_wavelet_detail": "--use_wavelet_detail",
         "merge_instance_masks": "--merge_instance_masks",
     }
     for field, option in options.items():

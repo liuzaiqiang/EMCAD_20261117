@@ -23,12 +23,7 @@ CONDA_BASE="/home/mlf/anaconda3"
 CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
-# conda 初始化脚本存在时才加载并激活指定环境；不存在时沿用调用者当前的 Python 环境。
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-  source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV_NAME}"
-fi
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # CUDA_DEVICE 默认选择0号GPU；无缓冲输出使 nohup 日志尽快落盘，方便实时观察评估进度。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -48,7 +43,7 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 DEVICE="${DEVICE:-auto}"
 
 # DATA_ROOT 默认指向预处理后的 BUSI target 目录；CKPT 不设默认权重，必须由调用者明确提供。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/busi/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/busi/target}"
 # 默认在 BUSI 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
 CKPT="${CKPT:-}"
 

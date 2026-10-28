@@ -48,7 +48,7 @@ parser = argparse.ArgumentParser()
 
 # 完整体测试目录；默认名带 _new，与训练入口默认 volume_path 不同，需人工确认划分一致。
 parser.add_argument('--volume_path', type=str,
-                    default='../data/synapse/test_vol_h5_new', help='root dir for validation volume data')
+                    default='../../data/synapse/test_vol_h5_new', help='root dir for validation volume data')
 # 数据集键用于查询后面的 dataset_config；当前只支持 Synapse。
 parser.add_argument('--dataset', type=str,
                     default='Synapse', help='experiment_name')
@@ -99,6 +99,8 @@ parser.add_argument('--checkpoint', type=str, default='',
 # 当显式传入训练配置文件时，按其中记录的模型参数创建网络，避免测试结构与 checkpoint 不匹配。
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
+parser.add_argument("--use_wavelet_detail", type=int, choices=[0, 1], default=0,
+                    help="directional wavelet detail compensation; 0 restores the original path")
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'])
 parser.add_argument('--caa_residual_scale', type=float, default=0.1)
@@ -134,12 +136,14 @@ if args.train_config:
         raise FileNotFoundError('Training config not found: {}'.format(args.train_config))
     with open(args.train_config, 'r', encoding='utf-8') as config_stream:
         training_config = json.load(config_stream)
+    # Checkpoints predating this module have no wavelet layers.
+    training_config.setdefault('use_wavelet_detail', 0)
     if training_config.get('dataset', 'Synapse') != 'Synapse':
         raise ValueError('The selected training config is not for Synapse: {}'.format(args.train_config))
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
+        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale', 'use_wavelet_detail',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -327,7 +331,7 @@ if __name__ == "__main__":
     args.exp = args.encoder + '_EMCAD_kernel_sizes_' + str(args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(args.lgag_ks) + '_ef' + str(
         args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(
         run) + '_' + dataset_name + str(args.img_size)
-    args.exp += '_caa_{}_rs{}'.format(args.caa_mode, args.caa_residual_scale)
+    args.exp += '_caa_{}_rs{}_wavelet{}'.format(args.caa_mode, args.caa_residual_scale, args.use_wavelet_detail)
 
     """
     # 重建内层 checkpoint 目录。
@@ -368,7 +372,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     use_wavelet_detail=args.use_wavelet_detail)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

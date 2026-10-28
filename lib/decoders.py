@@ -946,7 +946,8 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 use_wavelet_detail=False):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -1016,6 +1017,18 @@ class EMCAD(nn.Module):
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
 
+        # Construct only when enabled, after all original decoder layers. Preserve
+        # the CPU RNG stream so shared layers/heads start identically in ablations.
+        if use_wavelet_detail not in (False, True, 0, 1):
+            raise ValueError('use_wavelet_detail must be bool or 0/1')
+        self.use_wavelet_detail = bool(use_wavelet_detail)
+        if self.use_wavelet_detail:
+            from lib.wavelet_detail import DirectionalWaveletDetailCompensation
+            with torch.random.fork_rng(devices=[]):
+                self.wavelet_details = nn.ModuleList([
+                    DirectionalWaveletDetailCompensation(c) for c in channels[1:]
+                ])
+
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
         # 本方法没有显式检查 len(skips)、通道或尺寸。若顺序误传为 [x1,x2,x3]，通常会在 LGAG 卷积
@@ -1036,6 +1049,8 @@ class EMCAD(nn.Module):
         # d4 二倍上采样并把 C4 投影为 C3；PVTv2-B2 为 512 -> 320。
         # 此时得到的 d3 是“尚未融合 skip 的解码候选特征”，下一步将它作为 LGAG 的 gating 信号。
         d3 = self.eucb3(d4)
+        if self.use_wavelet_detail:
+            d3 = self.wavelet_details[0](d3, skips[0])
 
         # LGAG3
         # skips[0] 是编码器 x3；LGAG 输出被门控的 x3，通道和分辨率不变。
@@ -1060,6 +1075,8 @@ class EMCAD(nn.Module):
         # 再次二倍上采样并执行 C3 -> C2；PVTv2-B2 为 320 -> 128。
         # 该操作把 d3 从输入 1/16 尺度恢复到 1/8 尺度。
         d2 = self.eucb2(d3)
+        if self.use_wavelet_detail:
+            d2 = self.wavelet_details[1](d2, skips[1])
 
         # LGAG2
         # 门控编码器 x2，输出保持 skips[1] 的 C2 通道。
@@ -1083,6 +1100,8 @@ class EMCAD(nn.Module):
         # 最后一次二倍上采样并执行 C2 -> C1；PVTv2-B2 为 128 -> 64。
         # d1 是本解码器空间分辨率最高的内部特征，但还不是类别概率或二值掩膜。
         d1 = self.eucb1(d2)
+        if self.use_wavelet_detail:
+            d1 = self.wavelet_details[2](d1, skips[2])
 
         # LGAG1
         # 门控最高分辨率编码器特征 x1。

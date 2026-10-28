@@ -37,14 +37,14 @@ from trainer import trainer_synapse
 parser = argparse.ArgumentParser()
 
 # 训练数据根目录：每个 Synapse 二维切片通常对应一个 .npz 文件。
-parser.add_argument('--root_path', type=str, default='../data/Synapse/train_npz', help='root dir for data')
+parser.add_argument('--root_path', type=str, default='../../data/Synapse/train_npz', help='root dir for data')
 # 完整体数据目录：验证/测试按病例读取 .npy.h5，   而不是逐切片 .npz。
-parser.add_argument('--volume_path', type=str, default='../data/Synapse/test_vol_h5',
+parser.add_argument('--volume_path', type=str, default='../../data/Synapse/test_vol_h5',
                     help='root dir for validation volume data')
 # 数据集键名稍后用于查询 dataset_config 和 trainer 映射表；当前只注册 Synapse。
 parser.add_argument('--dataset', type=str, default='Synapse', help='experiment_name')
 # 划分列表目录应包含 train.txt、test_vol.txt 等文本清单。
-parser.add_argument('--list_dir', type=str, default='../data/Synapse/lists/lists_Synapse', help='list dir')
+parser.add_argument('--list_dir', type=str, default='../../data/Synapse/lists/lists_Synapse', help='list dir')
 # 多分类输出通道数；9=背景(0)+8个器官(1..8)，须与标签编号一致。
 parser.add_argument('--num_classes', type=int, default=9, help='output channel of network')
 # network related parameters
@@ -76,6 +76,8 @@ parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
+parser.add_argument("--use_wavelet_detail", type=int, choices=[0, 1], default=0,
+                    help="directional wavelet detail compensation; 0 restores the original path")
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'],
                     help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
@@ -223,7 +225,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     use_wavelet_detail=args.use_wavelet_detail)
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。
     model.cuda()

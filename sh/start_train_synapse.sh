@@ -101,6 +101,13 @@ USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-0}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
+# 独立消融：0 不创建/执行方向性小波补偿层；1 在 EUCB 后用原始 skip 补偿。
+USE_WAVELET_DETAIL="${USE_WAVELET_DETAIL:-0}"
+case "${USE_WAVELET_DETAIL}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_WAVELET_DETAIL must be 0 or 1" >&2; exit 1 ;;
+esac
+
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
   1) CAA_MODE="caa" ;;
@@ -140,6 +147,7 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  USE_WAVELET_DETAIL
 )
 
 {
@@ -174,6 +182,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --use_wavelet_detail "${USE_WAVELET_DETAIL}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

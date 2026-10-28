@@ -69,9 +69,9 @@ def parse_args():
     # 必填模型权重路径；通常使用训练验证集选择出的 best.pth。
     parser.add_argument("--checkpoint", required=True)
     # ACDC 根目录，测试时要求存在 test/。
-    parser.add_argument("--root_path", default="../data/ACDC")
+    parser.add_argument("--root_path", default="../../data/ACDC")
     # 划分清单目录，测试时要求 test.txt。
-    parser.add_argument("--list_dir", default="../data/ACDC/lists_ACDC")
+    parser.add_argument("--list_dir", default="../../data/ACDC/lists_ACDC")
     # 预测/日志目录；None 时放在 checkpoint 同级 predictions/。
     parser.add_argument("--output_dir", default=None)
     # 指标 CSV 路径；None 时放在 checkpoint 同级 test_metrics.csv。
@@ -93,6 +93,8 @@ def parse_args():
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
     parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--use_wavelet_detail", type=int, choices=[0, 1], default=0,
+                        help="directional wavelet detail compensation; 0 restores the original path")
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
@@ -128,6 +130,7 @@ def restore_checkpoint_config(args):
         )
     with config_path.open("r", encoding="utf-8") as stream:
         config = json.load(stream)
+    config.setdefault("use_wavelet_detail", 0)
 
     options = {
         "encoder": "--encoder",
@@ -139,6 +142,7 @@ def restore_checkpoint_config(args):
         "concatenation": "--concatenation",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "use_wavelet_detail": "--use_wavelet_detail",
         "img_size": "--img_size",
     }
     for field, option in options.items():

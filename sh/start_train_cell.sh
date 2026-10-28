@@ -18,8 +18,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Cell 数据根默认位于仓库同级的 data/cell/target；集群使用其他挂载点时可传 DATA_ROOT 覆盖。
-export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/cell/target}"
+# Cell 数据根默认位于项目上上级的 data/cell/target；集群使用其他挂载点时可传 DATA_ROOT 覆盖。
+export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/cell/target}"
 
 # 固定系列标签为 Cell，让训练日志和模型输出不会混入 Polyp 目录。
 export DATASET="Cell"
@@ -56,6 +56,10 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 # 通用二分类启动器会把 N_GPU 传给 Python 的 --n_gpu；为 Cell 明确给出单 GPU 默认值，
 # 以免严格模式 set -u 因变量未定义而在创建训练进程前退出；多卡时可在命令前覆盖。
 export N_GPU="${N_GPU:-1}"
+
+# DSB18/EM 与其他任务使用相同的两个独立开关；由通用启动器校验并传入模型。
+export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_WAVELET_DETAIL="${USE_WAVELET_DETAIL:-0}"
 
 # 在访问数据前检查通道数和掩膜合并开关，避免把非法值传入训练入口。
 [[ "${INPUT_CHANNELS}" == "1" || "${INPUT_CHANNELS}" == "3" ]] || {
