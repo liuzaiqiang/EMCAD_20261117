@@ -67,6 +67,8 @@ def parse_args():
     # --help 中显示脚本用途。
     parser = argparse.ArgumentParser(description="Test EMCAD on ACDC")
     # 必填模型权重路径；通常使用训练验证集选择出的 best.pth。
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                        help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
     parser.add_argument("--checkpoint", required=True)
     # ACDC 根目录，测试时要求存在 test/。
     parser.add_argument("--root_path", default="../../data/ACDC")
@@ -128,6 +130,7 @@ def restore_checkpoint_config(args):
         )
     with config_path.open("r", encoding="utf-8") as stream:
         config = json.load(stream)
+    config.setdefault("use_contour_consistency", 0)
 
     options = {
         "encoder": "--encoder",
@@ -137,6 +140,7 @@ def restore_checkpoint_config(args):
         "activation_mscb": "--activation_mscb",
         "no_dw_parallel": "--no_dw_parallel",
         "concatenation": "--concatenation",
+        "use_contour_consistency": "--use_contour_consistency",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
         "img_size": "--img_size",

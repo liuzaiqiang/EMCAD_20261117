@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bash 严格模式：任一未处理错误、未定义变量或失败管道都会终止启动，避免用残缺参数执行评估。
 set -euo pipefail
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # 取得当前脚本所在的项目根目录并切换过去，使数据、日志和辅助脚本的相对路径不受调用位置影响。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,11 +25,7 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
-# conda 初始化脚本存在时才加载并激活指定环境；不存在时沿用调用者当前的 Python 环境。
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-  source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV_NAME}"
-fi
+# 上方已按 CONDA_ENV_PREFIX 激活环境，避免重复引用未定义的 CONDA_ENV_NAME。
 
 # CUDA_DEVICE 默认选择0号GPU；无缓冲输出使 nohup 日志尽快落盘，方便实时观察评估进度。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"

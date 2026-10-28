@@ -946,7 +946,7 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1, use_contour_consistency=0):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -1015,6 +1015,14 @@ class EMCAD(nn.Module):
         # SAB 不依赖通道数，因此四个解码级共享同一个 7x7 空间注意力模块及其参数。
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
+        if use_contour_consistency not in (0, 1):
+            raise ValueError("use_contour_consistency must be 0 or 1")
+        self.use_contour_consistency = bool(use_contour_consistency)
+        if self.use_contour_consistency:
+            from lib.contour_consistency import MultiScaleContourConsistency
+            # Do not shift initialization of existing downstream segmentation heads.
+            with torch.random.fork_rng(devices=[]):
+                self.contour_consistency = MultiScaleContourConsistency(channels[1:])
 
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
@@ -1105,4 +1113,6 @@ class EMCAD(nn.Module):
         # 返回顺序固定为从深到浅 [d4,d3,d2,d1]；网络封装器据此连接四个分割头。
         # 返回 list 而不是只返回 d1，是为了支持 deep supervision/mutation 等多输出训练策略；
         # 在项目测试路径中，最终主预测通常取上层返回列表的最后一个 p1，而不是直接使用这里的 d1。
+        if self.use_contour_consistency:
+            d3, d2, d1 = self.contour_consistency([d3, d2, d1])
         return [d4, d3, d2, d1]

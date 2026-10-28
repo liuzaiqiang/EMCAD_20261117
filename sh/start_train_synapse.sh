@@ -92,6 +92,12 @@ RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
+# Independent ablation: 0 bypasses contour construction and feedback entirely.
+USE_CONTOUR_CONSISTENCY="${USE_CONTOUR_CONSISTENCY:-0}"
+case "${USE_CONTOUR_CONSISTENCY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTOUR_CONSISTENCY must be 0 or 1"; exit 1 ;;
+esac
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-0}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
@@ -103,6 +109,7 @@ case "${USE_CONTENT_AWARE_ANTIALIAS}" in
 esac
 
 PARAM_NAMES=(
+  USE_CONTOUR_CONSISTENCY
   CONDA_BASE
   CONDA_ENV_PREFIX
   PROJECT_DIR
@@ -167,6 +174,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
+  --use_contour_consistency "${USE_CONTOUR_CONSISTENCY}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &

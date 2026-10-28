@@ -47,6 +47,8 @@ from lib.networks import EMCADNet
 parser = argparse.ArgumentParser()
 
 # 完整体测试目录；默认名带 _new，与训练入口默认 volume_path 不同，需人工确认划分一致。
+parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                    help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
 parser.add_argument('--volume_path', type=str,
                     default='../../data/synapse/test_vol_h5_new', help='root dir for validation volume data')
 # 数据集键用于查询后面的 dataset_config；当前只支持 Synapse。
@@ -134,12 +136,13 @@ if args.train_config:
         raise FileNotFoundError('Training config not found: {}'.format(args.train_config))
     with open(args.train_config, 'r', encoding='utf-8') as config_stream:
         training_config = json.load(config_stream)
+    training_config.setdefault("use_contour_consistency", 0)
     if training_config.get('dataset', 'Synapse') != 'Synapse':
         raise ValueError('The selected training config is not for Synapse: {}'.format(args.train_config))
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
+        'pretrained_dir', 'supervision', 'use_contour_consistency', 'caa_mode', 'caa_residual_scale',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -328,6 +331,7 @@ if __name__ == "__main__":
         args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(
         run) + '_' + dataset_name + str(args.img_size)
     args.exp += '_caa_{}_rs{}'.format(args.caa_mode, args.caa_residual_scale)
+    args.exp += '_contour{}'.format(args.use_contour_consistency)
 
     """
     # 重建内层 checkpoint 目录。
@@ -360,6 +364,7 @@ if __name__ == "__main__":
         f"seed{args.seed}", f"batch_size_{args.batch_size}", f"lr_{args.base_lr}",
         f"maxEpochs_{args.max_epochs}")
     snapshot_path += '_caa_{}_rs{}'.format(args.caa_mode, args.caa_residual_scale)
+    snapshot_path += '_contour{}'.format(args.use_contour_consistency)
 
 
 
@@ -368,7 +373,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     use_contour_consistency=args.use_contour_consistency)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

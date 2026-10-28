@@ -37,6 +37,8 @@ from trainer import trainer_synapse
 parser = argparse.ArgumentParser()
 
 # 训练数据根目录：每个 Synapse 二维切片通常对应一个 .npz 文件。
+parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                    help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
 parser.add_argument('--root_path', type=str, default='../../data/Synapse/train_npz', help='root dir for data')
 # 完整体数据目录：验证/测试按病例读取 .npy.h5，   而不是逐切片 .npz。
 parser.add_argument('--volume_path', type=str, default='../../data/Synapse/test_vol_h5',
@@ -223,7 +225,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     use_contour_consistency=args.use_contour_consistency)
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。
     model.cuda()

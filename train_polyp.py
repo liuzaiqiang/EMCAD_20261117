@@ -66,6 +66,8 @@ def parse_args():
     )
 
     # 准备数据总根，其下按数据集名和 train/val/test 组织。
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                        help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
     parser.add_argument(
         # 选项名。
         "--data_root",

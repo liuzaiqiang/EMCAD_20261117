@@ -50,6 +50,8 @@ def parse_args():
     )
 
     # 必填：要评估的模型检查点。
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                        help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
     parser.add_argument(
         # 选项名。
         "--checkpoint",
@@ -272,6 +274,7 @@ def restore_checkpoint_model_options(args):
         )
     with config_path.open("r", encoding="utf-8") as stream:
         config = json.load(stream)
+    config.setdefault("use_contour_consistency", 0)
 
     options = {
         "encoder": "--encoder",
@@ -283,6 +286,7 @@ def restore_checkpoint_model_options(args):
         "concatenation": "--concatenation",
         "img_size": "--img_size",
         "grayscale": "--grayscale",
+        "use_contour_consistency": "--use_contour_consistency",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
         "merge_instance_masks": "--merge_instance_masks",

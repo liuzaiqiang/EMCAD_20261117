@@ -81,6 +81,8 @@ def parse_args():
     # description 会显示在 python train_ACDC.py --help 的标题中。
     parser = argparse.ArgumentParser(description="Train EMCAD on ACDC")
     # ACDC 根目录，预期含 train/、valid/ 等子目录。
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0,
+                        help="multi-scale d3/d2/d1 contour feedback; 0 restores original path")
     parser.add_argument("--root_path", default="../../data/ACDC")
     # 列表目录，至少需要 train.txt 和 valid.txt。
     parser.add_argument("--list_dir", default="../../data/ACDC/lists_ACDC")

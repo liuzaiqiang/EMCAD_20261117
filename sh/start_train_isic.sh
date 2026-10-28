@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bash严格模式让路径检查、环境激活或后台命令准备失败时立即退出。
 set -euo pipefail
+N_GPU="${N_GPU:-1}"
 
 # 固定项目根和工作目录，避免调用者所在目录影响相对路径。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,6 +65,12 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 # 两项创新可分别消融；关闭可靠性融合时使用原始 p1 输出，关闭 CAA 时使用原始 EUCB 上采样。
 USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
+# Independent ablation: 0 bypasses contour construction and feedback entirely.
+USE_CONTOUR_CONSISTENCY="${USE_CONTOUR_CONSISTENCY:-0}"
+case "${USE_CONTOUR_CONSISTENCY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTOUR_CONSISTENCY must be 0 or 1"; exit 1 ;;
+esac
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 FUSION_MODE="${FUSION_MODE:-pixel_reliability}"
 FUSION_LOSS_WEIGHT="${FUSION_LOSS_WEIGHT:-1}"
@@ -153,7 +160,7 @@ RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${
 PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 把关键配置追加进日志，终端单独打印RUN_ID供停止脚本使用。
-PARAM_NAMES=(PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC FUSION_MODE FUSION_LOSS_WEIGHT RELIABILITY_LOSS_WEIGHT CAA_MODE CAA_RESIDUAL_SCALE RUN_ID)
+PARAM_NAMES=(USE_CONTOUR_CONSISTENCY PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC FUSION_MODE FUSION_LOSS_WEIGHT RELIABILITY_LOSS_WEIGHT CAA_MODE CAA_RESIDUAL_SCALE RUN_ID)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
@@ -188,6 +195,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
   --supervision "${SUPERVISION}" \
+  --use_contour_consistency "${USE_CONTOUR_CONSISTENCY}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
