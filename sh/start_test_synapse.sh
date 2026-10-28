@@ -42,8 +42,8 @@ LOG_FILE="${LOG_DIR}/test_${DATASET}__img${IMG_SIZE}_${TS}.log"
 RUN_ID="test_${DATASET}_imgSize_${IMG_SIZE}_${TS}_RAND${RAND}"
 PID_FILE="${RUN_ID}.pid"
 
-VOLUME_PATH="../data/Synapse/test_vol_h5"
-LIST_DIR="../data/Synapse/lists/lists_Synapse"
+VOLUME_PATH="../../data/Synapse/test_vol_h5"
+LIST_DIR="../../data/Synapse/lists/lists_Synapse"
 
 CHECKPOINT="./model_pth/Synapse/encoder_pvt_v2_b2/img_size_224/seed2222/batch_size_16/lr_0.0001/maxEpochs_400/best.pth"
 

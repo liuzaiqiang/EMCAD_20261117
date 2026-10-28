@@ -42,7 +42,7 @@ SEED="${SEED:-2222}"
 DEVICE="${DEVICE:-auto}"
 
 # CKPT必须显式提供；prepared数据位于DATA_ROOT/<ISIC版本>/<划分>。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/isic/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/isic/target}"
 CKPT="${CKPT:-}"
 
 # 两个case块分别限定合法数据集和划分，非法输入统一退出1。

@@ -62,7 +62,7 @@ ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 SUPERVISION="${SUPERVISION:-paper}"
 
 # 数据根目录应包含 <dataset>/{train,val}/{images,masks}；输出和PVT预训练权重目录也可外部覆盖。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/polyp/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/polyp/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/Polyp}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
 

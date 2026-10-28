@@ -48,7 +48,7 @@ LGAG_KS="${LGAG_KS:-3}"
 ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 
 # CKPT默认空，必须由调用者显式提供；DATA_ROOT指向prepared数据根。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/polyp/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/polyp/target}"
 CKPT="${CKPT:-}"
 
 # 数据集名只允许安全文件名字符，防止拼接出意外路径。

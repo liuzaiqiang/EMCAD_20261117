@@ -45,8 +45,8 @@ MAX_CASES="${MAX_CASES:-0}"
 SEED="${SEED:-2222}"
 
 # 病例列表和数据根目录采用项目旁的固定ACDC布局；CKPT必须由调用者明确指定。
-LIST_DIR="${PROJECT_DIR}/../data/ACDC/lists/lists_ACDC"
-ROOT_PATH="${PROJECT_DIR}/../data/ACDC"
+LIST_DIR="${PROJECT_DIR}/../../data/ACDC/lists/lists_ACDC"
+ROOT_PATH="${PROJECT_DIR}/../../data/ACDC"
 CKPT="${CKPT:-}"
 
 # 先验证权重文件，再验证测试体数据目录和病例清单；任何缺项都以状态码1终止启动。

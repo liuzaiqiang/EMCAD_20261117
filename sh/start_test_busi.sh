@@ -49,7 +49,7 @@ SEED="${SEED:-2222}"
 DEVICE="${DEVICE:-auto}"
 
 # DATA_ROOT 默认指向预处理后的 BUSI target 目录；CKPT 不设默认权重，必须由调用者明确提供。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../data/busi/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/busi/target}"
 CKPT="${CKPT:-}"
 
 # 拒绝其他数据集名，防止目录结构或类别定义与 test_busi.py 的 BUSI 评估逻辑不一致。

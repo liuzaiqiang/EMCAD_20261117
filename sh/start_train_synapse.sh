@@ -52,9 +52,9 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_imgSize_${IMG_SIZE}_supervision_${SUPERVIS
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-LIST_DIR="${PROJECT_DIR}/../data/Synapse/lists/lists_Synapse"
-ROOT_PATH="../data/Synapse/train_npz"
-VOLUME_PATH="../data/Synapse/test_vol_h5"
+LIST_DIR="${PROJECT_DIR}/../../data/Synapse/lists/lists_Synapse"
+ROOT_PATH="../../data/Synapse/train_npz"
+VOLUME_PATH="../../data/Synapse/test_vol_h5"
 
 
 PARAM_NAMES=(
