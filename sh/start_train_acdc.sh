@@ -51,8 +51,8 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 
 
 # 数据根目录包含 train/valid/test；列表目录保存各划分病例名；模型输出固定写入 model_pth/ACDC。
-LIST_DIR="${PROJECT_DIR}/../data/ACDC/lists_ACDC"
-ROOT_PATH="${PROJECT_DIR}/../data/ACDC"
+LIST_DIR="${PROJECT_DIR}/../../data/ACDC/lists_ACDC"
+ROOT_PATH="${PROJECT_DIR}/../../data/ACDC"
 OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
@@ -78,7 +78,7 @@ PID_FILE="${RUN_ID}.pid"
 
 # 两个模块分别消融；设置为0时参数明确传为p1或off，相关网络结构/损失不会启用。
 USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-0}"
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
 FUSION_MODE="${FUSION_MODE:-pixel_reliability}"
 FUSION_LOSS_WEIGHT="${FUSION_LOSS_WEIGHT:-1}"
