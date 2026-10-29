@@ -20,6 +20,7 @@ source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
 
+
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 

@@ -31,12 +31,9 @@ conda activate "${CONDA_ENV_PREFIX}"
 
 
 
+
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-  source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV_NAME}"
-fi
 
 # 限定GPU并使测试日志无缓冲写出。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"

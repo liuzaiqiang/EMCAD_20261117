@@ -294,19 +294,6 @@ def trainer_synapse(args, model, snapshot_path):
                 area_loss = area_adaptive_tversky_loss(P[-1], label_batch)
                 loss += args.area_tversky_weight * area_loss
 
-            # try5 规定的融合辅助项；权重为 0 时不进入该分支，原监督损失保持不变。
-            """
-            用两个输出的极小例子模拟
-            若只有 P=[P0,P1]，使用 mutation：
-            powerset([0,1]) = [[], [0], [1], [0,1]]
-            执行顺序：
-                []：跳过；
-                [0]：用 P0 算一次 CE+Dice；
-                [1]：用 P1 算一次 CE+Dice；
-                [0,1]：用 P0+P1 再算一次；
-                三次结果相加，得到 batch loss。
-            当前 EMCAD 有 4 个输出，所以是 15 次非空组合，而不是 3 次。
-            """
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。
             optimizer.zero_grad()
             # 从总损失沿 15/4/1 条监督路径反向传播，梯度最终汇合到共享编码器和解码器参数。同一个输出若出现在多个组合中，会收到多个路径的梯度贡献；

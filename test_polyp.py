@@ -375,7 +375,7 @@ def main():
             )
         )
 
-    # 在构造数据加载器和模型前恢复融合、CAA 与掩膜解码设置。
+    # 在构造数据加载器和模型前恢复 CAA 与掩膜解码设置。
     restore_checkpoint_model_options(args)
 
     # 二值阈值必须严格位于 0 和 1 之间。

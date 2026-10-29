@@ -216,7 +216,7 @@ def main():
         # 每行打印一个缺失路径，便于定位。
         raise FileNotFoundError("Missing ACDC paths:\n" + "\n".join(missing))
 
-    # 配置恢复在模型构建之前运行，保证融合和 CAA 与 checkpoint 一致。
+    # 配置恢复在模型构建之前运行，保证 CAA 设置与 checkpoint 一致。
     restore_checkpoint_config(args)
 
     # 测试固定为确定性模式，保证同环境重复评估稳定。

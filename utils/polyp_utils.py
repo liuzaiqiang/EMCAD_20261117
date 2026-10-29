@@ -602,7 +602,7 @@ def evaluate_loader(
                 dtype=torch.float32,
             )
 
-            # model_outputs 返回 [p4,p3,p2,p1]；p1 消融取最后一头，融合模式使用训练时配置的算子。
+            # EMCAD 返回 [p4,p3,p2,p1]；评估统一使用最高分辨率的最终输出 p1。
             if benchmark is not None:
                 synchronize(device)
                 forward_start = time.perf_counter()
@@ -615,7 +615,6 @@ def evaluate_loader(
                 synchronize(device)
                 benchmark.forward_seconds += time.perf_counter() - forward_start
                 benchmark.forward_units += int(images.shape[0])
-            core_model = model.module if isinstance(model, nn.DataParallel) else model
             logits = outputs[-1]
 
             # 一个 batch 内逐图恢复各自原始尺寸、计算指标和保存结果。

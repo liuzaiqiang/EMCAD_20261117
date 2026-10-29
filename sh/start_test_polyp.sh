@@ -24,17 +24,10 @@ mkdir -p "${LOG_DIR}"
 CONDA_BASE="/home/mlf/anaconda3"
 CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
-
-
-
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-  source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV_NAME}"
-fi
 
 # 选择GPU并关闭Python标准流缓冲。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"

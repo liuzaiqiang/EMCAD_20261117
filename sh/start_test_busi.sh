@@ -28,15 +28,11 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 
 
-# conda 初始化脚本存在时才加载并激活指定环境；不存在时沿用调用者当前的 Python 环境。
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-  source "${CONDA_BASE}/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV_NAME}"
-fi
 
 # CUDA_DEVICE 默认选择0号GPU；无缓冲输出使 nohup 日志尽快落盘，方便实时观察评估进度。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"

@@ -30,7 +30,7 @@ def make_experiment_dir(args, family, output_root=None):
     """创建并返回统一格式的实验目录绝对路径。
 
     目录层级按稳定性从高到低排列：数据集、编码器、输入尺寸、batch、
-    epoch、监督方式、学习率、模型/融合参数、随机种子、秒级时间戳。
+    epoch、监督方式、学习率、模型结构参数、随机种子、秒级时间戳。
     ``output_root`` 未传时使用 args.output_dir。若旧入口的 output_dir 已经
     以 family 命名（例如 ``model_pth/ACDC``），这里自动提升到其父目录，
     避免生成 ``ACDC/ACDC`` 的重复层级。

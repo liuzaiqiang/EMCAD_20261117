@@ -128,7 +128,7 @@ parser.add_argument('--seed', type=int, default=2222, help='random seed')
 args = parser.parse_args()
 
 # 训练入口会在每个实验目录保存完整 config.json；测试时优先读取这些已落盘的真实参数。
-# 只覆盖模型结构、融合方式和推理相关参数，不覆盖测试 checkpoint、测试数据路径或数据集选择。
+# 只覆盖模型结构与推理相关参数，不覆盖测试 checkpoint、测试数据路径或数据集选择。
 if args.train_config:
     if not os.path.isfile(args.train_config):
         raise FileNotFoundError('Training config not found: {}'.format(args.train_config))
