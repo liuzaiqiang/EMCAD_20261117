@@ -57,6 +57,26 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 # 以免严格模式 set -u 因变量未定义而在创建训练进程前退出；多卡时可在命令前覆盖。
 export N_GPU="${N_GPU:-1}"
 
+# Cell uses the shared binary trainer, so expose the same CAA and area-adaptive loss switches here.
+export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+export AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
+case "${USE_CONTENT_AWARE_ANTIALIAS}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
+esac
+case "${USE_AREA_ADAPTIVE_TVERSKY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_AREA_ADAPTIVE_TVERSKY must be 0 or 1" >&2; exit 2 ;;
+esac
+if [[ "${USE_AREA_ADAPTIVE_TVERSKY}" == "1" ]]; then
+  if ! [[ "${AREA_TVERSKY_WEIGHT}" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]] ||
+     [[ "${AREA_TVERSKY_WEIGHT}" =~ ^0+([.]0*)?$ ]]; then
+    echo "[ERROR] AREA_TVERSKY_WEIGHT must be positive when the Cell innovation is enabled" >&2
+    exit 2
+  fi
+fi
+
 # 在访问数据前检查通道数和掩膜合并开关，避免把非法值传入训练入口。
 [[ "${INPUT_CHANNELS}" == "1" || "${INPUT_CHANNELS}" == "3" ]] || {
   echo "[ERROR] INPUT_CHANNELS must be 1 or 3; got: ${INPUT_CHANNELS}" >&2

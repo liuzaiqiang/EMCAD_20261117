@@ -100,6 +100,8 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -107,6 +109,10 @@ case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
   1) CAA_MODE="caa" ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
+esac
+case "${USE_AREA_ADAPTIVE_TVERSKY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_AREA_ADAPTIVE_TVERSKY must be 0 or 1"; exit 1 ;;
 esac
 
 PARAM_NAMES=(
@@ -142,6 +148,8 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  USE_AREA_ADAPTIVE_TVERSKY
+  AREA_TVERSKY_WEIGHT
 )
 
 {
@@ -176,6 +184,8 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --use_area_adaptive_tversky "${USE_AREA_ADAPTIVE_TVERSKY}" \
+  --area_tversky_weight "${AREA_TVERSKY_WEIGHT}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 
