@@ -13,27 +13,27 @@ mkdir -p "${LOG_DIR}"
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #并行3个月
 # CONDA_BASE="/base/mambaforge"
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
 
 
-
-
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-# CUDA_DEVICE默认0；PYTHONUNBUFFERED确保nohup日志尽快落盘。
+
+
+#通过 CUDA_DEVICE 指定暴露的物理显卡，未指定时默认使用0号卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 
 export PYTHONUNBUFFERED=1
@@ -41,6 +41,8 @@ export PYTHONUNBUFFERED=1
 # DATASET用于日志分类，DATASET_NAME选择target目录下的具体息肉数据集，默认ClinicDB。
 DATASET="${DATASET:-Polyp}"
 DATASET_NAME="${DATASET_NAME:-ClinicDB}"
+
+
 # DATASET同时决定默认输出父目录，只允许用作单层目录名的字符。
 [[ "${DATASET}" =~ ^[A-Za-z0-9._-]+$ ]] || {
   echo "[ERROR] invalid DATASET output label: ${DATASET}"
@@ -96,16 +98,11 @@ SUPERVISION="${SUPERVISION:-paper}"
 #####################################################################
 
 
-# CAA 与面积自适应 Tversky 是本分支保留的两项实验开关。
+
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
-
-
-
-
-
-
 
 #它决定 EUCB 使用哪种上采样方式。
 # 值	         实际含义
