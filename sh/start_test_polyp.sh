@@ -12,10 +12,24 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
-# conda/Python入口允许由外部环境变量覆盖；初始化脚本不存在时沿用当前环境。
-CONDA_BASE="${CONDA_BASE:-/base/mambaforge}"
-CONDA_ENV_NAME="${CONDA_ENV_NAME:-sld_emcad}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+#210服务器
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+#并行3个月
+# CONDA_BASE="/base/mambaforge"
+# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+
+#209服务器
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV_PREFIX}"
+
+
+
 
 if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
   source "${CONDA_BASE}/etc/profile.d/conda.sh"
