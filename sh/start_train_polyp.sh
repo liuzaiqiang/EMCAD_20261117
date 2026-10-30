@@ -72,7 +72,7 @@ WEIGHT_DECAY="${WEIGHT_DECAY:-1e-4}"
 #总计：CLIP=0.5 通常决定的是：反向传播后，模型梯度允许的最大更新幅度上限。它主要用来稳定训练、防止梯度爆炸；值越小更新越保守，值越大更新越激进。
 CLIP="${CLIP:-0.5}"
 
-NUM_WORKERS="${NUM_WORKERS:-0}"
+NUM_WORKERS="${NUM_WORKERS:-8}"
 
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
