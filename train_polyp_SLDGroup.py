@@ -18,6 +18,7 @@ import time
 import logging
 # argparse 定义网络与训练参数。
 import argparse
+from utils.checkpoint_stats import without_profiling_stats
 # datetime 用于打印带日期时间的训练进度。
 from datetime import datetime
 
@@ -288,7 +289,7 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
     # 确保目录存在。
     os.makedirs(save_path, exist_ok=True)
     # 每 epoch 覆盖 <model_name>-last.pth；只保存模型 state_dict。
-    torch.save(model.state_dict(), os.path.join(save_path, f"{model_name}-last.pth"))
+    torch.save(without_profiling_stats(model.state_dict()), os.path.join(save_path, f"{model_name}-last.pth"))
 
     # Validation and Testing
     # 保存本 epoch 两个划分的 Dice。
@@ -318,7 +319,7 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
         # 同时记录该最佳验证时点对应的 test Dice；这不是独立只测一次的最终测试协议。
         test_dice_at_best_val = epoch_results['test']  # Track test dice at peak val
         # 保存最优模型到固定文件。
-        torch.save(model.state_dict(), os.path.join(save_path, f"{model_name}-best.pth"))
+        torch.save(without_profiling_stats(model.state_dict()), os.path.join(save_path, f"{model_name}-best.pth"))
 
 
 # 仅直接运行脚本时启动五次训练。

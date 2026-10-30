@@ -183,6 +183,15 @@ def load_checkpoint(model, checkpoint_path):
         # 保留每个参数张量 value 不变。
         for key, value in state_dict.items()
     }
+    # 旧权重可能包含 THOP 留下的统计 buffer；只忽略模型不需要的统计键。
+    expected_keys = model.state_dict().keys()
+    profiling_keys = [
+        key for key in state_dict
+        if key.rsplit(".", 1)[-1] in {"total_ops", "total_params"}
+        and key not in expected_keys
+    ]
+    for key in profiling_keys:
+        del state_dict[key]
     # strict=True 要求模型全部参数键与检查点完全匹配，防止静默漏载。
     model.load_state_dict(state_dict, strict=True)
 

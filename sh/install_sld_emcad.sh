@@ -7,8 +7,8 @@
 set -Eeuo pipefail
 
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-PROJECT_DIR="$(cd "$(dirname "${SCRIPT_PATH}")/.." && pwd)"
-LOG_ROOT="${PROJECT_DIR}/logs"
+SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
+LOG_ROOT="${INSTALL_LOG_ROOT:-${SCRIPT_DIR}/logs}"
 RUN_STAMP="$(date +%Y%m%d_%H%M%S)_$$"
 RUN_LOG_DIR="${RUN_LOG_DIR:-${LOG_ROOT}/install_sld_emcad_${RUN_STAMP}}"
 mkdir -p "${RUN_LOG_DIR}"
@@ -34,15 +34,15 @@ exec > >(tee -a "${MAIN_LOG}" "${STEP_LOG}" >&3) 2>&1
 
 # 阶段日志分别记录命令输出；总日志汇总所有阶段，失败时标出阶段和行号。
 start_step() {
-  local step_id="$1"
+  local step_key="$1"
+  STEP_NAME="${step_key#*_}"
   echo "[STEP COMPLETE] ${STEP_NAME} $(date '+%F %T %Z')"
-  STEP_NAME="$2"
-  STEP_LOG="${RUN_LOG_DIR}/${step_id}_${STEP_NAME}.log"
+  STEP_LOG="${RUN_LOG_DIR}/${step_key}.log"
   exec > >(tee -a "${MAIN_LOG}" "${STEP_LOG}" >&3) 2>&1
-  echo "[STEP START] ${step_id} ${STEP_NAME} $(date '+%F %T %Z')"
+  echo "[STEP START] ${step_key} $(date '+%F %T %Z')"
 }
 trap 'status=$?; echo "[STEP FAILED] ${STEP_NAME} line=${LINENO} exit=${status} $(date "+%F %T %Z")" >&2; echo "[ERROR] 环境可能尚未装完；日志目录：${RUN_LOG_DIR}" >&2' ERR
-trap 'echo "[INTERRUPTED] 安装被中断于 ${STEP_NAME}；日志目录：${RUN_LOG_DIR}" >&2' INT TERM
+trap 'echo "[INTERRUPTED] 安装被中断于 ${STEP_NAME}；日志目录：${RUN_LOG_DIR}" >&2; exit 130' INT TERM
 
 echo "[INSTALL] pid=$$ started=$(date '+%F %T %Z')"
 echo "[INSTALL] run_log_dir=${RUN_LOG_DIR}"
@@ -58,6 +58,7 @@ start_step 01_preflight
 [[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]] || {
   echo '[ERROR] 本脚本仅用于 Linux x86_64 NVIDIA 服务器。' >&2; exit 1;
 }
+echo "[INFO] 环境安装脚本目录：${SCRIPT_DIR}"
 
 # 使用已有的 base 找到 Conda；不会在 base 中安装 pip 包。
 if command -v conda >/dev/null 2>&1; then
@@ -177,8 +178,7 @@ python -m pip install --retries 5 -c "${REQ_FILE}" -r "${REQ_FILE}"
 python -m pip check
 
 start_step 07_runtime_validation
-echo '[7/8] 检查二进制、增强、CUDA 前后向和共享模块'
-cd "${PROJECT_DIR}"
+echo '[7/8] 检查固定版本、通用依赖、增强和 CUDA 前后向'
 python - <<'PY'
 from importlib import metadata, import_module
 import sys
@@ -199,6 +199,18 @@ for name in ('numpy', 'scipy'):
     versions = [d.version for d in metadata.distributions()
                 if (d.metadata.get('Name') or '').lower() == name]
     assert len(versions) == 1, (name, versions)
+
+# 检查所有主要直接依赖均可导入，不导入或读取任何 EMCAD 项目文件。
+for module in (
+    'sklearn', 'pandas', 'matplotlib', 'seaborn', 'PIL', 'cv2',
+    'SimpleITK', 'nibabel', 'h5py', 'medpy', 'tifffile',
+    'timm', 'transformers', 'huggingface_hub', 'torchmetrics', 'einops',
+    'thop', 'ptflops', 'torchprofile', 'torchsummary', 'torchsummaryX',
+    'warmup_scheduler', 'segmentation_mask_overlay', 'tensorboardX',
+    'ml_collections', 'yaml', 'tabulate', 'loguru', 'tqdm',
+):
+    import_module(module)
+    print('依赖导入通过:', module, flush=True)
 
 transform = A.Compose([
     A.Rotate(limit=90, p=1), A.VerticalFlip(p=1),
@@ -229,28 +241,11 @@ for index in range(torch.cuda.device_count()):
     print('GPU通过:', index, torch.cuda.get_device_name(index),
           '计算能力:', torch.cuda.get_device_capability(index), flush=True)
 
-# Synapse、ACDC、Polyp、BUSI、ISIC、Cell 使用的公共加载和模型依赖。
-for module in (
-    'lib.networks', 'utils.area_adaptive_tversky',
-    'utils.dataset_synapse', 'utils.dataset_ACDC',
-    'utils.dataloader_polyp', 'utils.dataloader_busi', 'utils.dataloader_isic',
-    'utils.utils', 'utils.acdc_utils', 'utils.polyp_utils',
-):
-    import_module(module)
-    print('模块通过:', module, flush=True)
 print('PyTorch:', torch.__version__, 'CUDA运行时:', torch.version.cuda)
 PY
 
 start_step 08_cli_and_manifests
-echo '[8/8] 检查六类训练/测试 CLI，保存实际安装清单'
-for family in synapse acdc polyp busi isic cell; do
-  for mode in train test; do
-    entry="${mode}_${family}.py"
-    # Cell 通过 Polyp 的启动脚本选择数据集，没有独立的 Python 入口。
-    if [[ "${family}" == cell ]]; then entry="${mode}_polyp.py"; fi
-    python "${entry}" --help > /dev/null
-  done
-done
+echo '[8/8] 保存已验证环境的依赖清单'
 python -m pip freeze > "${CONDA_PREFIX}/emcad-pip-freeze.txt"
 conda list --explicit > "${CONDA_PREFIX}/emcad-conda-explicit.txt"
 echo "[SUCCESS] 环境验证通过：${CONDA_PREFIX}"
@@ -259,6 +254,6 @@ echo "启动脚本中的 CONDA_BASE 应填写：${EMCAD_CONDA_BASE}"
 echo "启动脚本中的 CONDA_ENV_PREFIX 应填写：${CONDA_PREFIX}"
 echo '系统内核、glibc、主机名和显卡由服务器决定，Conda 不会把它们改成参考机器。'
 echo '显卡可见性由训练脚本 CUDA_DEVICE 控制；切片数/批次数由数据划分及 batch size 决定。'
-echo '本脚本不下载数据集或预训练权重；数据加载与完整训练需在准备好这些文件后执行。'
+echo '环境依赖和 GPU 运行时已独立检查；本脚本不读取 EMCAD 项目代码或数据集。'
 echo "[STEP COMPLETE] ${STEP_NAME} $(date '+%F %T %Z')"
 echo "[INSTALL SUCCESS] $(date '+%F %T %Z')"

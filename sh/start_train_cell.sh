@@ -14,6 +14,12 @@
 # -e 遇到未处理失败即停，-u 拒绝空未定义变量，pipefail 检查管道中每个环节的退出状态。
 set -euo pipefail
 
+
+#212服务器
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+
+
 # 根据当前启动文件位置计算项目根，使用户从项目任意目录调用时路径仍保持正确。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"

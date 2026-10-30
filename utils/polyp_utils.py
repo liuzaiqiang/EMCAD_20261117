@@ -134,7 +134,12 @@ def _model_state_dict(model):
 
 # 只保存模型参数，不附带优化器、调度器、epoch 或随机数状态。
 def save_checkpoint(model, path):
-    torch.save(_model_state_dict(model), path)
+    state_dict = _model_state_dict(model)
+    # 仅过滤 THOP 统计字段，日志中的复杂度记录和真实模型参数均不受影响。
+    for key in list(state_dict):
+        if key.rsplit(".", 1)[-1] in {"total_ops", "total_params"}:
+            del state_dict[key]
+    torch.save(state_dict, path)
 
 
 # 从磁盘加载模型参数，兼容纯 state_dict 和两种常见的外层字典格式。
@@ -180,6 +185,15 @@ def load_checkpoint(model, path):
         else model
     )
 
+    # 兼容旧权重中的 THOP 统计 buffer，真实参数仍然严格匹配。
+    expected_keys = target.state_dict().keys()
+    profiling_keys = [
+        key for key in state_dict
+        if key.rsplit(".", 1)[-1] in {"total_ops", "total_params"}
+        and key not in expected_keys
+    ]
+    for key in profiling_keys:
+        del state_dict[key]
     # strict=True 要求所有参数键和形状完全匹配，防止漏载层时静默继续。
     target.load_state_dict(
         state_dict,

@@ -10,6 +10,10 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
+#212服务器
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+
 
 
 #210服务器
@@ -68,7 +72,6 @@ WEIGHT_DECAY="${WEIGHT_DECAY:-1e-4}"
 #总计：CLIP=0.5 通常决定的是：反向传播后，模型梯度允许的最大更新幅度上限。它主要用来稳定训练、防止梯度爆炸；值越小更新越保守，值越大更新越激进。
 CLIP="${CLIP:-0.5}"
 
-# 运行与调试控制：0通常表示“不限制”批次数/验证病例数；DEVICE=auto由Python选择CUDA或CPU。
 NUM_WORKERS="${NUM_WORKERS:-0}"
 
 DETERMINISTIC="${DETERMINISTIC:-1}"

@@ -24,6 +24,7 @@ import pandas as pd
 import cv2
 # argparse 定义测试命令行接口。
 import argparse
+from utils.checkpoint_stats import without_profiling_stats
 # tqdm 显示批次推理进度。
 from tqdm import tqdm
 
@@ -293,7 +294,8 @@ if __name__ == '__main__':
     ).cuda()
 
     # 加载权重：无 map_location；strict=False 会忽略不匹配/缺失键，可能掩盖结构配置错误。
-    model.load_state_dict(torch.load(model_path), strict=False)
+    state_dict = without_profiling_stats(torch.load(model_path), model.state_dict().keys())
+    model.load_state_dict(state_dict, strict=False)
     # 明确切换 eval；test() 内还会再次调用。
     model.eval()
 

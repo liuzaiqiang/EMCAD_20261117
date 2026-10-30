@@ -180,8 +180,13 @@ def get_state_dict(model):
 
 # 统一保存裸模型参数，不保存优化器、scaler、epoch 或随机状态。
 def save_state_dict(model, path):
+    state_dict = get_state_dict(model)
+    # THOP 统计结果照常记入日志，但不写入模型权重；保留其他参数及 BN buffer。
+    for key in list(state_dict):
+        if key.rsplit(".", 1)[-1] in {"total_ops", "total_params"}:
+            del state_dict[key]
     # torch.save 使用 PyTorch 序列化格式写入指定 .pth。
-    torch.save(get_state_dict(model), path)
+    torch.save(state_dict, path)
 
 
 # 把一次验证的所有病例行追加到 CSV；同一文件可累积多个 epoch。

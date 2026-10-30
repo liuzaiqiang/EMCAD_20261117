@@ -10,6 +10,7 @@
 
 # argparse 解析测试路径、网络结构和保存选项。
 import argparse
+from utils.checkpoint_stats import without_profiling_stats
 # json 用来读取训练 checkpoint 同目录中的 config.json，自动复用训练时的结构和推理尺寸。
 import json
 # logging 将逐病例与逐类别指标写入文件并同步输出到终端。
@@ -383,7 +384,8 @@ if __name__ == "__main__":
     # 若 best.pth 不存在，则回退到零基编号的最后 epoch 文件，例如 epoch_299.pth。
     if not os.path.exists(snapshot): snapshot = snapshot.replace('best', 'epoch_' + str(args.max_epochs - 1))
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
-    model.load_state_dict(torch.load(snapshot))
+    state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
+    model.load_state_dict(state_dict, strict=True)
     # 以正斜杠切分路径得到内层目录名；在纯 Windows 反斜杠路径上此写法需要留意。
     snapshot_name = snapshot_path.split('/')[-1]
 
