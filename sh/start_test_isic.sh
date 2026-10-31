@@ -56,7 +56,7 @@ NUM_WORKERS="${NUM_WORKERS:-0}"
 THRESHOLD="${THRESHOLD:-0.5}"
 MAX_CASES="${MAX_CASES:-0}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
-DEVICE="${DEVICE:-auto}"
+DEVICE="${DEVICE:-cuda}"
 
 # CKPT必须显式提供；prepared数据位于DATA_ROOT/<ISIC版本>/<划分>。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/isic/target}"

@@ -55,7 +55,7 @@ INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-1}"
 NUM_WORKERS="${NUM_WORKERS:-0}"
 MAX_CASES="${MAX_CASES:-0}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
-DEVICE="${DEVICE:-auto}"
+DEVICE="${DEVICE:-cuda}"
 
 # DATA_ROOT 默认指向预处理后的 BUSI target 目录；CKPT 不设默认权重，必须由调用者明确提供。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/busi/target}"
