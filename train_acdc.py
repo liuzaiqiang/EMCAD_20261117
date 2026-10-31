@@ -146,8 +146,8 @@ def parse_args():
     parser.add_argument("--deterministic", type=int, default=1)
     # 每隔多少 epoch 运行一次完整验证。
     parser.add_argument("--validate_every", type=int, default=1)
-    # 每隔多少 epoch 保存 epoch_N.pth。
-    parser.add_argument("--save_every", type=int, default=200)
+    # 中间 epoch_N.pth 保存已停用；保留原参数定义便于审核。
+    # parser.add_argument("--save_every", type=int, default=200)
     # 完整体推理时一次送入 GPU 的切片数，不等同于训练 batch_size。
     parser.add_argument("--inference_batch_size", type=int, default=8)
     # 大于 0 时每 epoch 只训练前 N 个 batch，主要用于 smoke test；0 表示不限制。
@@ -512,8 +512,9 @@ def main():
         logging.info("epoch=%d train_loss=%.6f", epoch + 1, mean_loss)
         # 写入 TensorBoard epoch 级 loss 曲线。
         writer.add_scalar("train/epoch_loss", mean_loss, epoch + 1)
+        # 每轮 last.pth 保存已停用，保留原调用便于审核。
         # 每轮覆盖 last.pth，始终代表最新完成 epoch 的裸模型参数。
-        save_state_dict(model, os.path.join(snapshot_path, "last.pth"))
+        # save_state_dict(model, os.path.join(snapshot_path, "last.pth"))
 
         # 达到验证间隔或最后一轮时执行完整病例验证。
         if (epoch + 1) % args.validate_every == 0 or epoch + 1 == args.max_epochs:
@@ -532,16 +533,17 @@ def main():
                 # 记录本次最优保存事件。
                 logging.info("saved best.pth validation_mean_dice=%.6f", best_dice)
 
+        # 中间 epoch_N.pth 保存已停用，保留原代码便于审核。
         # 到达定期保存间隔或最后一轮时创建不会被覆盖的 epoch_N.pth。
-        if (epoch + 1) % args.save_every == 0 or epoch + 1 == args.max_epochs:
-            # 调用跨单卡/多卡统一的保存函数。
-            save_state_dict(
-                # 当前模型。
-                model,
-                # 文件名使用一基轮次，例如 epoch_50.pth。
-                os.path.join(snapshot_path, "epoch_{}.pth".format(epoch + 1)),
-                # 保存调用结束。
-            )
+        # if (epoch + 1) % args.save_every == 0 or epoch + 1 == args.max_epochs:
+        #     # 调用跨单卡/多卡统一的保存函数。
+        #     save_state_dict(
+        #         # 当前模型。
+        #         model,
+        #         # 文件名使用一基轮次，例如 epoch_50.pth。
+        #         os.path.join(snapshot_path, "epoch_{}.pth".format(epoch + 1)),
+        #         # 保存调用结束。
+        #     )
 
     # 训练全部完成后刷新并关闭 TensorBoard 文件。
     writer.close()

@@ -78,7 +78,8 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
 #每隔多少个 epoch 做一次验证。1 表示每个 epoch 都验证，并用于更新 best.pth
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
-SAVE_EVERY="${SAVE_EVERY:-0}"
+# 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
+# SAVE_EVERY="${SAVE_EVERY:-0}"
 #每个 epoch 最多训练多少个 batch。0 表示不限制；大于 0 通常用于快速调试或冒烟测试。
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
 #每次验证最多评估多少个病例。0 表示使用完整验证集；大于 0 会截断验证集，不适合正式实验。
@@ -232,6 +233,7 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DAT
 
 # 单个多行命令块：nohup忽略挂断，env注入RUN_ID供stop脚本从/proc校验，python -u关闭解释器输出缓冲。
 # 参数固定使用[1,3,5]并行尺度、constant调度和0.75/1/1.25多尺度训练；末尾重定向日志、断开stdin并放入后台。
+# 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
@@ -264,7 +266,6 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --seed "${SEED}" \
   --deterministic "${DETERMINISTIC}" \
   --validate_every "${VALIDATE_EVERY}" \
-  --save_every "${SAVE_EVERY}" \
   --max_train_batches "${MAX_TRAIN_BATCHES}" \
   --max_valid_cases "${MAX_VALID_CASES}" \
   --device "${DEVICE}" \

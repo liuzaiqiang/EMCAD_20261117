@@ -358,15 +358,15 @@ def parse_args():
         # 默认每轮。
         default=1,
     )
-    # 每多少epoch额外保存周期检查点。
-    parser.add_argument(
-        # 选项名。
-        "--save_every",
-        # 整数。
-        type=int,
-        # 默认50轮。
-        default=50,
-    )
+    # 中间 epoch_N.pth 保存已停用；保留原参数定义便于审核。
+    # parser.add_argument(
+    #     # 选项名。
+    #     "--save_every",
+    #     # 整数。
+    #     type=int,
+    #     # 默认50轮。
+    #     default=50,
+    # )
     # 验证概率二值化阈值。
     parser.add_argument(
         # 选项名。
@@ -1043,13 +1043,14 @@ def main():
             optimizer.param_groups[0]["lr"]
         )
 
-        save_checkpoint(
-            model,
-            os.path.join(
-                run_dir,
-                "last.pth",
-            ),
-        )
+        # 每轮 last.pth 保存已停用，保留原调用便于审核。
+        # save_checkpoint(
+        #     model,
+        #     os.path.join(
+        #         run_dir,
+        #         "last.pth",
+        #     ),
+        # )
 
         val_dice = ""
         val_iou = ""
@@ -1158,17 +1159,18 @@ def main():
             epoch,
         )
 
-        if args.save_every and (
-                epoch % args.save_every == 0
-                or epoch == args.max_epochs
-        ):
-            save_checkpoint(
-                model,
-                os.path.join(
-                    run_dir,
-                    "epoch_{}.pth".format(epoch),
-                ),
-            )
+        # 中间 epoch_N.pth 保存已停用，保留原调用便于审核。
+        # if args.save_every and (
+        #         epoch % args.save_every == 0
+        #         or epoch == args.max_epochs
+        # ):
+        #     save_checkpoint(
+        #         model,
+        #         os.path.join(
+        #             run_dir,
+        #             "epoch_{}.pth".format(epoch),
+        #         ),
+        #     )
 
         if scheduler is not None:
             scheduler.step()

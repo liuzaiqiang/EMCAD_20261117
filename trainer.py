@@ -354,14 +354,15 @@ def trainer_synapse(args, model, snapshot_path):
         logging.info('iteration %d, epoch %d : loss : %f, lr: %f' %
                      (iter_num, epoch_num, loss.item(), lr_))
 
+        # 中间 checkpoint 已停用，仅保留 best.pth；保留原代码便于审核。
         # 固定使用last.pth 文件名，所以每个 epoch 都覆盖为最新模型状态。注意，这一步只是拼接路径
-        save_mode_path = os.path.join(snapshot_path, 'last.pth')
+        # save_mode_path = os.path.join(snapshot_path, 'last.pth')
         # 这里只保存 state_dict，不含优化器状态、epoch 和随机数状态，不能完整无缝恢复训练。
         # 多 GPU 时 model.state_dict() 的键通常带 module.前缀；单GPU测试加载时需注意格式一致性。
         # 写入模型参数 将模型当前的 state_dict（即所有可学习参数的字典）序列化并写入上述路径。
         # 覆盖更新：由于文件名硬编码为 last.pth，每个 epoch 结束后都会覆盖该文件。因此，它始终保存的是训练过程中最后一个 epoch 的模型状态，而非历史最优状态（最优状态由 best.pth 保存）。
         # 非完整快照：这里仅保存了模型参数，未包含优化器状态、epoch 编号或随机数状态，因此无法用于无缝恢复中断的训练流程。
-        torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
+        # torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
 
         # 在完整体数据上计算宏平均 Dice；函数内部会执行 model.eval()。
         performance = inference(
@@ -373,8 +374,8 @@ def trainer_synapse(args, model, snapshot_path):
         # inference 后没有在下一 epoch 开头再次切回 train；因此第 2 个 epoch 起模型保持 eval 模式。
         # 这会影响 BatchNorm/Dropout，但依照用户约束这里只解释，不修改该逻辑。——已经修改
 
-        # 每 100 个 epoch 另存一个阶段性 checkpoint。
-        save_interval = 100
+        # 每 100 个 epoch 另存一个阶段性 checkpoint（已停用，保留原代码供审核）。
+        # save_interval = 100
 
         # 当前指标大于或等于历史最好值时更新；相等也会覆盖已有 best.pth。
         if (best_performance <= performance):
@@ -398,18 +399,18 @@ def trainer_synapse(args, model, snapshot_path):
             # 记录阶段性文件位置。
             logging.info("save model to {}".format(save_mode_path))
         """
-        # 最后一个 epoch 时再次确保保存最终权重；默认 300 轮对应 epoch_num=299。
-        if epoch_num >= max_epoch - 1:
-            # 最终文件名同样采用一基编号，例如 epoch_300.pth。
-            save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
-            # 保存最终状态；若刚好也命中 save_interval，可能对同一文件写两次。
-            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
-            # 写入最终保存日志。
-            logging.info("save model to {}".format(save_mode_path))
-            # 主动关闭 tqdm 进度条，避免终端残留未结束状态。
-            iterator.close()
-            # 跳出 epoch 循环；在最后一轮此操作与自然结束等价。
-            break
+        # 最终 epoch_N.pth 保存已停用，保留原代码供审核。
+        # if epoch_num >= max_epoch - 1:
+        #     # 最终文件名同样采用一基编号，例如 epoch_300.pth。
+        #     save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
+        #     # 保存最终状态；若刚好也命中 save_interval，可能对同一文件写两次。
+        #     torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
+        #     # 写入最终保存日志。
+        #     logging.info("save model to {}".format(save_mode_path))
+        #     # 主动关闭 tqdm 进度条，避免终端残留未结束状态。
+        #     iterator.close()
+        #     # 跳出 epoch 循环；在最后一轮此操作与自然结束等价。
+        #     break
 
     # 刷新并关闭 TensorBoard writer，确保事件文件完整落盘。
     writer.close()

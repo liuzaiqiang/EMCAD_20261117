@@ -63,7 +63,8 @@ NUM_WORKERS="${NUM_WORKERS:-8}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
-SAVE_EVERY="${SAVE_EVERY:-50}"
+# 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
+# SAVE_EVERY="${SAVE_EVERY:-50}"
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
 MAX_VALID_CASES="${MAX_VALID_CASES:-0}"
 DEVICE="${DEVICE:-auto}"
@@ -187,6 +188,7 @@ REMOVED_LOG_LINES
 
 # 整个续行块是一条命令：nohup+后台运行，RUN_ID注入进程环境，stdout/stderr追加到同一日志，stdin接/dev/null。
 # 固定传递[1,3,5]卷积核和0.75/1/1.25多尺度；调度器、阈值及其余变量显式传给train_isic.py。
+# 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
@@ -218,7 +220,6 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --seed "${SEED}" \
   --deterministic "${DETERMINISTIC}" \
   --validate_every "${VALIDATE_EVERY}" \
-  --save_every "${SAVE_EVERY}" \
   --threshold "${THRESHOLD}" \
   --max_train_batches "${MAX_TRAIN_BATCHES}" \
   --max_valid_cases "${MAX_VALID_CASES}" \

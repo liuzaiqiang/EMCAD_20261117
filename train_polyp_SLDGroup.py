@@ -288,8 +288,9 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
     save_path = opt.train_save
     # 确保目录存在。
     os.makedirs(save_path, exist_ok=True)
+    # 中间 checkpoint 已停用，保留原调用便于审核。
     # 每 epoch 覆盖 <model_name>-last.pth；只保存模型 state_dict。
-    torch.save(without_profiling_stats(model.state_dict()), os.path.join(save_path, f"{model_name}-last.pth"))
+    # torch.save(without_profiling_stats(model.state_dict()), os.path.join(save_path, f"{model_name}-last.pth"))
 
     # Validation and Testing
     # 保存本 epoch 两个划分的 Dice。
