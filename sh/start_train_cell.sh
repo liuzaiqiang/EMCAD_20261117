@@ -65,9 +65,14 @@ export N_GPU="${N_GPU:-1}"
 
 # Cell uses the shared binary trainer and exposes its CAA switch here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
+esac
+case "${USE_PIXEL_RELIABILITY_FUSION}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1" >&2; exit 2 ;;
 esac
 
 # 在访问数据前检查通道数和掩膜合并开关，避免把非法值传入训练入口。

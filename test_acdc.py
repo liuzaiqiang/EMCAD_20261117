@@ -96,6 +96,7 @@ def parse_args():
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--fusion_mode", choices=["p1", "pixel_reliability"], default="p1")
 
     # 每张切片进入模型前缩放到的正方形尺寸，须与训练设置相符。
     parser.add_argument("--img_size", type=int, default=256)
@@ -139,6 +140,7 @@ def restore_checkpoint_config(args):
         "concatenation": "--concatenation",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "fusion_mode": "--fusion_mode",
         "img_size": "--img_size",
     }
     for field, option in options.items():

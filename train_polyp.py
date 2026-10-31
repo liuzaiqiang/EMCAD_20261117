@@ -42,6 +42,7 @@ from utils.polyp_utils import (
     load_checkpoint,
     # 统一单输出/多输出列表。
     model_outputs,
+    fusion_auxiliary_loss,
     # 解析 auto/cpu/cuda 设备。
     resolve_device,
     # 保存模型及优化状态。
@@ -174,6 +175,7 @@ def parse_args():
     # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--fusion_mode", choices=["p1", "pixel_reliability"], default="p1")
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -964,6 +966,8 @@ def main():
                         scaled_masks,
                         args.supervision,
                     )
+                    if args.fusion_mode == "pixel_reliability":
+                        loss = loss + fusion_auxiliary_loss(model, outputs, scaled_masks)
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)

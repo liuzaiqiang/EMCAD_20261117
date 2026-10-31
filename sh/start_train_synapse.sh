@@ -109,11 +109,17 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
 
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
   1) CAA_MODE="caa" ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
+esac
+case "${USE_PIXEL_RELIABILITY_FUSION}" in
+  0) FUSION_MODE="p1" ;;
+  1) FUSION_MODE="pixel_reliability" ;;
+  *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1"; exit 1 ;;
 esac
 
 PARAM_NAMES=(
@@ -149,6 +155,8 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  USE_PIXEL_RELIABILITY_FUSION
+  FUSION_MODE
 )
 
 {
@@ -183,6 +191,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --fusion_mode "${FUSION_MODE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

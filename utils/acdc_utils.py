@@ -70,6 +70,7 @@ def build_model(args, pretrain):
         # CAA 结构和残差初始尺度必须与训练 checkpoint 一致。
         caa_mode=args.caa_mode,
         caa_residual_scale=args.caa_residual_scale,
+        fusion_mode=getattr(args, "fusion_mode", "p1"),
     )
 
 
@@ -79,6 +80,20 @@ def model_outputs(model, images, mode="test"):
     outputs = model(images, mode=mode)
     # 已是 list/tuple 时复制为列表；单张量则包成单元素列表。
     return list(outputs) if isinstance(outputs, (list, tuple)) else [outputs]
+
+
+def selected_logits(model, outputs):
+    base_model = model.module if isinstance(model, nn.DataParallel) else model
+    return base_model.fuse_outputs(outputs)
+
+
+def fusion_auxiliary_loss(model, outputs, target, ce_loss, dice_loss):
+    base_model = model.module if isinstance(model, nn.DataParallel) else model
+    return base_model.fusion_auxiliary_loss(
+        outputs, target,
+        lambda logits, labels: 0.3 * ce_loss(logits, labels.long()) + 0.7 * dice_loss(logits, labels),
+        reliability_loss_weight=1.0,
+    )
 
 
 # ACDC 多类别 soft Dice 损失，直接使用 PyTorch one_hot 实现。
@@ -234,7 +249,7 @@ def predict_volume(model, image, device, img_size, batch_size=8):
             # 统一模型输出为列表并选最后的最终分割 logits。
             outputs = model_outputs(model, batch, mode="test")
             base_model = model.module if hasattr(model, 'module') else model
-            logits = outputs[-1]
+            logits = selected_logits(model, outputs)
             # 如果模型最终输出仍不是原始体数据空间尺寸，则把连续 logits 缩回原尺寸。
             if logits.shape[-2:] != (height, width):
                 # 在 argmax 前插值 logits，避免对离散类别图做不合理的双线性插值。

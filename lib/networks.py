@@ -62,7 +62,7 @@ class EMCADNet(nn.Module):
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/',
-                 caa_mode='off', caa_residual_scale=0.1):
+                 caa_mode='off', caa_residual_scale=0.1, fusion_mode='p1'):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -217,6 +217,13 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        self.fusion_mode = str(fusion_mode)
+        if self.fusion_mode not in {'p1', 'pixel_reliability'}:
+            raise ValueError('Unknown fusion_mode: {}'.format(self.fusion_mode))
+        if self.fusion_mode == 'pixel_reliability':
+            self.reliability_heads = nn.ModuleList([
+                nn.Conv2d(num_classes, 1, 1) for _ in range(4)
+            ])
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -276,6 +283,41 @@ class EMCADNet(nn.Module):
 
         # 非 test 模式返回完全相同的列表；mutation/deep supervision/last-layer 由训练器选择。
         return [p4, p3, p2, p1]
+
+    def fuse_outputs(self, outputs):
+        if len(outputs) != 4:
+            raise ValueError('Expected four EMCAD outputs, got {}'.format(len(outputs)))
+        if self.fusion_mode == 'p1':
+            return outputs[-1]
+        reliability = torch.cat(
+            [head(output) for head, output in zip(self.reliability_heads, outputs)], dim=1
+        )
+        weights = torch.softmax(reliability, dim=1)
+        return sum(weights[:, index:index + 1] * output for index, output in enumerate(outputs))
+
+    def fusion_auxiliary_loss(self, outputs, target, segmentation_loss, reliability_loss_weight=1.0):
+        if self.fusion_mode != 'pixel_reliability':
+            return target.new_tensor(0.0, dtype=torch.float32)
+        fused_loss = segmentation_loss(self.fuse_outputs(outputs), target)
+        with torch.no_grad():
+            if outputs[0].shape[1] == 1:
+                truth = target.float()
+                if truth.ndim == 3:
+                    truth = truth.unsqueeze(1)
+                correctness = torch.stack([
+                    ((torch.sigmoid(output.detach()) >= 0.5) == (truth >= 0.5)).float().squeeze(1)
+                    for output in outputs
+                ], dim=1)
+            else:
+                correctness = torch.stack([
+                    (output.detach().argmax(dim=1) == target).float() for output in outputs
+                ], dim=1)
+        reliability = torch.cat(
+            [head(output) for head, output in zip(self.reliability_heads, outputs)], dim=1
+        )
+        return fused_loss + float(reliability_loss_weight) * F.binary_cross_entropy_with_logits(
+            reliability, correctness
+        )
 
 # 直接运行本文件时执行一个 GPU 形状检查；被训练脚本 import 时不会进入该分支。
 if __name__ == '__main__':

@@ -103,6 +103,7 @@ def build_model(args, pretrain):
         caa_mode=args.caa_mode,
         # 内容门控残差初始强度；关闭 CAA 时 EUCB 沿用基础模型结构。
         caa_residual_scale=args.caa_residual_scale,
+        fusion_mode=getattr(args, "fusion_mode", "p1"),
     )
 
 
@@ -120,6 +121,20 @@ def model_outputs(model, images, mode="test"):
 
     # 对单输出模型也包装成一元素列表，使监督和评估代码无需另写分支。
     return [outputs]
+
+
+def selected_logits(model, outputs):
+    base_model = model.module if isinstance(model, nn.DataParallel) else model
+    return base_model.fuse_outputs(outputs)
+
+
+def fusion_auxiliary_loss(model, outputs, mask):
+    base_model = model.module if isinstance(model, nn.DataParallel) else model
+    return base_model.fusion_auxiliary_loss(
+        outputs, mask,
+        lambda logits, target: structure_loss(logits, target),
+        reliability_loss_weight=1.0,
+    )
 
 
 # 提取适合保存的参数字典；DataParallel 会在真实模型外再包一层 module。
@@ -629,7 +644,7 @@ def evaluate_loader(
                 synchronize(device)
                 benchmark.forward_seconds += time.perf_counter() - forward_start
                 benchmark.forward_units += int(images.shape[0])
-            logits = outputs[-1]
+            logits = selected_logits(model, outputs)
 
             # 一个 batch 内逐图恢复各自原始尺寸、计算指标和保存结果。
             for index, name in enumerate(names):

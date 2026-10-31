@@ -59,6 +59,8 @@ def make_experiment_dir(args, family, output_root=None):
         Path(_safe_component(label) + "_" + _safe_component(value))
         for label, value in values
     ]
+    if _value(args, "fusion_mode", "p1") == "pixel_reliability":
+        parameter_parts.append(Path("fusion_pixel_reliability"))
 
     # 秒级时间戳满足可读性；冲突时追加编号，避免覆盖同一秒内启动的实验。
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
