@@ -20,9 +20,6 @@ mkdir -p "${LOG_DIR}"
 CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
 #CONDA_BASE="/home/mlf/anaconda3"
@@ -34,8 +31,6 @@ conda activate "${CONDA_ENV_PREFIX}"
 
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
-
-
 
 #通过 CUDA_DEVICE 指定暴露的物理显卡，未指定时默认使用0号卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -101,8 +96,7 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 #####################################################################
 
-
-
+USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
 #它决定 EUCB 使用哪种上采样方式。
@@ -127,10 +121,11 @@ CAA_MODE="${CAA_MODE:-caa}"
 # 这表示模型开始训练时，内容感知残差以较小强度加入基础上采样路径，避免新模块一开始完全压过原始上采样结果。
 #0.1 是初始值，不是训练期间永远固定为 0.1。
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
-USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
 
 
-#这是多尺度训练总开关。
+
+
+
 USE_MULTI_SCALE_TRAINING="${USE_MULTI_SCALE_TRAINING:-1}"
 
 
