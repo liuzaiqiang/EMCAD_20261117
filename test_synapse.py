@@ -389,35 +389,28 @@ if __name__ == "__main__":
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
     model.load_state_dict(state_dict, strict=True)
-    # 以正斜杠切分路径得到内层目录名；在纯 Windows 反斜杠路径上此写法需要留意。
-    snapshot_name = snapshot_path.split('/')[-1]
+    # Resolve the actual checkpoint directory for all test artifacts.
+    checkpoint_dir = os.path.dirname(os.path.abspath(snapshot))
 
-    # 测试日志按实验标识放入 test_log/test_log_<exp>。
-    log_folder = 'test_log/test_log_' + args.exp
-    # 递归创建日志目录，存在时不报错。
-    os.makedirs(log_folder, exist_ok=True)
-    # 文件名取 snapshot_name；配置时间格式与训练日志一致。
-    logging.basicConfig(filename=log_folder + '/' + snapshot_name + ".txt", level=logging.INFO,
-                        format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
-    # 同时把日志输出到控制台。
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    # 记录完整测试参数。
-    logging.info(str(args))
-    # 记录 checkpoint 目录短名。
-    logging.info(snapshot_name)
-
-    # 当前 is_savenii 因 default=True 实际总会进入该分支。
+    # Save outputs under the selected checkpoint, matching the ACDC test layout.
     if args.is_savenii:
-        # 把保存根目录改为 checkpoint 目录下的 predictions。
-        args.test_save_dir = os.path.join(snapshot_path, "predictions")
-        # 再按实验标识和 snapshot_name+'2' 建立更深的输出目录；末尾 2 是现有命名约定。
-        test_save_path = os.path.join(args.test_save_dir, args.exp, snapshot_name + '2')
-        # 创建输出目录；test_single_volume 会在其中写 PNG 和 NIfTI 文件。
+        if not args.test_save_dir or args.test_save_dir == 'predictions':
+            args.test_save_dir = os.path.join(checkpoint_dir, 'predictions')
+        elif not os.path.isabs(args.test_save_dir):
+            args.test_save_dir = os.path.join(checkpoint_dir, args.test_save_dir)
+        test_save_path = args.test_save_dir
         os.makedirs(test_save_path, exist_ok=True)
-    # 理论上的不保存分支；以当前参数定义无法通过命令行触发。
+        log_folder = test_save_path
     else:
-        # None 表示不提供保存路径，但 utils 中的逐切片叠加图代码也依赖路径，需注意当前实现耦合。
         test_save_path = None
+        log_folder = checkpoint_dir
+
+    os.makedirs(log_folder, exist_ok=True)
+    logging.basicConfig(filename=os.path.join(log_folder, 'test.log'), level=logging.INFO,
+                        format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.info(str(args))
+    logging.info('checkpoint=%s', snapshot)
     # 启动整测试集推理；返回的状态字符串未被接收，最终结果查看日志与输出文件。
     # 记录环境并把 benchmark 对象挂到 args，保持原 inference 调用接口不变。
     args.benchmark = InferenceBenchmark()

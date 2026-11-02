@@ -35,12 +35,6 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
-
-
-
-
-
-
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 
 # Synapse 测试必须使用与训练一致的模型配置；启动时从 best.pth 同目录读取训练配置。
