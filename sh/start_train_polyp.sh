@@ -14,16 +14,14 @@ mkdir -p "${LOG_DIR}"
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
-
-
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 
 #209服务器
-#CONDA_BASE="/home/mlf/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -32,8 +30,9 @@ conda activate "${CONDA_ENV_PREFIX}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-#通过 CUDA_DEVICE 指定暴露的物理显卡，未指定时默认使用0号卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-1}"
+N_GPU="${N_GPU:-1}"
 
 export PYTHONUNBUFFERED=1
 
@@ -97,7 +96,7 @@ SUPERVISION="${SUPERVISION:-paper}"
 #####################################################################
 
 USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-0}"
 
 #它决定 EUCB 使用哪种上采样方式。
 # 值	         实际含义
@@ -122,15 +121,8 @@ CAA_MODE="${CAA_MODE:-caa}"
 #0.1 是初始值，不是训练期间永远固定为 0.1。
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
-
-
-
-
 USE_MULTI_SCALE_TRAINING="${USE_MULTI_SCALE_TRAINING:-1}"
 
-
-
-#####################################################################
 
 INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 MERGE_INSTANCE_MASKS="${MERGE_INSTANCE_MASKS:-0}"
@@ -256,6 +248,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   "${MULTI_SCALE_ARGS[@]}" \
   "${IMAGE_MODE_ARGS[@]}" \
   --num_workers "${NUM_WORKERS}" \
+  --n_gpu "${N_GPU}" \
   --seed "${SEED}" \
   --deterministic "${DETERMINISTIC}" \
   --validate_every "${VALIDATE_EVERY}" \

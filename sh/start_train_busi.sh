@@ -39,6 +39,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # 选择GPU并让Python输出不缓冲，减少日志延迟。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # BUSI启动器只接受固定数据集名BUSI。
