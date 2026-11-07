@@ -50,6 +50,7 @@ from torch.cuda.amp import GradScaler, autocast
 from utils.dataset_synapse import Synapse_dataset, RandomGenerator
 # powerset生成监督组合；DiceLoss 计算多类软Dice；两个volume函数负责整体验证。
 from utils.utils import powerset, one_hot_encoder, DiceLoss, val_single_volume
+from utils.small_target_loss import small_target_hard_positive_loss, HARD_POSITIVE_WEIGHT
 from lib.model_complexity import log_model_complexity
 from utils.checkpoint_stats import without_profiling_stats
 
@@ -286,6 +287,14 @@ def trainer_synapse(args, model, snapshot_path):
                 # 把该组合的加权损失累加到总损失；没有再除以组合数。
                 # 因此 mutation(15组)的 loss 数值尺度天然大于 deep_supervision(4组)，两者不可直接横比。
                 loss += (w_ce * loss_ce + w_dice * loss_dice)
+
+            if getattr(args, 'small_target_hard_supervision', 0):
+                # One auxiliary term on the final head; scale by the number
+                # of existing supervision groups to keep its relative weight
+                # comparable across mutation, deep and last-layer modes.
+                group_count = sum(bool(group) for group in ss)
+                loss += (HARD_POSITIVE_WEIGHT * group_count *
+                         small_target_hard_positive_loss(P[-1], label_batch))
 
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。
             optimizer.zero_grad()

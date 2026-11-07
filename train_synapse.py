@@ -81,6 +81,8 @@ parser.add_argument('--caa_mode', type=str, default='off',
                     help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
 parser.add_argument('--caa_residual_scale', type=float, default=0.1,
                     help='initial scale of the content-aware residual; must match the checkpoint')
+parser.add_argument('--small_target_hard_supervision', type=int, choices=[0, 1], default=0,
+                    help='1 adds size-aware hard-positive supervision to the final head')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。

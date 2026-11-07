@@ -107,6 +107,11 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-0}"
+case "${SMALL_TARGET_HARD_SUPERVISION}" in
+  0|1) ;;
+  *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 1 ;;
+esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -149,6 +154,7 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  SMALL_TARGET_HARD_SUPERVISION
 )
 
 {
@@ -183,6 +189,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

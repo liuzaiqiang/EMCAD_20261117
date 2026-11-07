@@ -88,3 +88,4 @@ docs/
 !docs/
 docs/*
 !docs/EMCAD除Synapse外数据集融合与CAA接入说明.md
+!docs/小器官感知困难区域监督_实现与消融说明_20261107.md
