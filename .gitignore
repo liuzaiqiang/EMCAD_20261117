@@ -88,3 +88,4 @@ docs/
 !docs/
 docs/*
 !docs/EMCAD除Synapse外数据集融合与CAA接入说明.md
+!docs/解码后残差边界校正_实现与消融说明_20261107.md
