@@ -107,6 +107,15 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
+case "${STAGE_ADAPTIVE_KERNELS}" in
+  0|1) ;;
+  *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 1 ;;
+esac
+if [[ "${STAGE_ADAPTIVE_KERNELS}" == "1" && "${CONCATENATION}" == "1" ]]; then
+  echo "[ERROR] STAGE_ADAPTIVE_KERNELS=1 requires CONCATENATION=0" >&2
+  exit 1
+fi
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -149,6 +158,7 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  STAGE_ADAPTIVE_KERNELS
 )
 
 {
@@ -183,6 +193,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

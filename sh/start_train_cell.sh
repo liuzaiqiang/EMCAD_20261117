@@ -65,6 +65,11 @@ export N_GPU="${N_GPU:-1}"
 
 # Cell uses the shared binary trainer and exposes its CAA switch here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
+case "${STAGE_ADAPTIVE_KERNELS}" in
+  0|1) ;;
+  *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 2 ;;
+esac
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
