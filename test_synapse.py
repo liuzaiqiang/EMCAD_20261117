@@ -11,6 +11,7 @@
 # argparse 解析测试路径、网络结构和保存选项。
 import argparse
 from utils.checkpoint_stats import without_profiling_stats
+from lib.test_output_paths import prepare_test_output
 # json 用来读取训练 checkpoint 同目录中的 config.json，自动复用训练时的结构和推理尺寸。
 import json
 # logging 将逐病例与逐类别指标写入文件并同步输出到终端。
@@ -386,15 +387,19 @@ if __name__ == "__main__":
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
     model.load_state_dict(state_dict, strict=True)
-    # 以正斜杠切分路径得到内层目录名；在纯 Windows 反斜杠路径上此写法需要留意。
-    snapshot_name = snapshot_path.split('/')[-1]
+    # 用实际选中的 checkpoint 标识该次测试。
+    snapshot_name = os.path.basename(os.path.dirname(os.path.abspath(snapshot)))
 
-    # 测试日志按实验标识放入 test_log/test_log_<exp>。
-    log_folder = 'test_log/test_log_' + args.exp
+    # 测试日志和预测均写到 checkpoint 同级的独立运行子目录。
+    output_dir, _ = prepare_test_output(
+        snapshot, "Synapse_test",
+        args.test_save_dir if args.test_save_dir != "predictions" else None,
+    )
+    log_folder = output_dir
     # 递归创建日志目录，存在时不报错。
     os.makedirs(log_folder, exist_ok=True)
-    # 文件名取 snapshot_name；配置时间格式与训练日志一致。
-    logging.basicConfig(filename=log_folder + '/' + snapshot_name + ".txt", level=logging.INFO,
+    # 本次测试使用独立日志文件。
+    logging.basicConfig(filename=os.path.join(log_folder, "test.log"), level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
     # 同时把日志输出到控制台。
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -405,10 +410,10 @@ if __name__ == "__main__":
 
     # 当前 is_savenii 因 default=True 实际总会进入该分支。
     if args.is_savenii:
-        # 把保存根目录改为 checkpoint 目录下的 predictions。
-        args.test_save_dir = os.path.join(snapshot_path, "predictions")
-        # 再按实验标识和 snapshot_name+'2' 建立更深的输出目录；末尾 2 是现有命名约定。
-        test_save_path = os.path.join(args.test_save_dir, args.exp, snapshot_name + '2')
+        # 预测结果保存在本次运行目录内。
+        args.test_save_dir = os.path.join(output_dir, "predictions")
+        # 传给逐病例推理函数的实际预测目录。
+        test_save_path = args.test_save_dir
         # 创建输出目录；test_single_volume 会在其中写 PNG 和 NIfTI 文件。
         os.makedirs(test_save_path, exist_ok=True)
     # 理论上的不保存分支；以当前参数定义无法通过命令行触发。

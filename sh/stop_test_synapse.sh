@@ -15,17 +15,6 @@ set -euo pipefail
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 【当前代码校正说明】本文件仅给PROJECT_DIR赋值，没有执行cd，PID_FILE也没有使用该绝对路径。
-# 所以它实际从调用者当前工作目录读取RUN_ID.pid；若不在项目根运行，可能返回2，即使项目根中存在该文件。
-# ↑ 这一行的目的：获取“脚本所在目录”的绝对路径，并保存到 PROJECT_DIR 变量。
-# BASH_SOURCE[0] 是当前脚本文件名；dirname 获取它的目录；cd 进去后再 pwd 得到绝对路径。
-# 为什么不直接用 pwd？因为你执行脚本时，当前工作目录可能在任何地方（比如你在家目录运行脚本），
-# pwd 得到的是“你执行命令时的位置”，而不是工程目录。我们要的是工程目录，才能稳定定位 logs 文件夹。
-# 这样不管你在哪个目录运行 stop 脚本，它都能找到正确的 logs/ 和 pid 文件，不会误读别的路径。
-
-
-
-# 当前Synapse停止器只接受第一个位置参数，不会自动采用环境变量RUN_ID。
 RUN_ID="${1:-}"
 # ↑ 这一行表示：从脚本的第 1 个参数读取 run_id，保存到 RUN_ID 变量。
 # ${1:-} 的意思是：如果用户没有传第一个参数，就给 RUN_ID 一个默认空字符串。
@@ -43,21 +32,9 @@ RUN_ID="${1:-}"
 
 # 该PID_FILE是相对路径，并随调用者当前目录变化；PROJECT_DIR在当前版本中没有参与定位。
 #PID_FILE="${RUN_ID}.pid"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
-# ↑ 这一行根据 run_id 拼出 pid 文件路径。
-# 你的启动脚本会生成：${RUN_ID}.pid，里面只存一个纯数字 PID。
-# 这样“run_id -> pid 文件 -> pid”形成了稳定映射：你只要记住 run_id，就能精确找到对应进程。
-# 这比用 grep 进程名更安全，因为 grep 可能匹配到别人的训练脚本或你自己另外一轮训练。
-# 另外，pid 文件名里包含 run_id，也能避免多个实验互相覆盖同一个 pid 文件。
-
-# 返回2表示当前工作目录中没有这个普通PID文件，也可能由调用目录不正确引起。
+source "${PROJECT_DIR}/sh/test_pid_paths.sh"
+PID_FILE="$(locate_test_pid "${PROJECT_DIR}" "${RUN_ID}")"
 [ -f "${PID_FILE}" ] || exit 2
-# ↑ 这一行校验 pid 文件是否存在。
-# -f 表示“是一个普通文件”。如果不存在就退出并返回 2。
-# 为什么要检查？因为如果 pid 文件不存在，说明：
-# 1）你传错了 run_id；或 2）启动脚本没成功写 pid 文件；或 3）logs 被清理了。
-# 在这种情况下继续执行会导致 cat 读取失败，或者 PID 为空，再往下 kill 会出问题。
-# 所以这里直接退出是最安全的行为。你后续只需要 ls logs/train_*.pid 找到正确的 run_id 即可。
 
 PID="$(cat "${PID_FILE}" | tr -d ' \n')"
 # ↑ 这一行从 pid 文件里读取 PID，并做清理：去掉空格和换行，确保 PID 是纯数字字符串。

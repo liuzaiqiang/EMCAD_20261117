@@ -29,6 +29,7 @@ import numpy as np
 # torch 构建模型、选择设备并运行推理。
 import torch
 import time
+from lib.test_output_paths import prepare_test_output
 from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, synchronize
 # DataLoader 每次提供一个完整病例。
 from torch.utils.data import DataLoader
@@ -230,12 +231,10 @@ def main():
     # 移到设备并立即切换 eval；链式调用返回 model 自身。
     model.to(device).eval()
 
-    # checkpoint_dir 是权重文件所在实验目录。
-    checkpoint_dir = os.path.dirname(os.path.abspath(args.checkpoint))
-    # 未指定 output_dir 时在实验目录下创建 predictions。
-    output_dir = args.output_dir or os.path.join(checkpoint_dir, "predictions")
-    # 未指定 output_csv 时在实验目录根部写 test_metrics.csv。
-    output_csv = args.output_csv or os.path.join(checkpoint_dir, "test_metrics.csv")
+    # 每次评估使用检查点目录内独立的预测和指标路径。
+    output_dir, output_csv = prepare_test_output(
+        args.checkpoint, "ACDC_test", args.output_dir, args.output_csv
+    )
     # 创建预测/日志目录。
     os.makedirs(output_dir, exist_ok=True)
     # 创建 CSV 父目录；abspath 保证即使只给文件名也能得到有效目录。

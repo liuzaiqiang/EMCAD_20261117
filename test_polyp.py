@@ -16,6 +16,7 @@ from pathlib import Path
 # torch 仅用于版本/CUDA 环境记录；模型推理封装在 utils.polyp_utils 中。
 import torch
 from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, peak_memory_mb
+from lib.test_output_paths import prepare_test_output
 
 # 数据加载器同时暴露支持扩展名集合，供划分泄漏检查复用同一文件口径。
 from utils.dataloader_polyp import (
@@ -523,42 +524,14 @@ def main():
 
     # 将检查点统一为绝对路径，写入报告后不依赖运行时工作目录。
     checkpoint = os.path.abspath(args.checkpoint)
-    # 取检查点父目录作为默认输出位置的基准。
-    checkpoint_dir = os.path.dirname(checkpoint)
-
-    # 解析最终输出目录。
-    output_dir = os.path.abspath(
-        # 优先使用命令行显式路径；否则自动拼接划分和数据集名。
-        args.output_dir
-        # Python or 在左值为 None/空字符串时采用右侧默认值。
-        or os.path.join(
-            # 检查点目录。
-            checkpoint_dir,
-            # 目录名如 test_ClinicDB_outputs。
-            "{}_{}_outputs".format(
-                # val/test。
-                args.split,
-                # 数据集名。
-                args.dataset_name,
-            ),
-        )
+    # 每次评估单独存档，避免覆盖同一 checkpoint 的既有测试结果。
+    output_dir, output_csv = prepare_test_output(
+        checkpoint,
+        "{}_{}".format(args.dataset_name, args.split),
+        args.output_dir,
+        args.output_csv,
+        allow_prepared=getattr(args, "_manifest_prepared", False),
     )
-
-    # 解析最终指标 CSV 路径。
-    output_csv = os.path.abspath(
-        # 优先使用显式 --output_csv。
-        args.output_csv
-        # 未指定时放到输出目录内。
-        or os.path.join(
-            # 评估输出目录。
-            output_dir,
-            # 固定 CSV 文件名。
-            "test_metrics.csv",
-        )
-    )
-
-    # 创建输出目录；已存在时不报错。
-    os.makedirs(output_dir, exist_ok=True)
 
     # 初始化根日志配置。
     logging.basicConfig(
