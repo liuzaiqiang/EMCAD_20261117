@@ -183,6 +183,13 @@ REMOVED_LOG_LINES
 # 整个续行块是一条命令：nohup+后台运行，RUN_ID注入进程环境，stdout/stderr追加到同一日志，stdin接/dev/null。
 # 固定传递[1,3,5]卷积核和0.75/1/1.25多尺度；调度器、阈值及其余变量显式传给train_isic.py。
 # 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+case "${USE_BOUNDED_DEFORMABLE_MSDC}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_BOUNDED_DEFORMABLE_MSDC must be 0 or 1" >&2; exit 2 ;;
+esac
+echo "[INFO] USE_BOUNDED_DEFORMABLE_MSDC=${USE_BOUNDED_DEFORMABLE_MSDC}" | tee -a "${LOG_FILE}"
+
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
@@ -196,6 +203,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --supervision "${SUPERVISION}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \

@@ -111,6 +111,13 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICE
 
 # 整个反斜杠块是一条后台命令：nohup抵抗终端断开，env注入RUN_ID用于停止时核验进程身份。
 # -u和PYTHONUNBUFFERED共同减少日志缓冲；stdout追加到日志，stderr合并，stdin断开，&立即返回控制权。
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+case "${USE_BOUNDED_DEFORMABLE_MSDC}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_BOUNDED_DEFORMABLE_MSDC must be 0 or 1" >&2; exit 2 ;;
+esac
+echo "[INFO] USE_BOUNDED_DEFORMABLE_MSDC=${USE_BOUNDED_DEFORMABLE_MSDC}" | tee -a "${LOG_FILE}"
+
 nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --root_path "${ROOT_PATH}" \
   --list_dir "${LIST_DIR}" \
@@ -131,6 +138,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
   --seed "${SEED}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 

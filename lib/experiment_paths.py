@@ -53,6 +53,7 @@ def make_experiment_dir(args, family, output_root=None):
         ("lgag_ks", _value(args, "lgag_ks")),
         ("act", _value(args, "activation_mscb")),
         ("caa", _value(args, "caa_mode")),
+        ("bdmsdc", _value(args, "bounded_deformable_msdc", 0)),
         ("seed", _value(args, "seed")),
     ]
     parameter_parts = [

@@ -164,6 +164,13 @@ REMOVED_LOG_LINES
 # 单个多行后台命令：nohup防终端断开，env RUN_ID供stop脚本核验，python -u关闭解释器缓冲。
 # stdout追加日志、stderr并入stdout、stdin断开；没有传scale_rates且train_busi.py会强制禁用多尺度。
 # 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+case "${USE_BOUNDED_DEFORMABLE_MSDC}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_BOUNDED_DEFORMABLE_MSDC must be 0 or 1" >&2; exit 2 ;;
+esac
+echo "[INFO] USE_BOUNDED_DEFORMABLE_MSDC=${USE_BOUNDED_DEFORMABLE_MSDC}" | tee -a "${LOG_FILE}"
+
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_busi.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
@@ -177,6 +184,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_busi.py \
   --supervision "${SUPERVISION}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \

@@ -163,6 +163,13 @@ PARAM_NAMES=(
 # 启动命令块：nohup使进程忽略终端挂断信号；env把RUN_ID写入子进程环境，停止脚本会读取它防止PID复用误杀。  >> 追加标准输出，2>&1把标准错误并入同一日志，< /dev/null断开标准输入
 # 参数列表和日志重定向必须属于同一条 shell 命令；最后一个参数行用反斜杠续接重定向行，
 # 这样 $! 才会记录真正运行 Python 训练的后台进程，且 stdout/stderr 会进入本次训练日志。
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+case "${USE_BOUNDED_DEFORMABLE_MSDC}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_BOUNDED_DEFORMABLE_MSDC must be 0 or 1" >&2; exit 2 ;;
+esac
+echo "[INFO] USE_BOUNDED_DEFORMABLE_MSDC=${USE_BOUNDED_DEFORMABLE_MSDC}" | tee -a "${LOG_FILE}"
+
 nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --dataset "${DATASET}" \
   --img_size "${IMG_SIZE}" \
@@ -183,6 +190,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

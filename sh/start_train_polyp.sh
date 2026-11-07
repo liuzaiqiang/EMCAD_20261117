@@ -227,6 +227,13 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DAT
 # 单个多行命令块：nohup忽略挂断，env注入RUN_ID供stop脚本从/proc校验，python -u关闭解释器输出缓冲。
 # 参数固定使用[1,3,5]并行尺度、constant调度和0.75/1/1.25多尺度训练；末尾重定向日志、断开stdin并放入后台。
 # 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+case "${USE_BOUNDED_DEFORMABLE_MSDC}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_BOUNDED_DEFORMABLE_MSDC must be 0 or 1" >&2; exit 2 ;;
+esac
+echo "[INFO] USE_BOUNDED_DEFORMABLE_MSDC=${USE_BOUNDED_DEFORMABLE_MSDC}" | tee -a "${LOG_FILE}"
+
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
@@ -240,6 +247,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --supervision "${SUPERVISION}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
   --merge_instance_masks "${MERGE_INSTANCE_MASKS}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
   --img_size "${IMG_SIZE}" \

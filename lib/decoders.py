@@ -253,7 +253,8 @@ def channel_shuffle(x, groups):
 # --------------------------------------------------------------------------------------------------
 class MSDC(nn.Module):
     # in_channels 是每个深度卷积分支的通道数；kernel_sizes 通常为 [1,3,5]。
-    def __init__(self, in_channels, kernel_sizes, stride, activation='relu6', dw_parallel=True):
+    def __init__(self, in_channels, kernel_sizes, stride, activation='relu6', dw_parallel=True,
+                 bounded_deformable=False):
         # 本构造函数只“搭建”各尺度卷积支路并注册参数，不处理真实 batch；真实张量在 forward 才进入。
         # 初始化 nn.Module 的内部注册结构。
         super(MSDC, self).__init__()
@@ -266,6 +267,20 @@ class MSDC(nn.Module):
         self.activation = activation
         # True 表示所有分支读取同一个输入；False 表示递归更新输入，近似论文式(6)。
         self.dw_parallel = dw_parallel
+        self.bounded_deformable = bool(bounded_deformable)
+        if self.bounded_deformable and stride != 1:
+            raise ValueError("Bounded deformable MSDC requires stride=1")
+        if self.bounded_deformable:
+            from lib.bounded_deformable import BoundedDeformableDepthwiseConv
+            def spatial_branch(kernel_size):
+                if kernel_size > 1:
+                    return BoundedDeformableDepthwiseConv(self.in_channels, kernel_size)
+                return nn.Conv2d(self.in_channels, self.in_channels, kernel_size, stride,
+                                 kernel_size // 2, groups=self.in_channels, bias=False)
+        else:
+            def spatial_branch(kernel_size):
+                return nn.Conv2d(self.in_channels, self.in_channels, kernel_size, stride,
+                                 kernel_size // 2, groups=self.in_channels, bias=False)
 
         # ModuleList 负责注册数量由 kernel_sizes 动态决定的多个分支。
         self.dwconvs = nn.ModuleList([
@@ -276,8 +291,7 @@ class MSDC(nn.Module):
                 # groups=C 使每个输入通道独立卷积；padding=k//2 在 stride=1 时保持 H、W。
                 # 参数量对比：普通 k*k 卷积约有 C_ex*C_ex*k*k 个权重；此处深度卷积只有
                 # C_ex*k*k 个权重。跨通道融合随后由 MSCB 的 1x1 point-wise convolution 完成。
-                nn.Conv2d(self.in_channels, self.in_channels, kernel_size, stride, kernel_size // 2,
-                          groups=self.in_channels, bias=False),
+                spatial_branch(kernel_size),
                 # 对每个通道的卷积结果做批归一化。
                 nn.BatchNorm2d(self.in_channels),
                 # 默认 ReLU6，对应论文式(5)中的 R6。
@@ -353,7 +367,7 @@ class MSCB(nn.Module):
 
     # 关键参数：C_in、C_out、步幅、多尺度核、扩张倍率、并/串行和分支聚合方式。
     def __init__(self, in_channels, out_channels, stride, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True,
-                 add=True, activation='relu6'):
+                 add=True, activation='relu6', bounded_deformable=False):
         # 参数彼此的影响：kernel_sizes 决定 MSDC 分支数和感受野；expansion_factor 决定中间宽度；
         # dw_parallel 决定分支依赖关系；add 决定分支合并方式；activation 决定 pconv1 与 MSDC 激活。
         # kernel_sizes 的默认 list 在本实现中只读取、不修改，因此不会触发常见的“可变默认参数被污染”问题。
@@ -402,7 +416,7 @@ class MSCB(nn.Module):
         )
         # MSDC 在 C_ex 通道上执行多个深度卷积尺度。
         self.msdc = MSDC(self.ex_channels, self.kernel_sizes, self.stride, self.activation,
-                         dw_parallel=self.dw_parallel)
+                         dw_parallel=self.dw_parallel, bounded_deformable=bounded_deformable)
         # 注意：add 只控制“这些 MSDC 尺度分支”的融合，不控制 EMCAD 主路与 encoder skip 的融合。
         # 加法聚合不改变通道数，合并后仍是 C_ex。
         if self.add == True:
@@ -493,7 +507,7 @@ class MSCB(nn.Module):
 #   后续 n-1 块：始终保持 (B,C_out,H_out,W_out)。
 # 当前 EMCAD 的 mscb4/3/2/1 全部传 n=1、stride=1，因此每级只创建一个 MSCB。
 def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True,
-              add=True, activation='relu6'):
+              add=True, activation='relu6', bounded_deformable=False):
     """
     create a series of multi-scale convolution blocks.
     """
@@ -502,7 +516,8 @@ def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], 
     convs = []
     # 第一个块负责 C_in -> C_out，并可使用调用方指定的 stride。
     mscb = MSCB(in_channels, out_channels, stride, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
-                dw_parallel=dw_parallel, add=add, activation=activation)
+                dw_parallel=dw_parallel, add=add, activation=activation,
+                bounded_deformable=bounded_deformable)
     # 加入第一个 MSCB。
     convs.append(mscb)
     # n>1 时继续堆叠保持 C_out 和 stride=1 的块。
@@ -513,7 +528,8 @@ def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], 
         for i in range(1, n):
             # 后续块均保持通道和空间尺寸。
             mscb = MSCB(out_channels, out_channels, 1, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
-                        dw_parallel=dw_parallel, add=add, activation=activation)
+                        dw_parallel=dw_parallel, add=add, activation=activation,
+                        bounded_deformable=bounded_deformable)
             # 把后续块加入列表。
             convs.append(mscb)
     # Sequential 将列表中的块按顺序执行并注册参数。
@@ -946,7 +962,8 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 bounded_deformable_msdc=False):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -987,7 +1004,7 @@ class EMCAD(nn.Module):
         # 第二级 MSCB 细化，通道保持 channels[2]。
         self.mscb2 = MSCBLayer(channels[2], channels[2], n=1, stride=1, kernel_sizes=kernel_sizes,
                                expansion_factor=expansion_factor, dw_parallel=dw_parallel, add=add,
-                               activation=activation)
+                               activation=activation, bounded_deformable=bounded_deformable_msdc)
 
         # 第一级上采样：channels[2] -> channels[3]，到达编码器最高分辨率特征层。
         # “第一级”仍只到 encoder stage1 的 1/4 尺度；解码器内部没有继续到 1/2 或原图尺度。
@@ -1000,7 +1017,7 @@ class EMCAD(nn.Module):
         # 第一级 MSCB 输出解码器最高分辨率特征 d1。
         self.mscb1 = MSCBLayer(channels[3], channels[3], n=1, stride=1, kernel_sizes=kernel_sizes,
                                expansion_factor=expansion_factor, dw_parallel=dw_parallel, add=add,
-                               activation=activation)
+                               activation=activation, bounded_deformable=bounded_deformable_msdc)
 
         # 四个解码级分别拥有独立 CAB；权重通道与本级特征一致。
         # CAB4/3/2/1 的参数不能共享，因为它们的通道数通常分别为 C4/C3/C2/C1，卷积 shape 不同。
