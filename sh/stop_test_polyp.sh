@@ -20,7 +20,8 @@ RUN_ID="${1:-${RUN_ID:-}}"
 }
 
 # start_test_polyp.sh把后台PID写入项目根的“RUN_ID.pid”，这里用同一规则定位它。
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+source "${PROJECT_DIR}/sh/test_pid_paths.sh"
+PID_FILE="$(locate_test_pid "${PROJECT_DIR}" "${RUN_ID}")"
 
 # 找不到对应PID文件时返回2；此时没有足够证据确定目标进程，不执行任何kill。
 [ -f "${PID_FILE}" ] || {

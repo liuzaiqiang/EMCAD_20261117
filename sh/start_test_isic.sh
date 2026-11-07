@@ -10,8 +10,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 # conda和Python入口支持环境变量覆盖；conda初始化文件缺失时不激活环境。
 CONDA_BASE="${CONDA_BASE:-/base/mambaforge}"
@@ -98,16 +96,20 @@ test -f "${CONFIG_FILE}" || {
 }
 
 # 默认输出目录和CSV放在检查点目录旁，环境变量可覆盖。
-TEST_SAVE_DIR="${TEST_SAVE_DIR:-${CKPT_DIR}/${SPLIT}_${DATASET_NAME}_outputs}"
-OUTPUT_CSV="${OUTPUT_CSV:-${TEST_SAVE_DIR}/${SPLIT}_metrics.csv}"
 
 # 生成唯一RUN_ID并建立日志/PID关联。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-LOG_FILE="${LOG_DIR}/test_${DATASET}_${DATASET_NAME}_${SPLIT}_${TS}.log"
 RUN_ID="test_${DATASET}_${DATASET_NAME}_${SPLIT}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+LOG_DIR="${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将路径、阈值和RUN_ID追加到日志，方便复核本次评估配置。
 echo "[INFO] PROJECT_DIR=${PROJECT_DIR}" | tee -a "${LOG_FILE}" > /dev/null

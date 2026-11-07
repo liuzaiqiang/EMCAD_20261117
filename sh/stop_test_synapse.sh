@@ -43,7 +43,8 @@ RUN_ID="${1:-}"
 
 # 该PID_FILE是相对路径，并随调用者当前目录变化；PROJECT_DIR在当前版本中没有参与定位。
 #PID_FILE="${RUN_ID}.pid"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+source "${PROJECT_DIR}/sh/test_pid_paths.sh"
+PID_FILE="$(locate_test_pid "${PROJECT_DIR}" "${RUN_ID}")"
 # ↑ 这一行根据 run_id 拼出 pid 文件路径。
 # 你的启动脚本会生成：${RUN_ID}.pid，里面只存一个纯数字 PID。
 # 这样“run_id -> pid 文件 -> pid”形成了稳定映射：你只要记住 run_id，就能精确找到对应进程。

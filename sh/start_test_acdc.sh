@@ -11,8 +11,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 # 创建集中保存评估日志的目录；目录已存在时 mkdir -p 仍返回成功。
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 # conda根目录、环境名和Python入口均允许用环境变量覆盖服务器默认值。
 #CONDA_BASE="${CONDA_BASE:-/base/mambaforge}"
@@ -60,16 +58,22 @@ test -f "${LIST_DIR}/test.txt" || { echo "[ERROR] test list not found: ${LIST_DI
 
 # 由检查点目录派生NIfTI/NPZ预测输出目录和逐病例指标CSV，确保结果与对应权重放在一起。
 CKPT_DIR="$(cd "$(dirname "${CKPT}")" && pwd)"
-TEST_SAVE_DIR="${CKPT_DIR}/predictions"
-OUTPUT_CSV="${CKPT_DIR}/test_metrics.csv"
+CKPT="${CKPT_DIR}/$(basename "${CKPT}")"
+[[ -f "${CKPT_DIR}/config.json" ]] || { echo "[ERROR] config.json not found next to CKPT" >&2; exit 1; }
 
 # 时间戳和随机十六进制后缀共同用于区分并发测试；RAND来自系统随机源的6字节数据。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 # 日志名记录数据集与输入尺寸；RUN_ID额外记录GPU、种子和随机后缀，PID文件位于已cd到的项目根目录。
-LOG_FILE="${LOG_DIR}/test_${DATASET}__img${IMG_SIZE}_${TS}.log"
 RUN_ID="test_${DATASET}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-PID_FILE="${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+LOG_DIR="${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将数据、权重、模型输入和运行标识追加到日志；RUN_ID另行打印到终端，供stop_test_acdc.sh使用。
 echo "[INFO] PROJECT_DIR=${PROJECT_DIR}" | tee -a "${LOG_FILE}" > /dev/null
@@ -90,7 +94,7 @@ echo "---------------------------ready to test----------------------------------
 # lgag_ks=3配置LGAG门控卷积核，relu6是MSCB激活。它们必须与训练该CKPT时的结构一致，否则权重形状或语义会不匹配。
 # 这些模块关系见项目所附EMCAD论文的方法与整体架构部分；Shell仅传参，真正组网发生在test_ACDC.py及lib网络模块中。
 # --save_nii和--save_npz分别请求保存医学影像格式预测与数组结果；输出追加日志、错误合并、输入断开并转入后台。
-nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u test_ACDC.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u test_acdc.py \
   --checkpoint "${CKPT}" \
   --root_path "${ROOT_PATH}" \
   --list_dir "${LIST_DIR}" \

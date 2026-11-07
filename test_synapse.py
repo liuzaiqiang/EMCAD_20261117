@@ -10,6 +10,8 @@
 
 # argparse 解析测试路径、网络结构和保存选项。
 import argparse
+import json
+from lib.test_output_paths import prepare_test_output
 # logging 将逐病例与逐类别指标写入文件并同步输出到终端。
 import logging
 # os 负责 checkpoint、日志和预测目录的拼接/创建。
@@ -121,6 +123,22 @@ parser.add_argument(
 
 # 解析命令行并生成全局 args。
 args = parser.parse_args()
+checkpoint_path = os.path.abspath(args.checkpoint)
+if not os.path.isfile(checkpoint_path):
+    raise FileNotFoundError("Checkpoint not found: {}".format(checkpoint_path))
+config_path = os.path.join(os.path.dirname(checkpoint_path), "config.json")
+if not os.path.isfile(config_path):
+    raise FileNotFoundError("Training config not found next to checkpoint: {}".format(config_path))
+with open(config_path, "r", encoding="utf-8") as stream:
+    training_config = json.load(stream)
+if training_config.get("dataset") != "Synapse":
+    raise ValueError("Selected checkpoint is not a Synapse run: {}".format(config_path))
+for key in ("num_classes", "encoder", "expansion_factor", "kernel_sizes", "lgag_ks",
+            "activation_mscb", "no_dw_parallel", "concatenation", "img_size", "seed",
+            "no_pretrain", "pretrained_dir"):
+    if key not in training_config:
+        raise KeyError("Training config missing model/input field: {}".format(key))
+    setattr(args, key, training_config[key])
 
 # 若总类别数为 14，则准备 13 个前景类别名称；背景仍隐含为索引 0。
 if (args.num_classes == 14):
@@ -329,7 +347,7 @@ if __name__ == "__main__":
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir)
+                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 
@@ -339,12 +357,13 @@ if __name__ == "__main__":
     # 首选加载训练过程中按验证Dice选择的 best.pth。
     #snapshot = os.path.join(snapshot_path, 'best.pth')
     
-    snapshot = args.checkpoint
+    snapshot = checkpoint_path
 
     # 打印解析出的 checkpoint 路径，便于发现参数命名不匹配。
     print(">>>>>>snapshot值(包括best.pth要放的位置)：", snapshot)
     # 若 best.pth 不存在，则回退到零基编号的最后 epoch 文件，例如 epoch_299.pth。
-    if not os.path.exists(snapshot): snapshot = snapshot.replace('best', 'epoch_' + str(args.max_epochs - 1))
+    if not os.path.isfile(snapshot):
+        raise FileNotFoundError("Checkpoint not found: {}".format(snapshot))
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     model.load_state_dict(torch.load(snapshot))
     # 以正斜杠切分路径得到内层目录名；在纯 Windows 反斜杠路径上此写法需要留意。
@@ -354,11 +373,15 @@ if __name__ == "__main__":
     snapshot_name = os.path.splitext(os.path.basename(snapshot))[0]
 
     # 测试日志按实验标识放入 test_log/test_log_<exp>。
-    log_folder = 'test_log/test_log_' + args.exp
+    output_dir, _ = prepare_test_output(
+        snapshot, "Synapse_test",
+        args.test_save_dir if args.test_save_dir != "predictions" else None,
+    )
+    log_folder = output_dir
     # 递归创建日志目录，存在时不报错。
     os.makedirs(log_folder, exist_ok=True)
     # 文件名取 snapshot_name；配置时间格式与训练日志一致。
-    logging.basicConfig(filename=log_folder + '/' + snapshot_name + ".txt", level=logging.INFO,
+    logging.basicConfig(filename=os.path.join(log_folder, "test.log"), level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
     # 同时把日志输出到控制台。
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -370,9 +393,9 @@ if __name__ == "__main__":
     # 当前 is_savenii 因 default=True 实际总会进入该分支。
     if args.is_savenii:
         # 把保存根目录改为 checkpoint 目录下的 predictions。
-        args.test_save_dir = os.path.join(snapshot_path, "predictions")
+        args.test_save_dir = os.path.join(output_dir, "predictions")
         # 再按实验标识和 snapshot_name+'2' 建立更深的输出目录；末尾 2 是现有命名约定。
-        test_save_path = os.path.join(args.test_save_dir, args.exp, snapshot_name + '2')
+        test_save_path = args.test_save_dir
         # 创建输出目录；test_single_volume 会在其中写 PNG 和 NIfTI 文件。
         os.makedirs(test_save_path, exist_ok=True)
     # 理论上的不保存分支；以当前参数定义无法通过命令行触发。

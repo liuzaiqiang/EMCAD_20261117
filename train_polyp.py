@@ -8,6 +8,7 @@ import json
 import logging
 # os 负责路径检查、环境变量和文件操作。
 import os
+from lib.experiment_paths import experiment_subpath
 # sys.stdout 接入日志处理器。
 import sys
 # time 统计完整训练耗时。
@@ -300,6 +301,7 @@ def parse_args():
         # 布尔开关。
         action="store_true",
     )
+    parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
     # DataLoader worker数。
     parser.add_argument(
         # 选项名。
@@ -675,6 +677,8 @@ def main():
         split="train",
         # 默认RGB，grayscale时单通道。
         color_image=not args.grayscale,
+        **({"merge_instance_masks": bool(args.merge_instance_masks)}
+           if args.dataset_name in {"DSB18", "EM"} else {}),
         # 随机种子。
         seed=args.seed,
     )
@@ -711,6 +715,8 @@ def main():
         split="val",
         # 通道模式与训练一致。
         color_image=not args.grayscale,
+        **({"merge_instance_masks": bool(args.merge_instance_masks)}
+           if args.dataset_name in {"DSB18", "EM"} else {}),
         # 种子。
         seed=args.seed,
     )
@@ -741,11 +747,18 @@ def main():
         os.path.join(
             args.output_dir,
             args.dataset_name,
-            args.run_name,
+            experiment_subpath(args, args.run_name),
         )
     )
 
-    os.makedirs(run_dir, exist_ok=True)
+    if os.path.exists(run_dir):
+        allowed = {"data_split_manifest.csv", "data_split_summary.json"}
+        if not os.path.isdir(run_dir) or not os.listdir(run_dir) or any(
+            name not in allowed for name in os.listdir(run_dir)
+        ):
+            raise FileExistsError("Training run already contains artifacts: {}".format(run_dir))
+    else:
+        os.makedirs(run_dir, exist_ok=False)
 
     logging.basicConfig(
         filename=os.path.join(

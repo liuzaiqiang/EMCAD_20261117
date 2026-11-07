@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 # Path 构造数据集、清单和运行目录。
 from pathlib import Path
+from lib.experiment_paths import experiment_subpath
 
 # ISIC 训练复用 train_polyp 的模型、损失、优化器和完整训练循环。
 import train_polyp as _base
@@ -216,10 +217,12 @@ def _parse_args():
             # 数据集版本子目录。
             / args.dataset_name
             # 当前运行名子目录。
-            / args.run_name
+            / experiment_subpath(args, args.run_name)
     )
 
     # 创建运行目录及父目录；已存在时不报错。
+    if run_dir.exists():
+        raise FileExistsError("ISIC run directory already exists: {}".format(run_dir))
     run_dir.mkdir(
         # 递归创建。
         parents=True,

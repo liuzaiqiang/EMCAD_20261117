@@ -30,7 +30,7 @@ export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 export PYTHONUNBUFFERED=1
 
 # DATASET用于日志分类，DATASET_NAME选择target目录下的具体息肉数据集，默认ClinicDB。
-DATASET="Polyp"
+DATASET="${DATASET:-Polyp}"
 DATASET_NAME="${DATASET_NAME:-ClinicDB}"
 
 # 训练尺寸、训练/验证批量、epoch、AdamW学习率/权重衰减和梯度值裁剪均可由环境变量覆盖。
@@ -47,6 +47,18 @@ NUM_WORKERS="${NUM_WORKERS:-0}"
 
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
+N_GPU="${N_GPU:-1}"
+MERGE_INSTANCE_MASKS="${MERGE_INSTANCE_MASKS:-0}"
+INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
+USE_MULTI_SCALE_TRAINING="${USE_MULTI_SCALE_TRAINING:-1}"
+case "${MERGE_INSTANCE_MASKS}:${INPUT_CHANNELS}:${USE_MULTI_SCALE_TRAINING}" in
+  [01]:1:[01]|[01]:3:[01]) ;;
+  *) echo "[ERROR] Invalid Cell mask, channel, or multi-scale setting" >&2; exit 2 ;;
+esac
+MULTI_SCALE_ARGS=()
+[[ "${USE_MULTI_SCALE_TRAINING}" == "1" ]] || MULTI_SCALE_ARGS+=(--no_multi_scale)
+IMAGE_MODE_ARGS=()
+[[ "${INPUT_CHANNELS}" == "3" ]] || IMAGE_MODE_ARGS+=(--grayscale)
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 SAVE_EVERY="${SAVE_EVERY:-50}"
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
@@ -140,6 +152,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --expansion_factor "${EXPANSION_FACTOR}" \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
+  --merge_instance_masks "${MERGE_INSTANCE_MASKS}" \
   --supervision "${SUPERVISION}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
   --img_size "${IMG_SIZE}" \
@@ -160,6 +173,8 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --max_train_batches "${MAX_TRAIN_BATCHES}" \
   --max_valid_cases "${MAX_VALID_CASES}" \
   --device "${DEVICE}" \
+  "${MULTI_SCALE_ARGS[@]}" \
+  "${IMAGE_MODE_ARGS[@]}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 # $!取得最近后台进程PID；写入PID文件后，stop_train_polyp.sh会同时校验PID和RUN_ID再停止。

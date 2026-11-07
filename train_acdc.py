@@ -24,6 +24,7 @@ import os
 import sys
 # datetime 为自动 run_name 生成时间戳。
 from datetime import datetime
+from lib.experiment_paths import experiment_subpath
 
 # NumPy 负责验证均值、训练 epoch 平均损失及 worker 随机种子。
 import numpy as np
@@ -305,9 +306,9 @@ def main():
         # 时间格式精确到秒；同一秒并发启动仍可能重名。
         args.run_name = "acdc_{}".format(datetime.now().strftime("%Y%m%d_%H%M%S"))
     # 本次实验目录=<output_dir>/<run_name>。
-    snapshot_path = os.path.join(args.output_dir, args.run_name)
+    snapshot_path = os.path.join(args.output_dir, experiment_subpath(args, args.run_name))
     # 递归创建目录；已存在时复用。
-    os.makedirs(snapshot_path, exist_ok=True)
+    os.makedirs(snapshot_path, exist_ok=False)
 
     # 配置文件日志，写入本实验 train.log。
     logging.basicConfig(

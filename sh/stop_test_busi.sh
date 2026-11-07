@@ -20,7 +20,8 @@ if [[ -z "${RUN_ID}" ]]; then
 fi
 
 # 根据测试启动器的命名规则定位项目根下唯一的“RUN_ID.pid”文件。
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+source "${PROJECT_DIR}/sh/test_pid_paths.sh"
+PID_FILE="$(locate_test_pid "${PROJECT_DIR}" "${RUN_ID}")"
 
 # 没有对应文件时返回2，因为无法证明某个PID属于用户指定的这次测试。
 if [[ ! -f "${PID_FILE}" ]]; then

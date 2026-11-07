@@ -8,6 +8,7 @@ import logging
 import math
 # os 负责路径拼接、绝对路径解析和目录创建。
 import os
+from lib.test_output_paths import prepare_test_output
 # sys.stdout 用作日志流处理器目标。
 import sys
 # Path 用于按扩展名扫描指定数据划分的图像 stem。
@@ -237,6 +238,7 @@ def parse_args():
         # 布尔开关。
         action="store_true",
     )
+    parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
     # 除二值掩膜外同时保存 8 位概率可视化图。
     parser.add_argument(
         # 选项名。
@@ -314,6 +316,18 @@ def _json_safe(value):
 def main():
     # 读取命令行参数。
     args = parse_args()
+    config_path = Path(args.checkpoint).resolve().parent / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError("Training config not found: {}".format(config_path))
+    with config_path.open("r", encoding="utf-8") as stream:
+        training_config = json.load(stream)
+    for key in ("encoder", "kernel_sizes", "expansion_factor", "lgag_ks",
+                "activation_mscb", "no_dw_parallel", "concatenation", "img_size",
+                "grayscale"):
+        if key not in training_config:
+            raise KeyError("Training config missing model/input field: {}".format(key))
+        setattr(args, key, training_config[key])
+    args.merge_instance_masks = training_config.get("merge_instance_masks", 0)
 
     # 在任何模型构建前先确认 checkpoint 路径指向现有普通文件。
     if not os.path.isfile(args.checkpoint):
@@ -463,6 +477,8 @@ def main():
         split=args.split,
         # 默认读取 RGB；--grayscale 时改为单通道。
         color_image=not args.grayscale,
+        **({"merge_instance_masks": bool(args.merge_instance_masks)}
+           if args.dataset_name in {"DSB18", "EM"} else {}),
         # 传给 worker 初始化和数据顺序控制。
         seed=args.seed,
     )
@@ -470,43 +486,12 @@ def main():
     # 将检查点统一为绝对路径，写入报告后不依赖运行时工作目录。
     checkpoint = os.path.abspath(args.checkpoint)
     # 取检查点父目录作为默认输出位置的基准。
-    checkpoint_dir = os.path.dirname(checkpoint)
-
-    # 解析最终输出目录。
-    output_dir = os.path.abspath(
-        # 优先使用命令行显式路径；否则自动拼接划分和数据集名。
-        args.output_dir
-        # Python or 在左值为 None/空字符串时采用右侧默认值。
-        or os.path.join(
-            # 检查点目录。
-            checkpoint_dir,
-            # 目录名如 test_ClinicDB_outputs。
-            "{}_{}_outputs".format(
-                # val/test。
-                args.split,
-                # 数据集名。
-                args.dataset_name,
-            ),
-        )
+    output_dir, output_csv = prepare_test_output(
+        checkpoint, "{}_{}".format(args.dataset_name, args.split),
+        args.output_dir, args.output_csv,
+        allow_prepared=getattr(args, "_manifest_prepared", False),
     )
 
-    # 解析最终指标 CSV 路径。
-    output_csv = os.path.abspath(
-        # 优先使用显式 --output_csv。
-        args.output_csv
-        # 未指定时放到输出目录内。
-        or os.path.join(
-            # 评估输出目录。
-            output_dir,
-            # 固定 CSV 文件名。
-            "test_metrics.csv",
-        )
-    )
-
-    # 创建输出目录；已存在时不报错。
-    os.makedirs(output_dir, exist_ok=True)
-
-    # 初始化根日志配置。
     logging.basicConfig(
         # 文件日志写入 output_dir/test.log。
         filename=os.path.join(

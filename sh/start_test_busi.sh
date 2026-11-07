@@ -11,8 +11,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 # 测试进程的标准输出和标准错误统一写入项目 logs 目录；-p 允许目录已存在。
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 # 三个入口均可由同名环境变量覆盖，便于适配不同服务器的 conda 安装位置、环境名和 Python 命令。
 #CONDA_BASE="${CONDA_BASE:-/base/mambaforge}"
@@ -107,8 +105,6 @@ if [[ ! -f "${CONFIG_FILE}" ]]; then
 fi
 
 # 默认把预测、概率图和逐病例指标放在检查点目录旁；两个路径都可由环境变量单独覆盖。
-TEST_SAVE_DIR="${TEST_SAVE_DIR:-${CKPT_DIR}/${SPLIT}_BUSI_outputs}"
-OUTPUT_CSV="${OUTPUT_CSV:-${TEST_SAVE_DIR}/${SPLIT}_metrics.csv}"
 
 # 秒级时间戳配合6字节随机数生成唯一后缀，降低同一秒并发评估时文件重名的概率。
 TS="$(date +%F_%H%M%S)"
@@ -116,8 +112,14 @@ RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 # RUN_ID 把任务类型、数据集、划分、时间、GPU、种子和随机后缀串联起来，并关联日志与PID文件。
 RUN_ID="test_${DATASET}_${SPLIT}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-LOG_FILE="${LOG_DIR}/${RUN_ID}.log"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+LOG_DIR="${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # tee -a 将本次评估的关键路径和参数追加到日志；重定向到 /dev/null 避免每项在终端重复显示。
 # MODEL_CONFIG 这一记录强调网络结构来自检查点旁的 config.json；RUN_ID 单独打印供停止脚本使用。

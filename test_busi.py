@@ -8,6 +8,7 @@ import shutil
 import sys
 # Path 解析检查点、配置、数据和输出路径。
 from pathlib import Path
+from lib.test_output_paths import checkpoint_output_dir
 
 # BUSI 复用 test_polyp 的模型、推理、二分类指标和结果保存流程。
 import test_polyp as _base
@@ -537,28 +538,18 @@ def _parse_args():
         )
 
     # 使用显式输出目录，或在检查点旁按split生成默认目录。
-    output_dir = Path(
-        # 用户值优先。
-        args.output_dir
-        # 否则构造默认。
-        or (
-            # 检查点运行目录。
-                checkpoint.parent
-                # 追加目录名。
-                / "{}_BUSI_outputs".format(
-            # val/test。
-            args.split
-        )
-        )
-        # 规范绝对路径。
-    ).resolve()
+    output_dir = checkpoint_output_dir(
+        checkpoint, "BUSI_{}_{}".format(args.dataset_name, args.split), args.output_dir
+    )
+    args.output_dir = str(output_dir)
+    args._manifest_prepared = True
 
     # 创建输出目录。
     output_dir.mkdir(
         # 递归。
         parents=True,
         # 可复用空/已有目录。
-        exist_ok=True,
+        exist_ok=False,
     )
 
     # 复制 manifest 作为评测证据。

@@ -40,7 +40,8 @@ num_classes=9
 encoder=pvt_v2_b2
 #它控制 MSCB 模块中间隐藏通道的扩展倍数。
 expansion_factor=2
-kernel_sizes=[1, 3, 5]
+KERNEL_SIZES=(1 3 5)
+kernel_sizes="1-3-5"
 lgag_ks=3
 activation_mscb=relu6
 
@@ -114,7 +115,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --num_classes "${num_classes}" \
   --encoder "${encoder}" \
   --expansion_factor "${expansion_factor}" \
-  --kernel_sizes "${kernel_sizes}" \
+  --kernel_sizes "${KERNEL_SIZES[@]}" \
   --lgag_ks "${lgag_ks}" \
   --activation_mscb "${activation_mscb}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &

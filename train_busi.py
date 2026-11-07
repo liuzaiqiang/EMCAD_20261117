@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 # Path 构造 BUSI 数据和输出目录。
 from pathlib import Path
+from lib.experiment_paths import experiment_subpath
 
 # BUSI 复用 train_polyp 的 EMCAD 模型、二分类损失和训练循环。
 import train_polyp as _base
@@ -421,7 +422,7 @@ def _parse_args():
             # BUSI 子目录。
             / args.dataset_name
             # 当前运行名。
-            / args.run_name
+            / experiment_subpath(args, args.run_name)
     )
 
     # 已有非空目录意味着可能覆盖旧实验，直接拒绝。

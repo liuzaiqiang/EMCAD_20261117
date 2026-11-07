@@ -9,8 +9,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 # conda/Python入口允许由外部环境变量覆盖；初始化脚本不存在时沿用当前环境。
 CONDA_BASE="${CONDA_BASE:-/base/mambaforge}"
@@ -27,7 +25,7 @@ export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 export PYTHONUNBUFFERED=1
 
 # DATASET_NAME选择具体息肉数据集，SPLIT只允许val或test。
-DATASET="Polyp"
+DATASET="${DATASET:-Polyp}"
 DATASET_NAME="${DATASET_NAME:-ClinicDB}"
 SPLIT="${SPLIT:-test}"
 
@@ -89,18 +87,23 @@ test -d "${DATA_ROOT}/${DATASET_NAME}/${SPLIT}/masks" || {
 # 把检查点目录和文件名规范成绝对路径，避免后台进程受工作目录变化影响。
 CKPT_DIR="$(cd "$(dirname "${CKPT}")" && pwd)"
 CKPT="${CKPT_DIR}/$(basename "${CKPT}")"
+[[ -f "${CKPT_DIR}/config.json" ]] || { echo "[ERROR] config.json not found next to CKPT" >&2; exit 1; }
 
 # 默认把预测、概率图和CSV写在检查点旁边，便于模型与结果一一对应。
-TEST_SAVE_DIR="${TEST_SAVE_DIR:-${CKPT_DIR}/${SPLIT}_${DATASET_NAME}_outputs}"
-OUTPUT_CSV="${OUTPUT_CSV:-${TEST_SAVE_DIR}/test_metrics.csv}"
 
 # 时间戳和随机后缀生成唯一RUN_ID、日志名和PID文件。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-LOG_FILE="${LOG_DIR}/test_${DATASET}_${DATASET_NAME}_${SPLIT}__img${IMG_SIZE}_${TS}.log"
 RUN_ID="test_${DATASET}_${DATASET_NAME}_${SPLIT}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+LOG_DIR="${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 把实际解析后的路径写入日志；RUN_ID同时显示在终端。
 echo "[INFO] PROJECT_DIR=${PROJECT_DIR}" | tee -a "${LOG_FILE}" > /dev/null

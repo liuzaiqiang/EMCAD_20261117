@@ -15,6 +15,7 @@ from datetime import datetime
 import logging
 # os 用于检查并创建保存权重和日志的实验目录。
 import os
+import json
 # random 控制 Python 标准库层面的随机数据增强选择。
 import random
 # NumPy 用于设置其独立随机数生成器的种子。
@@ -28,6 +29,7 @@ import torch.backends.cudnn as cudnn
 
 # EMCADNet 封装“编码器 + EMCAD 解码器 + 四个分割头”；结构细节在 lib/networks.py。
 from lib.networks import EMCADNet
+from lib.experiment_paths import make_experiment_dir
 # trainer_synapse 承担 DataLoader、损失、反向传播、验证和 checkpoint 保存。
 from trainer import trainer_synapse
 
@@ -207,19 +209,9 @@ if __name__ == "__main__":
 
     # 简化后的snapshot_path Windows/Linux 通用
     # exp_name = f"run_seed{args.seed}"
-    exp_name = os.path.join(
-        f"{args.dataset}",
-        f"encoder_{args.encoder}",
-        f"img_size_{args.img_size}",
-        f"seed{args.seed}",
-        f"batch_size_{args.batch_size}",
-        f"lr_{args.base_lr}",
-        f"maxEpochs_{args.max_epochs}",
-    )
-    snapshot_path = os.path.join("model_pth", exp_name)
-
-    if not os.path.exists(snapshot_path):
-        os.makedirs(snapshot_path)
+    snapshot_path = make_experiment_dir(args, "Synapse")
+    with open(os.path.join(snapshot_path, "config.json"), "w", encoding="utf-8") as stream:
+        json.dump({**vars(args), "run_dir": snapshot_path}, stream, ensure_ascii=False, indent=2)
 
     # 创建完整分割网络：这些参数会继续传入 EMCAD 解码器，决定真正的模型结构。
     # 对 Synapse，num_classes=9，所以四个预测头各输出 9 通道原始 logits；这里不做 softmax。

@@ -13,10 +13,12 @@
 import argparse
 # csv 把逐病例和总体指标写成结构化表格。
 import csv
+import json
 # logging 同时记录参数与逐病例指标。
 import logging
 # os 拼接并创建 checkpoint、日志、CSV、预测目录。
 import os
+from lib.test_output_paths import prepare_test_output
 # sys.stdout 用于把日志同步显示在终端。
 import sys
 
@@ -150,6 +152,16 @@ def write_csv(path, rows):
 def main():
     # 读取命令行配置。
     args = parse_args()
+    config_path = Path(args.checkpoint).resolve().parent / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError("Training config not found: {}".format(config_path))
+    with config_path.open("r", encoding="utf-8") as stream:
+        training_config = json.load(stream)
+    for key in ("encoder", "kernel_sizes", "expansion_factor", "lgag_ks",
+                "activation_mscb", "no_dw_parallel", "concatenation", "img_size"):
+        if key not in training_config:
+            raise KeyError("Training config missing model/input field: {}".format(key))
+        setattr(args, key, training_config[key])
     # 列出测试前必须存在的 checkpoint、测试目录和划分清单。
     required = [
         # 模型权重。
@@ -179,11 +191,9 @@ def main():
     model.to(device).eval()
 
     # checkpoint_dir 是权重文件所在实验目录。
-    checkpoint_dir = os.path.dirname(os.path.abspath(args.checkpoint))
-    # 未指定 output_dir 时在实验目录下创建 predictions。
-    output_dir = args.output_dir or os.path.join(checkpoint_dir, "predictions")
-    # 未指定 output_csv 时在实验目录根部写 test_metrics.csv。
-    output_csv = args.output_csv or os.path.join(checkpoint_dir, "test_metrics.csv")
+    output_dir, output_csv = prepare_test_output(
+        args.checkpoint, "ACDC_test", args.output_dir, args.output_csv
+    )
     # 创建预测/日志目录。
     os.makedirs(output_dir, exist_ok=True)
     # 创建 CSV 父目录；abspath 保证即使只给文件名也能得到有效目录。
