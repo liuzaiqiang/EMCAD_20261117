@@ -109,6 +109,11 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+USE_CONTEXT_DETAIL_REFINEMENT="${USE_CONTEXT_DETAIL_REFINEMENT:-0}"
+case "${USE_CONTEXT_DETAIL_REFINEMENT}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTEXT_DETAIL_REFINEMENT must be 0 or 1" >&2; exit 2 ;;
+esac
 
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
@@ -148,6 +153,7 @@ PARAM_NAMES=(
   NUM_WORKERS
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
+  USE_CONTEXT_DETAIL_REFINEMENT
   CAA_RESIDUAL_SCALE
 )
 
@@ -183,6 +189,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --use_context_detail_refinement "${USE_CONTEXT_DETAIL_REFINEMENT}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

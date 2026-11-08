@@ -62,7 +62,7 @@ class EMCADNet(nn.Module):
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/',
-                 caa_mode='off', caa_residual_scale=0.1):
+                 caa_mode='off', caa_residual_scale=0.1, use_context_detail_refinement=0):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -217,6 +217,12 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        self.use_context_detail_refinement = bool(use_context_detail_refinement)
+        if self.use_context_detail_refinement:
+            from lib.context_detail_refinement import ContextDetailRefinement
+            # Construct after the original heads so their initialization and
+            # the disabled model's state_dict remain exactly as before.
+            self.context_detail_refinement = ContextDetailRefinement(channels[3], channels[2])
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -227,6 +233,12 @@ class EMCADNet(nn.Module):
     # -------------------------------------------------------------------------
     # 输入 x 约定为 (B,C,H,W)；mode 当前不改变返回值，训练策略由外部 trainer 决定。
     def forward(self, x, mode='test'):
+        original_size = x.shape[-2:]
+        if self.use_context_detail_refinement:
+            pad_h = (-original_size[0]) % 32
+            pad_w = (-original_size[1]) % 32
+            if pad_h or pad_w:
+                x = F.pad(x, (0, pad_w, 0, pad_h), mode='replicate')
         # 只在 C=1 时使用可学习适配器；已经是 RGB/C=3 时直接送入编码器。
         if x.size()[1] == 1:
             # (B,1,H,W) -> (B,3,H,W)，空间尺寸保持不变。
@@ -253,7 +265,9 @@ class EMCADNet(nn.Module):
         # d2 位于 H/8，产生 p2。
         p2 = self.out_head2(dec_outs[2])
         # d1 位于 H/4，产生代码命名的 p1；它是实际推理采用的最高分辨率解码头。
-        p1 = self.out_head1(dec_outs[3])
+        fine = (self.context_detail_refinement(dec_outs[3], dec_outs[2])
+                if self.use_context_detail_refinement else dec_outs[3])
+        p1 = self.out_head1(fine)
 
         # 这里使用 scale_factor 而非显式 size=x.shape[-2:]，所以代码假设输入尺寸经过四次下采样后能被这些倍率精确还原。
         # 352 可被 32 整除，四个输出都会严格回到 352x352；若 H/W 不是 32 的合适倍数，卷积取整可能使放大后尺寸偏离原图。
@@ -267,6 +281,9 @@ class EMCADNet(nn.Module):
         p2 = F.interpolate(p2, scale_factor=8, mode='bilinear')
         # p1 固定放大 4 倍；四个结果现在均为 (B,K,H,W)。
         p1 = F.interpolate(p1, scale_factor=4, mode='bilinear')
+        if self.use_context_detail_refinement and p1.shape[-2:] != original_size:
+            p4, p3, p2, p1 = [p[..., :original_size[0], :original_size[1]]
+                              for p in (p4, p3, p2, p1)]
 
         # 论文第5页 Sec.3.3 把最后解码阶段称为 p4；本代码按反方向编号，外部推理实际取返回列表 P[-1]，即这里的 p1。
         if mode == 'test':

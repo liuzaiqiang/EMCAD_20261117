@@ -91,6 +91,7 @@ ARCHITECTURE_OPTIONS = {
     ),
     "caa_mode": "--caa_mode",
     "caa_residual_scale": "--caa_residual_scale",
+    "use_context_detail_refinement": "--use_context_detail_refinement",
     # 输入尺寸。
     "img_size": "--img_size",
     # 灰度模式。
@@ -260,7 +261,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 缺字段无法确定 state_dict shape。
-        if field not in config and field not in {"caa_mode", "caa_residual_scale"}:
+        if field not in config and field not in {"caa_mode", "caa_residual_scale", "use_context_detail_refinement"}:
             # 报告字段。
             raise RuntimeError(
                 # 错误正文。
@@ -275,7 +276,8 @@ def _parse_args():
         # 规范保存值。
         configured = _normalized(
             # config值。
-            config.get(field, "off" if field == "caa_mode" else 0.1)
+            config.get(field, 0 if field == "use_context_detail_refinement" else
+                       ("off" if field == "caa_mode" else 0.1))
         )
         # 规范当前命令行解析值。
         current = _normalized(

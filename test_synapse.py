@@ -104,6 +104,7 @@ parser.add_argument('--train_config', type=str, default='',
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'])
 parser.add_argument('--caa_residual_scale', type=float, default=0.1)
+parser.add_argument('--use_context_detail_refinement', type=int, choices=[0, 1], default=0)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
@@ -128,6 +129,11 @@ parser.add_argument('--deterministic', type=int, default=1, help='whether use de
 parser.add_argument('--seed', type=int, default=2222, help='random seed')
 # 解析命令行并生成全局 args。
 args = parser.parse_args()
+if args.checkpoint:
+    checkpoint_config = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), 'config.json')
+    if args.train_config and os.path.abspath(args.train_config) != checkpoint_config:
+        raise ValueError('Training config must be next to the selected checkpoint: {}'.format(checkpoint_config))
+    args.train_config = checkpoint_config
 
 # 训练入口会在每个实验目录保存完整 config.json；测试时优先读取这些已落盘的真实参数。
 # 只覆盖模型结构与推理相关参数，不覆盖测试 checkpoint、测试数据路径或数据集选择。
@@ -138,10 +144,17 @@ if args.train_config:
         training_config = json.load(config_stream)
     if training_config.get('dataset', 'Synapse') != 'Synapse':
         raise ValueError('The selected training config is not for Synapse: {}'.format(args.train_config))
+    saved_refinement = training_config.get('use_context_detail_refinement', 0)
+    if any(token == '--use_context_detail_refinement' or
+           token.startswith('--use_context_detail_refinement=') for token in sys.argv[1:]):
+        if args.use_context_detail_refinement != saved_refinement:
+            raise RuntimeError('--use_context_detail_refinement conflicts with checkpoint config')
+    args.use_context_detail_refinement = saved_refinement
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
         'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
+        'use_context_detail_refinement',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -370,7 +383,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     use_context_detail_refinement=args.use_context_detail_refinement)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 
