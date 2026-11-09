@@ -104,7 +104,6 @@ parser.add_argument('--train_config', type=str, default='',
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'])
 parser.add_argument('--caa_residual_scale', type=float, default=0.1)
-parser.add_argument('--class_aware_prototype', type=int, choices=[0, 1], default=0)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
@@ -132,8 +131,6 @@ args = parser.parse_args()
 
 # 训练入口会在每个实验目录保存完整 config.json；测试时优先读取这些已落盘的真实参数。
 # 只覆盖模型结构与推理相关参数，不覆盖测试 checkpoint、测试数据路径或数据集选择。
-if args.checkpoint and not args.train_config:
-    args.train_config = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), 'config.json')
 if args.train_config:
     if not os.path.isfile(args.train_config):
         raise FileNotFoundError('Training config not found: {}'.format(args.train_config))
@@ -141,17 +138,10 @@ if args.train_config:
         training_config = json.load(config_stream)
     if training_config.get('dataset', 'Synapse') != 'Synapse':
         raise ValueError('The selected training config is not for Synapse: {}'.format(args.train_config))
-    saved_prototype = int(training_config.get('class_aware_prototype', 0))
-    if any(token == '--class_aware_prototype' or token.startswith('--class_aware_prototype=')
-           for token in sys.argv[1:]) and args.class_aware_prototype != saved_prototype:
-        raise RuntimeError('--class_aware_prototype conflicts with checkpoint config: requested={} saved={}'.format(
-            args.class_aware_prototype, saved_prototype))
-    args.class_aware_prototype = saved_prototype
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
         'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
-        'class_aware_prototype',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -380,8 +370,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
-                     class_aware_prototype=bool(args.class_aware_prototype))
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

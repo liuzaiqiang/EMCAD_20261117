@@ -107,11 +107,6 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_CLASS_AWARE_PROTOTYPE="${USE_CLASS_AWARE_PROTOTYPE:-0}"
-case "${USE_CLASS_AWARE_PROTOTYPE}" in
-  0|1) ;;
-  *) echo "[ERROR] USE_CLASS_AWARE_PROTOTYPE must be 0 or 1" >&2; exit 2 ;;
-esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -152,7 +147,6 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   USE_CONTENT_AWARE_ANTIALIAS
-  USE_CLASS_AWARE_PROTOTYPE
   CAA_MODE
   CAA_RESIDUAL_SCALE
 )
@@ -189,7 +183,6 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
-  --class_aware_prototype "${USE_CLASS_AWARE_PROTOTYPE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 
