@@ -97,6 +97,7 @@ def parse_args():
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--class_aware_prototype", type=int, choices=[0, 1], default=0)
 
     # 每张切片进入模型前缩放到的正方形尺寸，须与训练设置相符。
     parser.add_argument("--img_size", type=int, default=256)
@@ -140,13 +141,14 @@ def restore_checkpoint_config(args):
         "concatenation": "--concatenation",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "class_aware_prototype": "--class_aware_prototype",
         "img_size": "--img_size",
     }
     for field, option in options.items():
-        if field not in config:
+        if field not in config and field != "class_aware_prototype":
             continue
         requested = getattr(args, field)
-        configured = config[field]
+        configured = config.get(field, 0)
         explicit = any(
             token == option or token.startswith(option + "=")
             for token in sys.argv[1:]
