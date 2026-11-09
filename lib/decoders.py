@@ -11,6 +11,7 @@ import math
 from timm.models.layers import trunc_normal_tf_
 # named_apply 会递归访问当前模块及其子模块，并把模块名称一并传给初始化函数。
 from timm.models.helpers import named_apply
+from lib.small_target_scale_enhancement import SmallTargetScaleEnhancement
 
 
 # ==================================================================================================
@@ -946,7 +947,8 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 small_target_scale_enhancement=False):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -1015,6 +1017,11 @@ class EMCAD(nn.Module):
         # SAB 不依赖通道数，因此四个解码级共享同一个 7x7 空间注意力模块及其参数。
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
+        self.small_target_scale_enhancement = bool(small_target_scale_enhancement)
+        if self.small_target_scale_enhancement:
+            self.small_target3 = SmallTargetScaleEnhancement(channels[1])
+            self.small_target2 = SmallTargetScaleEnhancement(channels[2])
+            self.small_target1 = SmallTargetScaleEnhancement(channels[3])
 
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
@@ -1055,6 +1062,8 @@ class EMCAD(nn.Module):
         d3 = self.sab(d3) * d3
         # 第三级多尺度卷积细化；输出形状保持不变。
         d3 = self.mscb3(d3)
+        if self.small_target_scale_enhancement:
+            d3 = self.small_target3(d3)
 
         # EUCB2
         # 再次二倍上采样并执行 C3 -> C2；PVTv2-B2 为 320 -> 128。
@@ -1078,6 +1087,8 @@ class EMCAD(nn.Module):
         d2 = self.sab(d2) * d2
         # 第二级多尺度卷积细化。
         d2 = self.mscb2(d2)
+        if self.small_target_scale_enhancement:
+            d2 = self.small_target2(d2)
 
         # EUCB1
         # 最后一次二倍上采样并执行 C2 -> C1；PVTv2-B2 为 128 -> 64。
@@ -1101,6 +1112,8 @@ class EMCAD(nn.Module):
         # 最高分辨率解码特征的最终多尺度卷积细化。
         # 此行结束后 d1 通道仍是 channels[3]；类别数 num_classes 不在本类中出现。
         d1 = self.mscb1(d1)
+        if self.small_target_scale_enhancement:
+            d1 = self.small_target1(d1)
 
         # 返回顺序固定为从深到浅 [d4,d3,d2,d1]；网络封装器据此连接四个分割头。
         # 返回 list 而不是只返回 d1，是为了支持 deep supervision/mutation 等多输出训练策略；

@@ -107,6 +107,11 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_SMALL_TARGET_SCALE_ENHANCEMENT="${USE_SMALL_TARGET_SCALE_ENHANCEMENT:-0}"
+case "${USE_SMALL_TARGET_SCALE_ENHANCEMENT}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_SMALL_TARGET_SCALE_ENHANCEMENT must be 0 or 1" >&2; exit 2 ;;
+esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -147,6 +152,7 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   USE_CONTENT_AWARE_ANTIALIAS
+  USE_SMALL_TARGET_SCALE_ENHANCEMENT
   CAA_MODE
   CAA_RESIDUAL_SCALE
 )
@@ -183,6 +189,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --small_target_scale_enhancement "${USE_SMALL_TARGET_SCALE_ENHANCEMENT}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 
