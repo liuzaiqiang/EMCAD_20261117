@@ -163,6 +163,7 @@ def parse_args():
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--connectivity_feature_gate", type=int, choices=[0, 1], default=0)
 
     # 推理输入的统一正方形边长。
     parser.add_argument(
@@ -286,13 +287,14 @@ def restore_checkpoint_model_options(args):
         "grayscale": "--grayscale",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "connectivity_feature_gate": "--connectivity_feature_gate",
         "merge_instance_masks": "--merge_instance_masks",
     }
     for field, option in options.items():
-        if field not in config:
+        if field not in config and field != "connectivity_feature_gate":
             continue
         requested = getattr(args, field)
-        configured = config[field]
+        configured = config.get(field, 0)
         explicitly_given = any(
             token == option or token.startswith(option + "=")
             for token in sys.argv[1:]
