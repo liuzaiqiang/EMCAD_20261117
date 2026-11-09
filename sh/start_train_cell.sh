@@ -65,6 +65,11 @@ export N_GPU="${N_GPU:-1}"
 
 # Cell uses the shared binary trainer and exposes its CAA switch here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-0}"
+case "${USE_SKIP_FREQUENCY_GATE}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_SKIP_FREQUENCY_GATE must be 0 or 1" >&2; exit 2 ;;
+esac
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
