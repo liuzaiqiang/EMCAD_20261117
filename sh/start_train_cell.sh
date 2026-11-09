@@ -24,8 +24,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Cell 数据根默认位于仓库同级的 data/cell/target；集群使用其他挂载点时可传 DATA_ROOT 覆盖。
-export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/cell/target}"
+# Cell 数据根默认位于项目上四级的 data/cell/target；集群使用其他挂载点时可传 DATA_ROOT 覆盖。
+export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/cell/target}"
 
 # 固定系列标签为 Cell，让训练日志和模型输出不会混入 Polyp 目录。
 export DATASET="Cell"
@@ -65,6 +65,11 @@ export N_GPU="${N_GPU:-1}"
 
 # Cell uses the shared binary trainer and exposes its CAA switch here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_FOREGROUND_BACKGROUND_ATTENTION="${USE_FOREGROUND_BACKGROUND_ATTENTION:-0}"
+case "${USE_FOREGROUND_BACKGROUND_ATTENTION}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_FOREGROUND_BACKGROUND_ATTENTION must be 0 or 1" >&2; exit 2 ;;
+esac
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;

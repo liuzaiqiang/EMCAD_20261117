@@ -946,7 +946,8 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 use_foreground_background_attention=0):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -1015,6 +1016,16 @@ class EMCAD(nn.Module):
         # SAB 不依赖通道数，因此四个解码级共享同一个 7x7 空间注意力模块及其参数。
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
+        self.use_foreground_background_attention = bool(use_foreground_background_attention)
+        if self.use_foreground_background_attention:
+            from lib.foreground_background_attention import ForegroundBackgroundDecoupledAttention
+            # Preserve the seeded initialization of all original modules and
+            # the four segmentation heads created after this decoder.
+            with torch.random.fork_rng(devices=[]):
+                self.foreground_background_attention = nn.ModuleList(
+                    ForegroundBackgroundDecoupledAttention(channel)
+                    for channel in channels[1:]
+                )
 
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
@@ -1046,6 +1057,8 @@ class EMCAD(nn.Module):
         # 解码特征与筛选后的 skip 逐元素相加，不采用通道拼接，因此 d3 仍为 C3。
         # 相比 concat，相加不会把通道翻倍，也不需要额外卷积立即降维；代价是两路必须提前严格对齐 shape。
         d3 = d3 + x3
+        if self.use_foreground_background_attention:
+            d3 = self.foreground_background_attention[0](d3)
 
         # MSCAM3
         # 第三级通道注意力。
@@ -1070,6 +1083,8 @@ class EMCAD(nn.Module):
         # 与门控 skip 相加，形状保持 (B,C2,H/8,W/8)。
         # 这一层重复 d3 的融合范式，使网络逐级把高层语义与更高分辨率边缘信息结合。
         d2 = d2 + x2
+        if self.use_foreground_background_attention:
+            d2 = self.foreground_background_attention[1](d2)
 
         # MSCAM2
         # 第二级通道注意力。
@@ -1092,6 +1107,8 @@ class EMCAD(nn.Module):
         # Additive aggregation 1
         # 相加后 d1 保持 (B,C1,H/4,W/4)。
         d1 = d1 + x1
+        if self.use_foreground_background_attention:
+            d1 = self.foreground_background_attention[2](d1)
 
         # MSCAM1
         # 第一级通道注意力。
