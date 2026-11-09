@@ -101,6 +101,7 @@ def build_model(args, pretrain):
         pretrained_dir=args.pretrained_dir,
         # 将内容感知抗混叠模式传给 EMCAD 的 EUCB 上采样路径。
         caa_mode=args.caa_mode,
+        dynamic_receptive_field_lgag=args.dynamic_receptive_field_lgag,
         # 内容门控残差初始强度；关闭 CAA 时 EUCB 沿用基础模型结构。
         caa_residual_scale=args.caa_residual_scale,
     )

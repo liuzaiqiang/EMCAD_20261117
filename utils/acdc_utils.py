@@ -69,6 +69,7 @@ def build_model(args, pretrain):
         pretrained_dir=args.pretrained_dir,
         # CAA 结构和残差初始尺度必须与训练 checkpoint 一致。
         caa_mode=args.caa_mode,
+        dynamic_receptive_field_lgag=args.dynamic_receptive_field_lgag,
         caa_residual_scale=args.caa_residual_scale,
     )
 

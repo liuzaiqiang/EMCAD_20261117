@@ -943,15 +943,50 @@ class SAB(nn.Module):
 #   EUCB 的核固定为 3、激活固定采用其默认 ReLU；CAB/LGAG 的激活也使用各类默认 ReLU；
 #   num_classes、encoder、pretrain 都不属于 EMCAD，由 lib/networks.py 管理。
 # ==================================================================================================
+class DynamicReceptiveFieldLGAG(LGAG):
+    """LGAG with spatially selected 3/5/7 receptive fields on its gate logits.
+
+    The zero-initialized residual scale makes the initial gate identical to LGAG.
+    This class is instantiated only when the independent ablation switch is on.
+    """
+
+    def __init__(self, F_g, F_l, F_int, kernel_size=3, groups=1, activation='relu'):
+        super().__init__(F_g, F_l, F_int, kernel_size, groups, activation)
+        self.rf_branches = nn.ModuleList(
+            nn.Conv2d(F_int, F_int, k, padding=k // 2, groups=F_int, bias=False)
+            for k in (3, 5, 7)
+        )
+        self.rf_select = nn.Conv2d(F_int, 3, kernel_size=1)
+        self.rf_delta = nn.Conv2d(F_int, 1, kernel_size=1)
+        self.rf_scale = nn.Parameter(torch.zeros(()))
+
+    def forward(self, g, x):
+        fused = self.activation(self.W_g(g) + self.W_x(x))
+        weights = torch.softmax(self.rf_select(fused), dim=1)
+        mixed = sum(
+            branch(fused) * weights[:, i:i + 1]
+            for i, branch in enumerate(self.rf_branches)
+        )
+        # Reuse the original projection and normalization. Only its sigmoid is
+        # delayed until the receptive-field correction has been added.
+        logits = self.psi[1](self.psi[0](fused))
+        logits = logits + torch.tanh(self.rf_scale) * torch.tanh(self.rf_delta(mixed))
+        return x * self.psi[2](logits)
+
+
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 dynamic_receptive_field_lgag=0):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
         # 初始化基础模块。
         super(EMCAD, self).__init__()
+        if dynamic_receptive_field_lgag not in (0, 1):
+            raise ValueError('dynamic_receptive_field_lgag must be 0 or 1')
+        lgag_class = DynamicReceptiveFieldLGAG if dynamic_receptive_field_lgag else LGAG
         # EUCB 固定使用 3x3 depth-wise convolution。
         # eucb_ks//2 在下面等于 1，所以 EUCB 内卷积保持尺寸；真正的 2 倍放大发生在 nn.Upsample。
         eucb_ks = 3  # kernel size for eucb
@@ -968,7 +1003,7 @@ class EMCAD(nn.Module):
                           stride=eucb_ks // 2, caa_mode=caa_mode,
                           caa_residual_scale=caa_residual_scale)
         # 用上采样 d3 门控同尺度 x3；内部通道为 channels[1]/2，默认采用大核分组卷积。
-        self.lgag3 = LGAG(F_g=channels[1], F_l=channels[1], F_int=channels[1] // 2, kernel_size=lgag_ks,
+        self.lgag3 = lgag_class(F_g=channels[1], F_l=channels[1], F_int=channels[1] // 2, kernel_size=lgag_ks,
                           groups=channels[1] // 2)
         # groups=F_int 使默认 k=3/5 等大核卷积高度分组化；若 lgag_ks=1，LGAG 内部会把 groups 改为 1。
         # 融合 skip 后执行第三级 MSCAM 中的 MSCB，通道保持 channels[1]。
@@ -982,7 +1017,7 @@ class EMCAD(nn.Module):
                           stride=eucb_ks // 2, caa_mode=caa_mode,
                           caa_residual_scale=caa_residual_scale)
         # 门控编码器第二级 skip x2。
-        self.lgag2 = LGAG(F_g=channels[2], F_l=channels[2], F_int=channels[2] // 2, kernel_size=lgag_ks,
+        self.lgag2 = lgag_class(F_g=channels[2], F_l=channels[2], F_int=channels[2] // 2, kernel_size=lgag_ks,
                           groups=channels[2] // 2)
         # 第二级 MSCB 细化，通道保持 channels[2]。
         self.mscb2 = MSCBLayer(channels[2], channels[2], n=1, stride=1, kernel_sizes=kernel_sizes,
@@ -995,7 +1030,7 @@ class EMCAD(nn.Module):
                           stride=eucb_ks // 2, caa_mode=caa_mode,
                           caa_residual_scale=caa_residual_scale)
         # 门控最浅层 skip x1；int(...) 与 //2 在正整数通道下结果相同。
-        self.lgag1 = LGAG(F_g=channels[3], F_l=channels[3], F_int=int(channels[3] / 2), kernel_size=lgag_ks,
+        self.lgag1 = lgag_class(F_g=channels[3], F_l=channels[3], F_int=int(channels[3] / 2), kernel_size=lgag_ks,
                           groups=int(channels[3] / 2))
         # 第一级 MSCB 输出解码器最高分辨率特征 d1。
         self.mscb1 = MSCBLayer(channels[3], channels[3], n=1, stride=1, kernel_sizes=kernel_sizes,

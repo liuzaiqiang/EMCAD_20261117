@@ -11,16 +11,16 @@ set -euo pipefail
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #并行3个月
 # CONDA_BASE="/base/mambaforge"
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -42,7 +42,7 @@ N_GPU="${N_GPU:-1}"
 NUM_WORKERS=8
 
 SEED="${SEED:-2222}"
-MAX_EPOCHS=400
+MAX_EPOCHS=300
 DATASET="Synapse"
 IMG_SIZE=224
 BATCH_SIZE=16
@@ -107,6 +107,8 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_DYNAMIC_RECEPTIVE_FIELD_LGAG="${USE_DYNAMIC_RECEPTIVE_FIELD_LGAG:-1}"
+case "${USE_DYNAMIC_RECEPTIVE_FIELD_LGAG}" in 0|1) ;; *) echo "[ERROR] USE_DYNAMIC_RECEPTIVE_FIELD_LGAG must be 0 or 1"; exit 1 ;; esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -147,6 +149,7 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   USE_CONTENT_AWARE_ANTIALIAS
+  USE_DYNAMIC_RECEPTIVE_FIELD_LGAG
   CAA_MODE
   CAA_RESIDUAL_SCALE
 )
@@ -182,6 +185,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
+  --dynamic_receptive_field_lgag "${USE_DYNAMIC_RECEPTIVE_FIELD_LGAG}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
