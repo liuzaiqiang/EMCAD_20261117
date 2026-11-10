@@ -19,30 +19,33 @@ set -euo pipefail
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+#206
+CONDA_BASE="/home/elham/anaconda3"
 CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
-
-
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
 
 cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
 # 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-1}"
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
 NUM_WORKERS=8
 
 SEED="${SEED:-2222}"
-MAX_EPOCHS=400
+MAX_EPOCHS=300
 DATASET="Synapse"
 IMG_SIZE=224
 BATCH_SIZE=16
@@ -107,6 +110,14 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+# Class-aware cross-scale prototype calibration: 1=on, 0=off.
+USE_CROSS_SCALE_PROTOTYPES="${USE_CROSS_SCALE_PROTOTYPES:-1}"
+
+
+case "${USE_CROSS_SCALE_PROTOTYPES}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CROSS_SCALE_PROTOTYPES must be 0 or 1" >&2; exit 1 ;;
+esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
@@ -149,6 +160,7 @@ PARAM_NAMES=(
   USE_CONTENT_AWARE_ANTIALIAS
   CAA_MODE
   CAA_RESIDUAL_SCALE
+  USE_CROSS_SCALE_PROTOTYPES
 )
 
 {
@@ -183,6 +195,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --use_cross_scale_prototypes "${USE_CROSS_SCALE_PROTOTYPES}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

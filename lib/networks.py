@@ -11,6 +11,7 @@ from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # EMCAD 是论文提出的解码器，接收四级编码特征并逐级恢复空间分辨率。
 from lib.decoders import EMCAD
+from lib.prototype_calibration import CrossScalePrototypeCalibration
 
 
 # ===========================================================
@@ -62,7 +63,7 @@ class EMCADNet(nn.Module):
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/',
-                 caa_mode='off', caa_residual_scale=0.1):
+                 caa_mode='off', caa_residual_scale=0.1, use_cross_scale_prototypes=False):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -217,6 +218,11 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        # Disabled means no extra parameters or operations in the EMCAD path.
+        self.prototype_calibration = (
+            CrossScalePrototypeCalibration(channels, num_classes)
+            if use_cross_scale_prototypes else None
+        )
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -254,6 +260,10 @@ class EMCADNet(nn.Module):
         p2 = self.out_head2(dec_outs[2])
         # d1 位于 H/4，产生代码命名的 p1；它是实际推理采用的最高分辨率解码头。
         p1 = self.out_head1(dec_outs[3])
+        if self.prototype_calibration is not None:
+            p4, p3, p2, p1 = self.prototype_calibration(
+                dec_outs, [p4, p3, p2, p1]
+            )
 
         # 这里使用 scale_factor 而非显式 size=x.shape[-2:]，所以代码假设输入尺寸经过四次下采样后能被这些倍率精确还原。
         # 352 可被 32 整除，四个输出都会严格回到 352x352；若 H/W 不是 32 的合适倍数，卷积取整可能使放大后尺寸偏离原图。
