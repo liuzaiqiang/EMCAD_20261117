@@ -68,6 +68,7 @@ def build_model(args, pretrain):
         # 本地 PVT 权重目录。
         pretrained_dir=args.pretrained_dir,
         use_pixel_reliability_fusion=args.use_pixel_reliability_fusion,
+        use_contour_consistency=args.use_contour_consistency,
     )
 
 

@@ -63,9 +63,14 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 # 以免严格模式 set -u 因变量未定义而在创建训练进程前退出；多卡时可在命令前覆盖。
 export N_GPU="${N_GPU:-1}"
 export USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
+export USE_CONTOUR_CONSISTENCY="${USE_CONTOUR_CONSISTENCY:-1}"
 case "${USE_PIXEL_RELIABILITY_FUSION}" in
   0|1) ;;
   *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1" >&2; exit 2 ;;
+esac
+case "${USE_CONTOUR_CONSISTENCY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTOUR_CONSISTENCY must be 0 or 1" >&2; exit 2 ;;
 esac
 
 

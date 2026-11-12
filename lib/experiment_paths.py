@@ -53,6 +53,7 @@ def make_experiment_dir(args, family, output_root=None):
         ("lgag_ks", _value(args, "lgag_ks")),
         ("act", _value(args, "activation_mscb")),
         ("reliability_fusion", _value(args, "use_pixel_reliability_fusion", 0)),
+        ("contour_consistency", _value(args, "use_contour_consistency", 0)),
         ("seed", _value(args, "seed")),
     ]
     parameter_parts = [

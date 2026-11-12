@@ -90,6 +90,7 @@ ARCHITECTURE_OPTIONS = {
         "--concatenation"
     ),
     "use_pixel_reliability_fusion": "--use_pixel_reliability_fusion",
+    "use_contour_consistency": "--use_contour_consistency",
     # 输入尺寸。
     "img_size": "--img_size",
     # 灰度模式。
@@ -259,7 +260,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 缺字段无法确定 state_dict shape。
-        if field not in config and field != "use_pixel_reliability_fusion":
+        if field not in config and field not in ("use_pixel_reliability_fusion", "use_contour_consistency"):
             # 报告字段。
             raise RuntimeError(
                 # 错误正文。

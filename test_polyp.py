@@ -163,6 +163,7 @@ def parse_args():
 
     # 推理输入的统一正方形边长。
     parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0)
     parser.add_argument(
         # 选项名。
         "--img_size",
@@ -281,6 +282,7 @@ def restore_checkpoint_model_options(args):
         "no_dw_parallel": "--no_dw_parallel",
         "concatenation": "--concatenation",
         "use_pixel_reliability_fusion": "--use_pixel_reliability_fusion",
+        "use_contour_consistency": "--use_contour_consistency",
         "img_size": "--img_size",
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",

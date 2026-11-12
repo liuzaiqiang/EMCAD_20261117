@@ -51,6 +51,7 @@ ARCHITECTURE_OPTIONS = {
     # 相加/拼接聚合开关。
     "concatenation": "--concatenation",
     "use_pixel_reliability_fusion": "--use_pixel_reliability_fusion",
+    "use_contour_consistency": "--use_contour_consistency",
     # 模型输入尺寸。
     "img_size": "--img_size",
     # 灰度/RGB 模式。
@@ -190,7 +191,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 配置缺字段意味着无法完整重建训练模型。
-        if field not in config and field != "use_pixel_reliability_fusion":
+        if field not in config and field not in ("use_pixel_reliability_fusion", "use_contour_consistency"):
             # 报告具体字段。
             raise RuntimeError(
                 # 错误正文。

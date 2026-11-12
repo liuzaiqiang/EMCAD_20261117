@@ -51,11 +51,16 @@ SUPERVISION="mutation"
 
 # Pixel reliability fusion: 1=enabled, 0=original EMCAD P1 readout.
 USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
+USE_CONTOUR_CONSISTENCY="${USE_CONTOUR_CONSISTENCY:-1}"
 FUSION_LOSS_WEIGHT="${FUSION_LOSS_WEIGHT:-1}"
 RELIABILITY_LOSS_WEIGHT="${RELIABILITY_LOSS_WEIGHT:-1}"
 case "${USE_PIXEL_RELIABILITY_FUSION}" in
   0|1) ;;
   *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1" >&2; exit 1 ;;
+esac
+case "${USE_CONTOUR_CONSISTENCY}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_CONTOUR_CONSISTENCY must be 0 or 1" >&2; exit 1 ;;
 esac
 BASE_LR=1e-4
 
@@ -149,6 +154,7 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   USE_PIXEL_RELIABILITY_FUSION
+  USE_CONTOUR_CONSISTENCY
   FUSION_LOSS_WEIGHT
   RELIABILITY_LOSS_WEIGHT
 )
@@ -181,6 +187,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   "${ARCH_FLAGS[@]}" \
   --supervision "${SUPERVISION}" \
   --use_pixel_reliability_fusion "${USE_PIXEL_RELIABILITY_FUSION}" \
+  --use_contour_consistency "${USE_CONTOUR_CONSISTENCY}" \
   --fusion_loss_weight "${FUSION_LOSS_WEIGHT}" \
   --reliability_loss_weight "${RELIABILITY_LOSS_WEIGHT}" \
   --num_workers "${NUM_WORKERS}" \

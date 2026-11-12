@@ -175,6 +175,7 @@ def parse_args():
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
     parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0)
     parser.add_argument("--fusion_loss_weight", type=float, default=1.0)
     parser.add_argument("--reliability_loss_weight", type=float, default=1.0)
 

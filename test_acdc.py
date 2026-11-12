@@ -95,6 +95,7 @@ def parse_args():
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
     parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
     parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0)
 
     # 每张切片进入模型前缩放到的正方形尺寸，须与训练设置相符。
     parser.add_argument("--img_size", type=int, default=256)
@@ -137,6 +138,7 @@ def restore_checkpoint_config(args):
         "no_dw_parallel": "--no_dw_parallel",
         "concatenation": "--concatenation",
         "use_pixel_reliability_fusion": "--use_pixel_reliability_fusion",
+        "use_contour_consistency": "--use_contour_consistency",
         "img_size": "--img_size",
     }
     for field, option in options.items():

@@ -100,6 +100,7 @@ def build_model(args, pretrain):
         # PVTv2 本地预训练权重所在目录；ResNet 采用自身加载路径。
         pretrained_dir=args.pretrained_dir,
         use_pixel_reliability_fusion=args.use_pixel_reliability_fusion,
+        use_contour_consistency=args.use_contour_consistency,
         # 将内容感知抗混叠模式传给 EMCAD 的 EUCB 上采样路径。
     )
 

@@ -110,6 +110,7 @@ def parse_args():
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
     parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_contour_consistency", type=int, choices=[0, 1], default=0)
     parser.add_argument("--fusion_loss_weight", type=float, default=1.0)
     parser.add_argument("--reliability_loss_weight", type=float, default=1.0)
 

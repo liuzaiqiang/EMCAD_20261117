@@ -102,6 +102,7 @@ parser.add_argument('--checkpoint', type=str, default='',
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
 parser.add_argument('--use_pixel_reliability_fusion', type=int, choices=[0, 1], default=0)
+parser.add_argument('--use_contour_consistency', type=int, choices=[0, 1], default=0)
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
 # max_epochs 用于目录名，以及 best.pth 缺失时推导 epoch_(max_epochs-1).pth。
@@ -139,6 +140,7 @@ if args.train_config:
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
         'pretrained_dir', 'supervision', 'use_pixel_reliability_fusion',
+        'use_contour_consistency',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -365,7 +367,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     use_pixel_reliability_fusion=args.use_pixel_reliability_fusion)
+                     use_pixel_reliability_fusion=args.use_pixel_reliability_fusion,
+                     use_contour_consistency=args.use_contour_consistency)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 
