@@ -82,4 +82,12 @@ esac
 # 底层通用启动器沿用论文默认200轮、batch 16、AdamW学习率和权重衰减1e-4；
 # 项目根固定后 source 它，使本脚本、通用启动器和队列共享相同训练 PID 与停止标识。
 cd "${PROJECT_DIR}"
+
+#source 的意思是：在当前 Bash 进程里，接着执行 start_train_polyp.sh 的内容。完整顺序是：
+#1. Cell 脚本先设置 DATASET=Cell、DATASET_NAME=DSB18（或 EM）等变量。
+#2.  进入 Polyp 脚本。
+#3. Polyp 脚本[激活Conda]  随后用前面设置的 Cell 变量启动共用的 train_polyp.py。
+# 所以复用的是 Polyp 的 Conda 初始化、启动命令和二分类训练程序；Cell 脚本负责把数据集参数预先设好。source 就是连接这两个脚本的地方。
+#  DATASET_NAME=DSB18/EM  bash sh/start_train_cell.sh
+# 脚本会为 DSB18 默认启用实例掩膜合并、为 EM 默认关闭；两者默认使用 256×256 和固定尺度训练。若你的 EM 图像需要按单通道灰度读取，在第二条命令前加 INPUT_CHANNELS=1。
 source "${SCRIPT_DIR}/start_train_polyp.sh"
