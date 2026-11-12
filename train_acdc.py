@@ -109,9 +109,9 @@ def parse_args():
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
-    parser.add_argument("--caa_mode", default="off",
-                        choices=["off", "aa_only", "content_only", "caa"])
-    parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--fusion_loss_weight", type=float, default=1.0)
+    parser.add_argument("--reliability_loss_weight", type=float, default=1.0)
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -462,6 +462,14 @@ def main():
                     dice_loss=dice_loss,
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
+                if args.use_pixel_reliability_fusion:
+                    fusion_model = model.module if hasattr(model, "module") else model
+                    fused = fusion_model.fuse_outputs(outputs)
+                    fused_loss = (0.3 * ce_loss(fused, labels)
+                                  + 0.7 * dice_loss(fused, labels, softmax=True))
+                    loss = loss + args.fusion_loss_weight * (
+                        fused_loss + args.reliability_loss_weight
+                        * fusion_model.reliability_loss(outputs, labels))
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。

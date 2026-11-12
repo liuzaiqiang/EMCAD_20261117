@@ -51,6 +51,15 @@ MAX_EPOCHS="${MAX_EPOCHS:-400}"
 DATASET="ACDC"
 BASE_LR="${BASE_LR:-1e-4}"
 SUPERVISION="${SUPERVISION:-mutation}"
+
+# Pixel reliability fusion: 1=enabled, 0=original EMCAD P1 readout.
+USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
+FUSION_LOSS_WEIGHT="${FUSION_LOSS_WEIGHT:-1}"
+RELIABILITY_LOSS_WEIGHT="${RELIABILITY_LOSS_WEIGHT:-1}"
+case "${USE_PIXEL_RELIABILITY_FUSION}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1" >&2; exit 1 ;;
+esac
 NUM_WORKERS="${NUM_WORKERS:-8}"
 
 
@@ -83,24 +92,15 @@ RUN_ID="train_${DATASET}_${TS}_gpu_${CUDA_VISIBLE_DEVICES}_SEED_${SEED}_RAND_${R
 PID_FILE="${RUN_ID}.pid"
 
 
-# CAA 使用独立开关；默认启用。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
-CAA_MODE="${CAA_MODE:-caa}"
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
-esac
 
 
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR USE_CONTENT_AWARE_ANTIALIAS CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR TS RAND LOG_FILE RUN_ID PID_FILE USE_PIXEL_RELIABILITY_FUSION FUSION_LOSS_WEIGHT RELIABILITY_LOSS_WEIGHT)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
@@ -122,6 +122,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --lgag_ks 3 \
   --activation_mscb relu6 \
   --supervision "${SUPERVISION}" \
+  --use_pixel_reliability_fusion "${USE_PIXEL_RELIABILITY_FUSION}" \
+  --fusion_loss_weight "${FUSION_LOSS_WEIGHT}" \
+  --reliability_loss_weight "${RELIABILITY_LOSS_WEIGHT}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \
   --max_epochs "${MAX_EPOCHS}" \
@@ -129,8 +132,6 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --seed "${SEED}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 

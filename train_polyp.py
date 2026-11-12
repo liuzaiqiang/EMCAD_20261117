@@ -50,6 +50,7 @@ from utils.polyp_utils import (
     seed_everything,
     # 论文结构损失及多头监督组合。
     supervised_structure_loss,
+    structure_loss,
 )
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
@@ -171,11 +172,11 @@ def parse_args():
         # 默认目录。
         default="./pretrained_pth/pvt/",
     )
-    # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
-    parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
-    parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--use_pixel_reliability_fusion", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--fusion_loss_weight", type=float, default=1.0)
+    parser.add_argument("--reliability_loss_weight", type=float, default=1.0)
 
     # 多输出监督策略。
     parser.add_argument(
@@ -964,6 +965,13 @@ def main():
                         scaled_masks,
                         args.supervision,
                     )
+                    if args.use_pixel_reliability_fusion:
+                        fusion_model = model.module if hasattr(model, "module") else model
+                        fused = fusion_model.fuse_outputs(outputs)
+                        loss = loss + args.fusion_loss_weight * (
+                            structure_loss(fused, scaled_masks)
+                            + args.reliability_loss_weight
+                            * fusion_model.reliability_loss(outputs, scaled_masks))
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)

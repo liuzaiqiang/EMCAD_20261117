@@ -287,6 +287,15 @@ def trainer_synapse(args, model, snapshot_path):
                 # 因此 mutation(15组)的 loss 数值尺度天然大于 deep_supervision(4组)，两者不可直接横比。
                 loss += (w_ce * loss_ce + w_dice * loss_dice)
 
+            if getattr(args, 'use_pixel_reliability_fusion', 0):
+                fusion_model = model.module if hasattr(model, 'module') else model
+                fused = fusion_model.fuse_outputs(P)
+                fused_loss = (0.3 * ce_loss(fused, label_batch.long())
+                              + 0.7 * dice_loss(fused, label_batch, softmax=True))
+                reliability_loss = fusion_model.reliability_loss(P, label_batch)
+                loss = loss + args.fusion_loss_weight * (
+                    fused_loss + args.reliability_loss_weight * reliability_loss)
+
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。
             optimizer.zero_grad()
             # 从总损失沿 15/4/1 条监督路径反向传播，梯度最终汇合到共享编码器和解码器参数。同一个输出若出现在多个组合中，会收到多个路径的梯度贡献；

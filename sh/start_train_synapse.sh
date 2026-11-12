@@ -53,6 +53,15 @@ DATASET="Synapse"
 IMG_SIZE=224
 BATCH_SIZE=16
 SUPERVISION="mutation"
+
+# Pixel reliability fusion: 1=enabled, 0=original EMCAD P1 readout.
+USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-1}"
+FUSION_LOSS_WEIGHT="${FUSION_LOSS_WEIGHT:-1}"
+RELIABILITY_LOSS_WEIGHT="${RELIABILITY_LOSS_WEIGHT:-1}"
+case "${USE_PIXEL_RELIABILITY_FUSION}" in
+  0|1) ;;
+  *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1" >&2; exit 1 ;;
+esac
 BASE_LR=1e-4
 
 # 编码器是特征提取网络的结构名称；默认 PVTv2-B2 与 train_synapse.py 原有默认值一致。
@@ -111,16 +120,8 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
-esac
 
 PARAM_NAMES=(
   CONDA_BASE
@@ -152,9 +153,9 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
-  USE_CONTENT_AWARE_ANTIALIAS
-  CAA_MODE
-  CAA_RESIDUAL_SCALE
+  USE_PIXEL_RELIABILITY_FUSION
+  FUSION_LOSS_WEIGHT
+  RELIABILITY_LOSS_WEIGHT
 )
 
 {
@@ -184,11 +185,12 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --activation_mscb "${ACTIVATION_MSCB}" \
   "${ARCH_FLAGS[@]}" \
   --supervision "${SUPERVISION}" \
+  --use_pixel_reliability_fusion "${USE_PIXEL_RELIABILITY_FUSION}" \
+  --fusion_loss_weight "${FUSION_LOSS_WEIGHT}" \
+  --reliability_loss_weight "${RELIABILITY_LOSS_WEIGHT}" \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

@@ -99,10 +99,8 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # PVTv2 本地预训练权重所在目录；ResNet 采用自身加载路径。
         pretrained_dir=args.pretrained_dir,
+        use_pixel_reliability_fusion=args.use_pixel_reliability_fusion,
         # 将内容感知抗混叠模式传给 EMCAD 的 EUCB 上采样路径。
-        caa_mode=args.caa_mode,
-        # 内容门控残差初始强度；关闭 CAA 时 EUCB 沿用基础模型结构。
-        caa_residual_scale=args.caa_residual_scale,
     )
 
 
@@ -629,7 +627,8 @@ def evaluate_loader(
                 synchronize(device)
                 benchmark.forward_seconds += time.perf_counter() - forward_start
                 benchmark.forward_units += int(images.shape[0])
-            logits = outputs[-1]
+            base_model = model.module if hasattr(model, "module") else model
+            logits = base_model.fuse_outputs(outputs)
 
             # 一个 batch 内逐图恢复各自原始尺寸、计算指标和保存结果。
             for index, name in enumerate(names):
