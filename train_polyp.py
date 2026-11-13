@@ -53,6 +53,7 @@ from utils.polyp_utils import (
 )
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 from utils.area_adaptive_tversky import area_adaptive_tversky_loss
 
@@ -170,7 +171,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=DEFAULT_PVT_DIR,
     )
     # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")

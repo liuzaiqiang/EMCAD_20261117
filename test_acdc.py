@@ -30,6 +30,7 @@ import numpy as np
 import torch
 import time
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
                               log_environment, log_json, peak_memory_mb,
                               reset_peak_memory, synchronize)
@@ -96,7 +97,7 @@ def parse_args():
     # 出现该旗标表示用 concat 聚合多尺度特征；默认 add。
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
