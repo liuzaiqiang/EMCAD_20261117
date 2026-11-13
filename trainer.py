@@ -51,6 +51,7 @@ from utils.dataset_synapse import Synapse_dataset, RandomGenerator
 # powerset生成监督组合；DiceLoss 计算多类软Dice；两个volume函数负责整体验证。
 from utils.utils import powerset, one_hot_encoder, DiceLoss, val_single_volume
 from lib.model_complexity import log_model_complexity
+from utils.checkpoint_stats import without_profiling_stats
 
 
 # 训练过程中调用的整病例评估函数；它返回所有病例、所有前景类别的平均 Dice 标量。
@@ -363,7 +364,7 @@ def trainer_synapse(args, model, snapshot_path):
         # 写入模型参数 将模型当前的 state_dict（即所有可学习参数的字典）序列化并写入上述路径。
         # 覆盖更新：由于文件名硬编码为 last.pth，每个 epoch 结束后都会覆盖该文件。因此，它始终保存的是训练过程中最后一个 epoch 的模型状态，而非历史最优状态（最优状态由 best.pth 保存）。
         # 非完整快照：这里仅保存了模型参数，未包含优化器状态、epoch 编号或随机数状态，因此无法用于无缝恢复中断的训练流程。
-        torch.save(model.state_dict(), save_mode_path)
+        torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
 
         # 在完整体数据上计算宏平均 Dice；函数内部会执行 model.eval()。
         performance = inference(
@@ -385,7 +386,7 @@ def trainer_synapse(args, model, snapshot_path):
             # 最优权重总是写到固定文件 best.pth。
             save_mode_path = os.path.join(snapshot_path, 'best.pth')
             # 保存触发该最好指标时的全部模型参数。
-            torch.save(model.state_dict(), save_mode_path)
+            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
             # 在文本日志中记录实际保存路径。
             logging.info("save model to {}".format(save_mode_path))
 
@@ -396,7 +397,7 @@ def trainer_synapse(args, model, snapshot_path):
             save_mode_path = os.path.join(
                 snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
             # 写入阶段性模型权重。
-            torch.save(model.state_dict(), save_mode_path)
+            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
             # 记录阶段性文件位置。
             logging.info("save model to {}".format(save_mode_path))
         """
@@ -405,7 +406,7 @@ def trainer_synapse(args, model, snapshot_path):
             # 最终文件名同样采用一基编号，例如 epoch_300.pth。
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
             # 保存最终状态；若刚好也命中 save_interval，可能对同一文件写两次。
-            torch.save(model.state_dict(), save_mode_path)
+            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
             # 写入最终保存日志。
             logging.info("save model to {}".format(save_mode_path))
             # 主动关闭 tqdm 进度条，避免终端残留未结束状态。
