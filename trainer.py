@@ -178,6 +178,7 @@ def record_synapse_evaluation_time(path, epoch, phase, elapsed_seconds,
                                    phase_total_seconds, full_count, full_total_seconds):
     """Keep per-pass wall time in both the training log and a machine-readable CSV."""
     row = {"epoch": epoch, "phase": phase, "elapsed_seconds": elapsed_seconds,
+           "includes_checkpoint_write": 0,
            "phase_cumulative_seconds": phase_total_seconds,
            "full_evaluation_count": full_count,
            "full_evaluation_cumulative_seconds": full_total_seconds}
@@ -189,7 +190,7 @@ def record_synapse_evaluation_time(path, epoch, phase, elapsed_seconds,
     logging.info(
         "SYNAPSE_EVALUATION_TIME epoch=%d phase=%s elapsed_seconds=%.4f "
         "phase_cumulative_seconds=%.4f full_evaluation_count=%d "
-        "full_evaluation_cumulative_seconds=%.4f",
+        "full_evaluation_cumulative_seconds=%.4f includes_checkpoint_write=0",
         epoch, phase, elapsed_seconds, phase_total_seconds,
         full_count, full_total_seconds,
     )
@@ -517,10 +518,10 @@ def trainer_synapse(args, model, snapshot_path):
                     "per_class": json.dumps(metrics["per_class"], ensure_ascii=False),
                     "per_case": json.dumps(metrics["per_case"], ensure_ascii=False),
                 }
-                writer = csv.DictWriter(stream, fieldnames=list(csv_row))
+                csv_writer = csv.DictWriter(stream, fieldnames=list(csv_row))
                 if stream.tell() == 0:
-                    writer.writeheader()
-                writer.writerow(csv_row)
+                    csv_writer.writeheader()
+                csv_writer.writerow(csv_row)
             with open(topk_jsonl, "a", encoding="utf-8") as stream:
                 stream.write(json.dumps({**row, "per_class": metrics["per_class"],
                                          "per_case": metrics["per_case"]},
@@ -533,9 +534,7 @@ def trainer_synapse(args, model, snapshot_path):
                 os.remove(removed_path)
                 logging.info("Removed displaced Synapse top-K checkpoint: %s", removed_path)
             logging.info("Saved Synapse top-K checkpoint: %s", checkpoint_path)
-        # 重要的现有代码行为：本函数只在进入 epoch 循环前调用过一次 model.train()，
-        # inference 后没有在下一 epoch 开头再次切回 train；因此第 2 个 epoch 起模型保持 eval 模式。
-        # 这会影响 BatchNorm/Dropout，但依照用户约束这里只解释，不修改该逻辑。——已经修改
+        # Each epoch begins with model.train(); validation may leave the model in eval mode.
 
         # 每 100 个 epoch 另存一个阶段性 checkpoint（已停用，保留原代码供审核）。
         # save_interval = 100
