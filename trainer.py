@@ -36,7 +36,7 @@ import torch.nn as nn
 import torch.optim as optim
 # SummaryWriter 将标量写成 TensorBoard 可读取的事件文件。
 from tensorboardX import SummaryWriter
-from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
+from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize, timed_call
 # CrossEntropyLoss 对每个像素执行 9 类分类，输入 logits、目标为整数类别编号。
 from torch.nn.modules.loss import CrossEntropyLoss
 # DataLoader 负责批处理、打乱、并行读取与 pin memory。
@@ -52,10 +52,14 @@ from utils.dataset_synapse import Synapse_dataset, RandomGenerator
 from utils.utils import powerset, one_hot_encoder, DiceLoss, val_single_volume
 from lib.model_complexity import log_model_complexity
 from utils.checkpoint_stats import without_profiling_stats
+from utils.synapse_candidate_selection import (
+    add_topk_entry, candidate_checkpoint_name, is_new_best_dice,
+    should_enter_topk, validate_topk_config,
+)
 
 
 # 训练过程中调用的整病例评估函数；它返回所有病例、所有前景类别的平均 Dice 标量。
-# 注意：split 名为 test_vol，是否属于“验证集”取决于你的实际列表划分；若它是官方测试集，每个 epoch 用它挑 best.pth 会造成测试集参与模型选择。这里仅忠实说明现有行为，不改逻辑。
+# 注意：split 名为 test_vol，但此训练流程把它作为验证集筛选候选权重；独立测试集应另行提供。
 def inference(args, model, best_performance, validation_csv=None, epoch=None):
     # 用完整体目录和 test_vol.txt 创建病例级数据集；单样本通常 image/label=[D,H,W]。
     db_test = Synapse_dataset(base_dir=args.volume_path, split="test_vol",
@@ -106,16 +110,95 @@ def inference(args, model, best_performance, validation_csv=None, epoch=None):
                 writer.writeheader()
             writer.writerow({"epoch": epoch, "mean_dice": float(performance)})
     # 提前判断并更新历史最优值，使后续日志语义准确  2026-09-11凌晨添加
-    if best_performance <= performance:
+    if is_new_best_dice(performance, best_performance):
         best_performance = performance
-    # 同时记录当前性能和进入函数前的历史最好性能，便于观察是否刷新 best.pth。
+    # 记录当前性能及历史最好性能，便于观察验证 Dice 的变化。
     logging.info('Testing performance in val model: mean_dice : %f, best_dice : %f' % ( performance, best_performance))
     # 返回 Python/NumPy 标量，供训练主循环比较大小。
     return performance
 
 
+def evaluate_full_validation_metrics(args, model):
+    """Compute test_synapse's four metrics on the existing validation split.
+
+    This is model evaluation only: no backward pass, optimizer step, checkpoint
+    reload, prediction export, or access to an independent held-out test set.
+    """
+    dataset = Synapse_dataset(base_dir=args.volume_path, split="test_vol",
+                              list_dir=args.list_dir, nclass=args.num_classes)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
+    if not len(dataset):
+        raise ValueError("Synapse validation list is empty")
+    model.eval()
+    per_class_sum = np.zeros((args.num_classes - 1, 4), dtype=np.float64)
+    per_case = []
+    with torch.no_grad():
+        for sample in loader:
+            case_metrics = np.asarray(
+                val_single_volume(sample["image"], sample["label"], model,
+                                  classes=args.num_classes,
+                                  patch_size=[args.img_size, args.img_size],
+                                  full_metrics=True),
+                dtype=np.float64,
+            )
+            per_class_sum += case_metrics
+            per_case.append({
+                "case": sample["case_name"][0],
+                "mean_metrics": case_metrics.mean(axis=0).tolist(),
+                "per_class": case_metrics.tolist(),
+            })
+    per_class = per_class_sum / len(dataset)
+    overall = per_class.mean(axis=0)
+    if not np.isfinite(overall).all():
+        raise ValueError("Non-finite Synapse validation metrics")
+    return {
+        "mean_dice": float(overall[0]),
+        "mean_hd95": float(overall[1]),
+        "mean_iou": float(overall[2]),
+        "mean_asd": float(overall[3]),
+        "per_class": per_class.tolist(),
+        "per_case": per_case,
+        "cases": len(dataset),
+    }
+
+
+def write_topk_manifest(path, board, size, threshold_percent):
+    """Atomically publish the current ranking before deleting displaced weights."""
+    temporary_path = path + ".tmp"
+    with open(temporary_path, "w", encoding="utf-8") as stream:
+        json.dump({"topk_size": size,
+                   "dice_threshold_percent": threshold_percent,
+                   "ranking_metric": "rank_dice",
+                   "entries": board}, stream, ensure_ascii=False, indent=2)
+    os.replace(temporary_path, path)
+
+
+def record_synapse_evaluation_time(path, epoch, phase, elapsed_seconds,
+                                   phase_total_seconds, full_count, full_total_seconds):
+    """Keep per-pass wall time in both the training log and a machine-readable CSV."""
+    row = {"epoch": epoch, "phase": phase, "elapsed_seconds": elapsed_seconds,
+           "includes_checkpoint_write": 0,
+           "phase_cumulative_seconds": phase_total_seconds,
+           "full_evaluation_count": full_count,
+           "full_evaluation_cumulative_seconds": full_total_seconds}
+    with open(path, "a", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        if stream.tell() == 0:
+            writer.writeheader()
+        writer.writerow(row)
+    logging.info(
+        "SYNAPSE_EVALUATION_TIME epoch=%d phase=%s elapsed_seconds=%.4f "
+        "phase_cumulative_seconds=%.4f full_evaluation_count=%d "
+        "full_evaluation_cumulative_seconds=%.4f includes_checkpoint_write=0",
+        epoch, phase, elapsed_seconds, phase_total_seconds,
+        full_count, full_total_seconds,
+    )
+
+
 # Synapse 训练主函数：args 提供配置，model 是已创建的 EMCADNet，snapshot_path 是本次实验目录。
 def trainer_synapse(args, model, snapshot_path):
+    validate_topk_config(args.synapse_topk_enabled, args.synapse_topk_size,
+                         args.synapse_topk_dice_threshold)
     # 配置文件日志；每条记录带时分秒和毫秒，写入当前实验目录的 train.log。
     logging.basicConfig(filename=snapshot_path + "/train.log", level=logging.INFO,
                         # message 是调用 logging.info 传入的正文。
@@ -133,6 +216,10 @@ def trainer_synapse(args, model, snapshot_path):
     with open(os.path.join(snapshot_path, "config.json"), "w", encoding="utf-8") as stream:
         json.dump(vars(args), stream, ensure_ascii=False, indent=2)
     validation_csv = os.path.join(snapshot_path, "validation_metrics.csv")
+    topk_csv = os.path.join(snapshot_path, "synapse_topk_history.csv")
+    topk_jsonl = os.path.join(snapshot_path, "synapse_topk_history.jsonl")
+    topk_manifest = os.path.join(snapshot_path, "synapse_topk_manifest.json")
+    evaluation_timing_csv = os.path.join(snapshot_path, "synapse_evaluation_timing.csv")
     log_model_complexity(
         model,
         (1, 1, args.img_size, args.img_size),
@@ -208,8 +295,15 @@ def trainer_synapse(args, model, snapshot_path):
     max_iterations = args.max_epochs * len(trainloader)
     # 写入每 epoch 批次数和预计总迭代数，便于核对训练是否完整。
     logging.info("{} iterations per epoch. {} max iterations ".format(len(trainloader), max_iterations))
-    # 历史最好验证 Dice；初始 0，后续大于等于它时覆盖 best.pth。
-    best_performance = 0.0
+    # 关闭动态前 N 时沿用历史最高 Dice 保存 best.pth，持平不覆盖。
+    best_performance = float("-inf")
+    topk_board = []
+    basic_evaluation_seconds = 0.0
+    full_evaluation_count = 0
+    full_evaluation_seconds = 0.0
+    if args.synapse_topk_enabled == 1:
+        write_topk_manifest(topk_manifest, topk_board, args.synapse_topk_size,
+                            args.synapse_topk_dice_threshold)
     # tqdm 包装 epoch 范围，ncols=70 固定终端进度条宽度。创建一个带进度条的 epoch 循环。ncols=70 限制进度条宽度。
     iterator = tqdm(range(max_epoch), ncols=70)
 
@@ -353,22 +447,92 @@ def trainer_synapse(args, model, snapshot_path):
         logging.info('iteration %d, epoch %d : loss : %f, lr: %f' %
                      (iter_num, epoch_num, loss.item(), lr_))
 
-        # 中间 checkpoint 已停用，仅保留 best.pth；保留原代码便于审核。
+        # 中间 checkpoint 已停用；候选权重在完整验证指标计算后保存。
         # 固定使用last.pth 文件名，所以每个 epoch 都覆盖为最新模型状态。注意，这一步只是拼接路径
         # save_mode_path = os.path.join(snapshot_path, 'last.pth')
         # 这里只保存 state_dict，不含优化器状态、epoch 和随机数状态，不能完整无缝恢复训练。
         # 多 GPU 时 model.state_dict() 的键通常带 module.前缀；单GPU测试加载时需注意格式一致性。
         # 写入模型参数 将模型当前的 state_dict（即所有可学习参数的字典）序列化并写入上述路径。
-        # 覆盖更新：由于文件名硬编码为 last.pth，每个 epoch 结束后都会覆盖该文件。因此，它始终保存的是训练过程中最后一个 epoch 的模型状态，而非历史最优状态（最优状态由 best.pth 保存）。
+        # 若启用固定 last.pth 名称，每轮会覆盖旧文件；目前未启用。
         # 非完整快照：这里仅保存了模型参数，未包含优化器状态、epoch 编号或随机数状态，因此无法用于无缝恢复中断的训练流程。
         # torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
 
         # 在完整体数据上计算宏平均 Dice；函数内部会执行 model.eval()。
-        performance = inference(
-            args, model, best_performance,
-            validation_csv=validation_csv,
-            epoch=epoch_num + 1,
+        performance, basic_elapsed = timed_call(
+            lambda: inference(args, model, best_performance,
+                              validation_csv=validation_csv, epoch=epoch_num + 1),
+            device,
         )
+        basic_evaluation_seconds += basic_elapsed
+        record_synapse_evaluation_time(
+            evaluation_timing_csv, epoch_num + 1, "dice_only", basic_elapsed,
+            basic_evaluation_seconds, full_evaluation_count, full_evaluation_seconds,
+        )
+        # 开关为 0：仅保存严格刷新最高 Dice 的 best.pth，不计算额外指标。
+        if args.synapse_topk_enabled == 0:
+            if is_new_best_dice(performance, best_performance):
+                best_performance = performance
+                best_path = os.path.join(snapshot_path, "best.pth")
+                torch.save(without_profiling_stats(model.state_dict()), best_path)
+                logging.info("Saved Synapse best checkpoint: %s", best_path)
+            continue
+
+        # 开关为 1：用本轮基础 Dice 判断是否进入动态前 N，再计算完整指标。
+        if should_enter_topk(float(performance), topk_board,
+                             args.synapse_topk_size, args.synapse_topk_dice_threshold):
+            metrics, full_elapsed = timed_call(
+                lambda: evaluate_full_validation_metrics(args, model), device)
+            full_evaluation_count += 1
+            full_evaluation_seconds += full_elapsed
+            record_synapse_evaluation_time(
+                evaluation_timing_csv, epoch_num + 1, "full_metrics", full_elapsed,
+                full_evaluation_seconds, full_evaluation_count, full_evaluation_seconds,
+            )
+            logging.info(
+                "Synapse top-K candidate epoch=%d rank_dice=%.6f full_dice=%.6f hd95=%.6f iou=%.6f asd=%.6f cases=%d",
+                epoch_num + 1, float(performance),
+                metrics["mean_dice"], metrics["mean_hd95"],
+                metrics["mean_iou"], metrics["mean_asd"], metrics["cases"],
+            )
+            filename = candidate_checkpoint_name(
+                epoch_num + 1, metrics["mean_dice"], metrics["mean_hd95"])
+            checkpoint_path = os.path.join(snapshot_path, filename)
+            torch.save(without_profiling_stats(model.state_dict()), checkpoint_path)
+            row = {
+                "epoch": epoch_num + 1,
+                "rank_dice": float(performance),
+                "mean_dice": metrics["mean_dice"],
+                "mean_hd95": metrics["mean_hd95"],
+                "mean_iou": metrics["mean_iou"],
+                "mean_asd": metrics["mean_asd"],
+                "cases": metrics["cases"],
+                "selection_split": "test_vol",
+                "volume_path": args.volume_path,
+                "list_dir": args.list_dir,
+                "checkpoint": filename,
+            }
+            with open(topk_csv, "a", newline="", encoding="utf-8") as stream:
+                csv_row = {
+                    **row,
+                    "per_class": json.dumps(metrics["per_class"], ensure_ascii=False),
+                    "per_case": json.dumps(metrics["per_case"], ensure_ascii=False),
+                }
+                writer = csv.DictWriter(stream, fieldnames=list(csv_row))
+                if stream.tell() == 0:
+                    writer.writeheader()
+                writer.writerow(csv_row)
+            with open(topk_jsonl, "a", encoding="utf-8") as stream:
+                stream.write(json.dumps({**row, "per_class": metrics["per_class"],
+                                         "per_case": metrics["per_case"]},
+                                        ensure_ascii=False) + "\n")
+            topk_board, evicted = add_topk_entry(topk_board, row, args.synapse_topk_size)
+            write_topk_manifest(topk_manifest, topk_board, args.synapse_topk_size,
+                                args.synapse_topk_dice_threshold)
+            for removed in evicted:
+                removed_path = os.path.join(snapshot_path, removed["checkpoint"])
+                os.remove(removed_path)
+                logging.info("Removed displaced Synapse top-K checkpoint: %s", removed_path)
+            logging.info("Saved Synapse top-K checkpoint: %s", checkpoint_path)
         # 重要的现有代码行为：本函数只在进入 epoch 循环前调用过一次 model.train()，
         # inference 后没有在下一 epoch 开头再次切回 train；因此第 2 个 epoch 起模型保持 eval 模式。
         # 这会影响 BatchNorm/Dropout，但依照用户约束这里只解释，不修改该逻辑。——已经修改
@@ -376,16 +540,9 @@ def trainer_synapse(args, model, snapshot_path):
         # 每 100 个 epoch 另存一个阶段性 checkpoint（已停用，保留原代码供审核）。
         # save_interval = 100
 
-        # 当前指标大于或等于历史最好值时更新；相等也会覆盖已有 best.pth。
-        if (best_performance <= performance):
-            # 先更新内存中的最好 Dice，供下一次 inference 日志与比较使用。
+        # 开启动态前 N 时仍维护历史最高 Dice 供每轮日志显示。
+        if is_new_best_dice(performance, best_performance):
             best_performance = performance
-            # 最优权重总是写到固定文件 best.pth。
-            save_mode_path = os.path.join(snapshot_path, 'best.pth')
-            # 保存触发该最好指标时的全部模型参数。
-            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
-            # 在文本日志中记录实际保存路径。
-            logging.info("save model to {}".format(save_mode_path))
 
         # epoch_num 从 0 开始，但判断用 epoch_num+1，所以第 50、100、150...轮触发。
         """
@@ -411,6 +568,13 @@ def trainer_synapse(args, model, snapshot_path):
         #     # 跳出 epoch 循环；在最后一轮此操作与自然结束等价。
         #     break
 
+    logging.info(
+        "SYNAPSE_EVALUATION_SUMMARY epochs=%d dice_only_count=%d "
+        "dice_only_total_seconds=%.4f full_evaluation_count=%d "
+        "full_evaluation_total_seconds=%.4f",
+        max_epoch, max_epoch, basic_evaluation_seconds,
+        full_evaluation_count, full_evaluation_seconds,
+    )
     # 刷新并关闭 TensorBoard writer，确保事件文件完整落盘。
     writer.close()
     # 返回人类可读状态字符串；train_synapse.py 当前没有接收或打印这个返回值。

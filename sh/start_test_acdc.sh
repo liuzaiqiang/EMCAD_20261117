@@ -11,8 +11,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 # 创建集中保存评估日志的目录；目录已存在时 mkdir -p 仍返回成功。
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 
 #212服务器
@@ -49,9 +47,9 @@ INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-8}"
 Z_SPACING="${Z_SPACING:-10.0}"
 MAX_CASES="${MAX_CASES:-0}"
 
-# 病例列表和数据根目录采用项目旁的固定ACDC布局；CKPT必须由调用者明确指定。
-LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../data/ACDC/lists_ACDC}"
-ROOT_PATH="${PROJECT_DIR}/../../data/ACDC"
+# 病例列表和数据根目录默认位于项目目录上四级的 data/ACDC；CKPT 必须由调用者明确指定。
+LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC}"
+ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 # 默认在 ACDC 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
 CKPT="${CKPT:-}"
 
@@ -69,16 +67,20 @@ CKPT_DIR="$(cd "$(dirname "${CKPT}")" && pwd)"
 CKPT="${CKPT_DIR}/$(basename "${CKPT}")"
 CONFIG_FILE="${CKPT_DIR}/config.json"
 test -f "${CONFIG_FILE}" || { echo "[ERROR] checkpoint config not found: ${CONFIG_FILE}"; exit 1; }
-TEST_SAVE_DIR="${CKPT_DIR}/predictions"
-OUTPUT_CSV="${CKPT_DIR}/test_metrics.csv"
 
 # 时间戳和随机十六进制后缀共同用于区分并发测试；RAND来自系统随机源的6字节数据。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 # 日志名记录数据集与唯一运行标识；模型参数由Python从CONFIG_FILE读取。
-LOG_FILE="${LOG_DIR}/test_${DATASET}_${TS}_${RAND}.log"
 RUN_ID="test_${DATASET}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_RAND${RAND}"
-PID_FILE="${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+LOG_DIR="${RUN_DIR}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将测试专属数据路径、推理批量和运行标识写入日志；模型配置由配置文件统一记录。
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET NUM_WORKERS INFERENCE_BATCH_SIZE Z_SPACING MAX_CASES LIST_DIR ROOT_PATH CKPT CKPT_DIR CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV TS RAND LOG_FILE RUN_ID PID_FILE)

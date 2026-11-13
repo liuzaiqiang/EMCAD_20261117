@@ -4,23 +4,21 @@
 # -e 遇到未处理的非零退出码即停止，-u 拒绝未定义变量，pipefail 让管道任一环节失败都算失败。
 set -euo pipefail
 
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
-
+#209服务器
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
-
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#212服务器
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -36,6 +34,7 @@ mkdir -p "${LOG_DIR}"
 
 # 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+# 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
 NUM_WORKERS=8
@@ -110,6 +109,21 @@ USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
 
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+case "${SYNAPSE_TOPK_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1"; exit 1 ;;
+esac
+if [[ "${SYNAPSE_TOPK_ENABLED}" == "1" ]]; then
+  [[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer"; exit 1;
+  }
+fi
+
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
   1) CAA_MODE="caa" ;;
@@ -156,6 +170,9 @@ PARAM_NAMES=(
   CAA_RESIDUAL_SCALE
   USE_PIXEL_RELIABILITY_FUSION
   FUSION_MODE
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
 )
 
 {
@@ -191,6 +208,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --fusion_mode "${FUSION_MODE}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

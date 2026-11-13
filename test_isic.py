@@ -6,6 +6,7 @@ import shutil
 import sys
 # Path 解析检查点、配置、数据清单和输出路径。
 from pathlib import Path
+from lib.test_output_paths import checkpoint_output_dir
 
 # ISIC 测试复用 test_polyp 的模型构建、检查点加载、推理和指标逻辑。
 import test_polyp as _base
@@ -98,7 +99,7 @@ def _parse_args():
     # 未指定数据根时使用 ISIC 目录。
     if not _option_was_given("--data_root"):
         # 设置默认路径。
-        args.data_root = "../../data/isic/target"
+        args.data_root = "../../../../data/isic/target"
 
     # 把检查点转换成绝对 Path。
     checkpoint = Path(
@@ -342,30 +343,18 @@ def _parse_args():
         )
 
     # 使用显式 output_dir，或在检查点旁按 split+版本生成默认目录。
-    output_dir = Path(
-        # 优先使用用户参数。
-        args.output_dir
-        # 若为空则构造默认值。
-        or (
-            # 检查点运行目录。
-                checkpoint.parent
-                # 追加输出目录名。
-                / "{}_{}_outputs".format(
-            # val/test。
-            args.split,
-            # ISIC2017/2018。
-            args.dataset_name,
-        )
-        )
-        # 规范为绝对路径。
-    ).resolve()
+    output_dir = checkpoint_output_dir(
+        checkpoint, "ISIC_{}_{}".format(args.dataset_name, args.split), args.output_dir
+    )
+    args.output_dir = str(output_dir)
+    args._manifest_prepared = True
 
     # 创建输出目录。
     output_dir.mkdir(
         # 递归创建父目录。
         parents=True,
         # 已存在时复用。
-        exist_ok=True,
+        exist_ok=False,
     )
 
     # 复制逐样本划分清单到评测输出，绑定结果与测试样本。

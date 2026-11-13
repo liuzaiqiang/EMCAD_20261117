@@ -37,14 +37,14 @@ from trainer import trainer_synapse
 parser = argparse.ArgumentParser()
 
 # 训练数据根目录：每个 Synapse 二维切片通常对应一个 .npz 文件。
-parser.add_argument('--root_path', type=str, default='../../data/Synapse/train_npz', help='root dir for data')
+parser.add_argument('--root_path', type=str, default='../../../../data/Synapse/train_npz', help='root dir for data')
 # 完整体数据目录：验证/测试按病例读取 .npy.h5，   而不是逐切片 .npz。
-parser.add_argument('--volume_path', type=str, default='../../data/Synapse/test_vol_h5',
+parser.add_argument('--volume_path', type=str, default='../../../../data/Synapse/test_vol_h5',
                     help='root dir for validation volume data')
 # 数据集键名稍后用于查询 dataset_config 和 trainer 映射表；当前只注册 Synapse。
 parser.add_argument('--dataset', type=str, default='Synapse', help='experiment_name')
 # 划分列表目录应包含 train.txt、test_vol.txt 等文本清单。
-parser.add_argument('--list_dir', type=str, default='../../data/Synapse/lists/lists_Synapse', help='list dir')
+parser.add_argument('--list_dir', type=str, default='../../../../data/Synapse/lists/lists_Synapse', help='list dir')
 # 多分类输出通道数；9=背景(0)+8个器官(1..8)，须与标签编号一致。
 parser.add_argument('--num_classes', type=int, default=9, help='output channel of network')
 # network related parameters
@@ -82,6 +82,12 @@ parser.add_argument('--caa_mode', type=str, default='off',
 parser.add_argument('--caa_residual_scale', type=float, default=0.1,
                     help='initial scale of the content-aware residual; must match the checkpoint')
 parser.add_argument('--fusion_mode', choices=['p1', 'pixel_reliability'], default='p1')
+parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
+                    help='1: online top-K checkpoints with full metrics; 0: single best.pth')
+parser.add_argument('--synapse_topk_size', type=int, default=10,
+                    help='maximum number of retained Synapse top-K checkpoints')
+parser.add_argument('--synapse_topk_dice_threshold', type=float, default=83.90,
+                    help='inclusive Dice percentage threshold for top-K entry')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。
