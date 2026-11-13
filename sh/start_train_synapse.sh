@@ -42,7 +42,7 @@ N_GPU="${N_GPU:-1}"
 NUM_WORKERS=8
 
 SEED="${SEED:-2222}"
-MAX_EPOCHS=400
+MAX_EPOCHS=300
 DATASET="Synapse"
 IMG_SIZE=224
 BATCH_SIZE=16
@@ -112,6 +112,21 @@ AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+case "${SYNAPSE_TOPK_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1"; exit 1 ;;
+esac
+if [[ "${SYNAPSE_TOPK_ENABLED}" == "1" ]]; then
+  [[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer"; exit 1;
+  }
+fi
+
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
   1) CAA_MODE="caa" ;;
@@ -157,6 +172,9 @@ PARAM_NAMES=(
   CAA_RESIDUAL_SCALE
   USE_AREA_ADAPTIVE_TVERSKY
   AREA_TVERSKY_WEIGHT
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
 )
 
 {
@@ -193,6 +211,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --use_area_adaptive_tversky "${USE_AREA_ADAPTIVE_TVERSKY}" \
   --area_tversky_weight "${AREA_TVERSKY_WEIGHT}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

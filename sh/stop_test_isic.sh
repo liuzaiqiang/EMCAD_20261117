@@ -19,7 +19,8 @@ RUN_ID="${1:-${RUN_ID:-}}"
 }
 
 # 测试启动器将后台进程号写在项目根的“RUN_ID.pid”，此处按相同约定读取。
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+source "${PROJECT_DIR}/sh/test_pid_paths.sh"
+PID_FILE="$(locate_test_pid "${PROJECT_DIR}" "${RUN_ID}")"
 
 # 文件不存在返回2，说明没有可验证的RUN_ID到PID映射。
 [ -f "${PID_FILE}" ] || {

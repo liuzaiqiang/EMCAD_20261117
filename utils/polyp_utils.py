@@ -608,7 +608,18 @@ def evaluate_loader(
                 original_sizes,
                 names,
         ) in tqdm(loader, desc=description):
-            # 端到端计时覆盖当前样本从进入评估循环到指标/文件处理完成的完整路径。
+            if max_cases:
+                remaining = max_cases - len(rows)
+                if remaining <= 0:
+                    break
+                images = images[:remaining]
+                targets = targets[:remaining]
+                original_sizes = original_sizes[:remaining]
+                names = names[:remaining]
+            # 批级计时覆盖输入迁移、预测、指标和请求的文件导出。
+            if benchmark is not None:
+                synchronize(device)
+                batch_rows_before = len(rows)
             end_to_end_start = time.perf_counter()
             # 图像移到目标设备并统一为 float32；目标在逐病例计算时仍从 CPU 数组读取。
             images = images.to(
@@ -618,6 +629,8 @@ def evaluate_loader(
 
             # EMCAD 返回 [p4,p3,p2,p1]；评估统一使用最高分辨率的最终输出 p1。
             if benchmark is not None:
+                if benchmark.first_forward_input is None:
+                    benchmark.first_forward_input = images
                 synchronize(device)
                 forward_start = time.perf_counter()
             outputs = model_outputs(
@@ -630,6 +643,9 @@ def evaluate_loader(
                 benchmark.forward_seconds += time.perf_counter() - forward_start
                 benchmark.forward_units += int(images.shape[0])
             logits = outputs[-1]
+            if benchmark is not None:
+                synchronize(device)
+                benchmark.prediction_seconds += time.perf_counter() - end_to_end_start
 
             # 一个 batch 内逐图恢复各自原始尺寸、计算指标和保存结果。
             for index, name in enumerate(names):
@@ -644,6 +660,9 @@ def evaluate_loader(
                 width = int(
                     original_sizes[index, 1]
                 )
+                if benchmark is not None:
+                    synchronize(device)
+                    prediction_postprocess_start = time.perf_counter()
 
                 # probability = torch.sigmoid(
                 #     F.interpolate(
@@ -688,6 +707,14 @@ def evaluate_loader(
                                       + 1e-8
                               )
 
+                # 对归一化后的单图概率应用固定阈值，得到送入 binary_metrics 的布尔预测。
+                prediction = probability >= float(
+                    threshold
+                )
+                if benchmark is not None:
+                    synchronize(device)
+                    benchmark.prediction_seconds += time.perf_counter() - prediction_postprocess_start
+
                 # 数据加载器目标通常已是 0/1 浮点掩膜；>=0.5 将其稳健转换为布尔真值。
                 target = (
                         targets[index]
@@ -695,11 +722,6 @@ def evaluate_loader(
                         .cpu()
                         .numpy()
                         >= 0.5
-                )
-
-                # 对归一化后的单图概率应用固定阈值，得到送入 binary_metrics 的布尔预测。
-                prediction = probability >= float(
-                    threshold
                 )
 
                 # 区域指标始终计算；HD95/ASSD 是否计算由 compute_surface 控制。
@@ -716,9 +738,6 @@ def evaluate_loader(
                         **metrics,
                     }
                 )
-                if benchmark is not None:
-                    benchmark.samples += 1
-                    benchmark.end_to_end_seconds += time.perf_counter() - end_to_end_start
 
                 # 请求输出时把布尔预测转换为 OpenCV 可写的 0/255 单通道图像。
                 if output_dir:
@@ -766,6 +785,12 @@ def evaluate_loader(
                                 "Failed to save probability: "
                                 + name
                             )
+
+            if benchmark is not None:
+                synchronize(device)
+                benchmark.samples += len(rows) - batch_rows_before
+                benchmark.prediction_samples += len(rows) - batch_rows_before
+                benchmark.end_to_end_seconds += time.perf_counter() - end_to_end_start
 
             # 达到全局 max_cases 后终止外层 batch 循环。
             if max_cases and len(rows) >= max_cases:

@@ -94,7 +94,7 @@ case "${USE_AREA_ADAPTIVE_TVERSKY}" in
 esac
 
 # prepared数据、模型输出与PVT预训练权重目录。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/isic/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/isic/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ISIC}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
 

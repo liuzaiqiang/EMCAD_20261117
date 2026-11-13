@@ -10,8 +10,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
 
 
 #212服务器
@@ -59,7 +57,7 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 DEVICE="${DEVICE:-cuda}"
 
 # CKPT必须显式提供；prepared数据位于DATA_ROOT/<ISIC版本>/<划分>。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/isic/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/isic/target}"
 # 默认在 ISIC 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
 CKPT="${CKPT:-}"
 
@@ -116,16 +114,20 @@ test -f "${CONFIG_FILE}" || {
 }
 
 # 默认输出目录和CSV放在检查点目录旁，环境变量可覆盖。
-TEST_SAVE_DIR="${TEST_SAVE_DIR:-${CKPT_DIR}/${SPLIT}_${DATASET_NAME}_outputs}"
-OUTPUT_CSV="${OUTPUT_CSV:-${TEST_SAVE_DIR}/${SPLIT}_metrics.csv}"
 
 # 生成唯一RUN_ID并建立日志/PID关联。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-LOG_FILE="${LOG_DIR}/test_${DATASET}_${DATASET_NAME}_${SPLIT}_${TS}.log"
 RUN_ID="test_${DATASET}_${DATASET_NAME}_${SPLIT}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_RAND${RAND}"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
+RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
+LOG_DIR="${RUN_DIR}"
+mkdir -p "${CKPT_DIR}/test_results"
+mkdir "${RUN_DIR}"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+OUTPUT_CSV="${RUN_DIR}/test_metrics.csv"
+LOG_FILE="${RUN_DIR}/test.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将路径、阈值和RUN_ID追加到日志，方便复核本次评估配置。
 PARAM_NAMES=(PROJECT_DIR DATASET_NAME SPLIT DATA_ROOT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV THRESHOLD RUN_ID)
