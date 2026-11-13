@@ -5,7 +5,7 @@
 # 对 8 个前景器官分别计算 Dice、HD95、Jaccard、ASD，并可保存 NIfTI/叠加图。
 # 论文对应：模型结构见第 3.2 节与图 2；Synapse 结果见第 4.2.2 节相关表格；
 # 数据集与指标定义见补充材料第 7.1、7.2 节。本文件中的目录命名、PNG/NIfTI 输出、
-# best.pth 不存在时回退到最后 epoch 等，属于仓库工程实现，不是模型结构本身。
+# 候选权重由调用者明确指定，属于仓库工程实现，不是模型结构本身。
 # ========================================================================
 
 # argparse 解析测试路径、网络结构和保存选项。
@@ -27,7 +27,9 @@ import numpy as np
 # torch 用于构建模型、加载 state_dict 和执行 GPU 推理。
 import torch
 import time
-from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, synchronize
+from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
+                              log_environment, log_json, peak_memory_mb, reset_peak_memory,
+                              synchronize, timed_call)
 # cuDNN 开关与训练入口一致，用于速度/确定性的取舍。
 import torch.backends.cudnn as cudnn
 # nn 在当前文件执行路径中未直接使用，是保留导入。
@@ -95,9 +97,9 @@ parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,
                     default='mutation', help='loss supervision: mutation, deep_supervision or last_layer')
-# 允许启动脚本直接传入已经选定的 best.pth；为空时保留原有的按训练参数重建路径行为。
-parser.add_argument('--checkpoint', type=str, default='',
-                    help='explicit checkpoint path; empty keeps the reconstructed legacy path')
+# 显式指定准确的权重文件路径，兼容 best.pth 与动态前 N 文件。
+parser.add_argument('--checkpoint', type=str, required=True,
+                    help='explicit checkpoint path')
 # 当显式传入训练配置文件时，按其中记录的模型参数创建网络，避免测试结构与 checkpoint 不匹配。
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
@@ -107,7 +109,7 @@ parser.add_argument('--caa_residual_scale', type=float, default=0.1)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
-# max_epochs 用于目录名，以及 best.pth 缺失时推导 epoch_(max_epochs-1).pth。
+# max_epochs 保留为训练配置兼容参数。
 parser.add_argument('--max_epochs', type=int, default=300, help='maximum epoch number to train')
 # batch_size 不用于病例 DataLoader（后者固定 1），只参与 checkpoint 路径命名。
 parser.add_argument('--batch_size', type=int, default=6,
@@ -188,6 +190,7 @@ def inference(args, model, test_save_path=None):
         image, label, case_name = sampled_batch["image"], sampled_batch["label"], sampled_batch['case_name'][0]
         # test_single_volume 内部逐切片推理，返回 8 行，每行是 (Dice,HD95,Jaccard,ASD)。
         # 网络四个输出中只取 P[-1]；softmax 将 9 通道 logits 变概率，argmax 选像素类别。
+        synchronize(next(model.parameters()).device)
         end_to_end_start = time.perf_counter()
         metric_i = test_single_volume(image, label, model, classes=args.num_classes,
                                       patch_size=[args.img_size, args.img_size],
@@ -377,24 +380,31 @@ if __name__ == "__main__":
     # 下方是历史 checkpoint 路径示例，整行已注释，不参与运行。
     # snapshot_path = 'model_pth/'+args.encoder+'_EMCAD_wi_normal_dw_parallel_add_Conv2D_cec_cdc1x1_dwc_cs_ef2_k_sizes_1_3_5_ag3g_relu6_up3_relu_to1_3ch_relu_loss2p4_w1_out1_nlrd_mutation_True_cds_False_cds_decoder_FalseRun'+str(run)+'_Synapse224/'+args.encoder+'_EMCAD_wi_normal_dw_parallel_add_Conv2D_cec_cdc1x1_dwc_cs_ef2_k_sizes_1_3_5_ag3g_relu6_up3_relu_to1_3ch_relu_loss2p4_w1_out1_nlrd_mutation_True_cds_False_cds_decoder_FalseRun'+str(run)+'_50k_epo300_bs6_lr0.0001_224_s2222'
 
-    # 首选加载训练过程中按验证Dice选择的 best.pth。
-    # 启动脚本传入 checkpoint 时直接加载该文件；未传入时保留原有的 best.pth 路径推导。
-    snapshot = args.checkpoint if args.checkpoint else os.path.join(snapshot_path, 'best.pth')
+    # 只加载显式指定的候选权重，不从文件名猜测其他权重。
+    snapshot = args.checkpoint
     # 打印解析出的 checkpoint 路径，便于发现参数命名不匹配。
-    print(">>>>>>snapshot值(包括best.pth要放的位置)：", snapshot)
-    # 若 best.pth 不存在，则回退到零基编号的最后 epoch 文件，例如 epoch_299.pth。
-    if not os.path.exists(snapshot): snapshot = snapshot.replace('best', 'epoch_' + str(args.max_epochs - 1))
+    print(">>>>>>checkpoint路径：", snapshot)
+    # 显式指定的候选文件必须精确存在；禁止静默改名回退到另一份权重。
+    snapshot = os.path.abspath(snapshot)
+    if not os.path.isfile(snapshot):
+        raise FileNotFoundError('Synapse checkpoint not found: {}'.format(snapshot))
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
     model.load_state_dict(state_dict, strict=True)
-    # 用实际选中的 checkpoint 标识该次测试。
-    snapshot_name = os.path.basename(os.path.dirname(os.path.abspath(snapshot)))
+    # 用实际加载的文件名标识该次测试，多个候选权重不会混淆。
+    snapshot_name = os.path.basename(snapshot)
 
     # 测试日志和预测均写到 checkpoint 同级的独立运行子目录。
     output_dir, _ = prepare_test_output(
         snapshot, "Synapse_test",
         args.test_save_dir if args.test_save_dir != "predictions" else None,
     )
+    with open(os.path.join(output_dir, "checkpoint_source.json"), "w", encoding="utf-8") as stream:
+        json.dump({"checkpoint": snapshot, "checkpoint_filename": snapshot_name,
+                   "train_config": os.path.abspath(args.train_config) if args.train_config else "",
+                   "volume_path": os.path.abspath(args.volume_path),
+                   "list_dir": os.path.abspath(args.list_dir)},
+                  stream, ensure_ascii=False, indent=2)
     log_folder = output_dir
     # 递归创建日志目录，存在时不报错。
     os.makedirs(log_folder, exist_ok=True)
@@ -425,7 +435,18 @@ if __name__ == "__main__":
     args.benchmark = InferenceBenchmark()
     reset_peak_memory(next(model.parameters()).device)
     benchmark_env = log_environment(logging, next(model.parameters()).device)
-    inference(args, model, test_save_path)
+    _, total_test_seconds = timed_call(
+        lambda: inference(args, model, test_save_path),
+        next(model.parameters()).device,
+    )
+    logging.info("SYNAPSE_TEST_TOTAL elapsed_seconds=%.4f checkpoint=%s",
+                 total_test_seconds, snapshot)
+    evaluation_peak_memory = peak_memory_mb(next(model.parameters()).device)
+    benchmark_input = args.benchmark.first_forward_input
+    if benchmark_input is not None:
+        args.benchmark.repeated_forward = benchmark_repeated_forward(
+            lambda: model(benchmark_input), benchmark_input.device,
+            benchmark_input.shape)
     benchmark_result = args.benchmark.result(
         device=next(model.parameters()).device,
         warmup=0,
@@ -435,4 +456,36 @@ if __name__ == "__main__":
         precision="float32",
     )
     benchmark_result["environment"] = benchmark_env
+    benchmark_result.update(evaluation_peak_memory)
+    benchmark_result["measurement_policy"]["memory"] = (
+        "peak torch.cuda allocated/reserved during the actual evaluation pass, before repeated forward benchmark"
+    )
+    benchmark_result["measurement_policy"]["end_to_end"] = (
+        "per-case evaluation from loaded volume to completed prediction export and Dice/HD95/IoU/ASD; "
+        "excludes DataLoader wait and model loading"
+    )
+    benchmark_result["measurement_policy"]["prediction"] = (
+        "per-volume sum of slice preprocessing, model forward, mask decoding and reconstruction; "
+        "excludes visualization, ground-truth metrics, file export and DataLoader wait"
+    )
+    benchmark_result["total_test_seconds"] = round(total_test_seconds, 4)
+    benchmark_result["measurement_policy"]["total_test"] = (
+        "one complete test-set pass, including case loading, inference, metric calculation "
+        "and requested prediction export; excludes model construction and checkpoint loading"
+    )
+    forward_benchmark = benchmark_result["repeated_model_forward"]
+    logging.info("SYNAPSE_PREDICTION mean_ms_per_volume=%s volumes=%d",
+                 benchmark_result["prediction_time_ms_per_sample"],
+                 benchmark_result["predicted_samples"])
+    if forward_benchmark is not None:
+        logging.info(
+            "SYNAPSE_MODEL_FORWARD mean_ms=%.4f median_ms=%.4f p95_ms=%.4f "
+            "std_ms=%.4f warmup=%d repetitions=%d input_shape=%s",
+            forward_benchmark["mean_ms"], forward_benchmark["median_ms"],
+            forward_benchmark["p95_ms"], forward_benchmark["std_ms"],
+            forward_benchmark["warmup_iterations"],
+            forward_benchmark["timed_repetitions"], forward_benchmark["input_shape"],
+        )
     log_json(logging, "BENCHMARK_INFERENCE", benchmark_result)
+    with open(os.path.join(output_dir, "benchmark_summary.json"), "w", encoding="utf-8") as stream:
+        json.dump(benchmark_result, stream, ensure_ascii=False, indent=2)

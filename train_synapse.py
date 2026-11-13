@@ -81,6 +81,12 @@ parser.add_argument('--caa_mode', type=str, default='off',
                     help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
 parser.add_argument('--caa_residual_scale', type=float, default=0.1,
                     help='initial scale of the content-aware residual; must match the checkpoint')
+parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
+                    help='1: online top-K checkpoints with full metrics; 0: single best.pth')
+parser.add_argument('--synapse_topk_size', type=int, default=10,
+                    help='maximum number of retained Synapse top-K checkpoints')
+parser.add_argument('--synapse_topk_dice_threshold', type=float, default=83.90,
+                    help='inclusive Dice percentage threshold for top-K entry')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。
