@@ -20,6 +20,7 @@ from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
                               log_environment, log_json, reset_peak_memory,
                               peak_memory_mb, synchronize)
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 
 # 数据加载器同时暴露支持扩展名集合，供划分泄漏检查复用同一文件口径。
 from utils.dataloader_polyp import (
@@ -161,7 +162,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=DEFAULT_PVT_DIR,
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。

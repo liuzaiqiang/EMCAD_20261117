@@ -46,6 +46,7 @@ from utils.utils import test_single_volume
 
 # EMCADNet 必须用与训练 checkpoint 一致的结构参数重新实例化。
 from lib.networks import EMCADNet
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 
 # 创建命令行解析器。
 parser = argparse.ArgumentParser()
@@ -90,9 +91,9 @@ parser.add_argument('--concatenation', action='store_true',
 # action='store_true' 的含义：当为参数指定 action = 'store_true' 时，如果在命令行中提供了该标志（例如运行脚本时加上 - -no_pretrain），则 args.no_pretrain 的值会被自动设置为布尔值 True。
 # 如果命令行中没有提供该标志，则该参数的值会回退到 default 指定的值（在此代码中为 False）。简而言之，它将一个命令行标志转换为一个布尔开关，无需在标志后面额外赋值。
 parser.add_argument('--no_pretrain', action='store_true', default=False,
-                    help='use this flag to turn off loading pretrained enocder weights')
-# 构造模型时 PVT 预训练文件目录；随后完整 checkpoint 会覆盖模型参数。
-parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/',
+                    help='retained for training-config compatibility; test loads the full checkpoint')
+# 保留训练配置中的路径字段；正式测试直接加载完整 checkpoint，无需读取编码器预训练文件。
+parser.add_argument('--pretrained_dir', type=str, default=DEFAULT_PVT_DIR,
                     help='path to pretrained encoder dir')
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,
@@ -370,11 +371,11 @@ if __name__ == "__main__":
 
 
 
-    # 按与 checkpoint 一致的结构构造空模型；num_classes=9 决定四个分割头通道数。
+    # 按与 checkpoint 一致的结构构造空模型；完整权重随后严格加载，无需先读 PVT 预训练文件。
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
+                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir,
                      caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
                      fusion_mode=args.fusion_mode)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 # 导入 PVTv2 的六种层级编码器；论文实验重点使用 B0 和 B2。
 from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt_v2_b5
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 # 导入工程扩展支持的 ResNet 层级编码器；它们不是 EMCAD 论文的主要实验骨干。
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # EMCAD 是论文提出的解码器，接收四级编码特征并逐级恢复空间分辨率。
@@ -61,7 +62,7 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/',
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
                  caa_mode='off', caa_residual_scale=0.1, fusion_mode='p1'):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
