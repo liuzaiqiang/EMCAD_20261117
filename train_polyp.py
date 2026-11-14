@@ -55,6 +55,7 @@ from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 from utils.area_adaptive_tversky import area_adaptive_tversky_loss
+from utils.robust_boundary_loss import robust_boundary_loss, validate_robust_boundary_config
 
 
 # 解析所有二分类训练参数；默认值对应 EMCAD Polyp 主实验口径。
@@ -177,6 +178,9 @@ def parse_args():
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--use_area_adaptive_tversky", type=int, choices=[0, 1], default=0)
     parser.add_argument("--area_tversky_weight", type=float, default=1.0)
+    parser.add_argument("--use_robust_boundary_loss", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--robust_boundary_weight", type=float, default=0.1)
+    parser.add_argument("--robust_boundary_percentile", type=float, default=95.0)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -572,6 +576,9 @@ def main():
     args = parse_args()
     if args.use_area_adaptive_tversky and args.area_tversky_weight <= 0:
         raise ValueError("area_tversky_weight must be positive when enabled")
+    validate_robust_boundary_config(args.use_robust_boundary_loss,
+                                    args.robust_boundary_weight,
+                                    args.robust_boundary_percentile)
 
     # 验证间隔必须是正整数。
     if args.validate_every < 1:
@@ -959,6 +966,7 @@ def main():
                         enabled=scaler.is_enabled()
                 ):
                     area_loss = None
+                    boundary_loss = None
                     outputs = model_outputs(
                         model,
                         scaled_images,
@@ -975,6 +983,12 @@ def main():
                             outputs[-1], scaled_masks.squeeze(1)
                         )
                         loss = loss + args.area_tversky_weight * area_loss
+                    if args.use_robust_boundary_loss:
+                        boundary_loss = robust_boundary_loss(
+                            outputs[-1], scaled_masks.squeeze(1),
+                            args.robust_boundary_percentile,
+                        )
+                        loss = loss + args.robust_boundary_weight * boundary_loss
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
@@ -1013,6 +1027,8 @@ def main():
                 )
                 if area_loss is not None:
                     writer.add_scalar("train/area_adaptive_tversky", area_loss.detach(), global_step)
+                if boundary_loss is not None:
+                    writer.add_scalar("train/robust_boundary_loss", boundary_loss.detach(), global_step)
                 writer.add_scalar(
                     "train/lr",
                     optimizer.param_groups[0]["lr"],

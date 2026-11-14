@@ -75,6 +75,7 @@ from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 from utils.area_adaptive_tversky import area_adaptive_tversky_loss
+from utils.robust_boundary_loss import robust_boundary_loss, validate_robust_boundary_config
 
 
 # 集中定义全部训练参数；函数返回 Namespace，不在 import 阶段直接解析命令行。
@@ -115,6 +116,9 @@ def parse_args():
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--use_area_adaptive_tversky", type=int, choices=[0, 1], default=0)
     parser.add_argument("--area_tversky_weight", type=float, default=1.0)
+    parser.add_argument("--use_robust_boundary_loss", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--robust_boundary_weight", type=float, default=0.1)
+    parser.add_argument("--robust_boundary_percentile", type=float, default=95.0)
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -283,6 +287,9 @@ def main():
     args = parse_args()
     if args.use_area_adaptive_tversky and args.area_tversky_weight <= 0:
         raise ValueError("area_tversky_weight must be positive when enabled")
+    validate_robust_boundary_config(args.use_robust_boundary_loss,
+                                    args.robust_boundary_weight,
+                                    args.robust_boundary_percentile)
     # 防御性检查：ACDC 标签约定必须始终是背景+3个结构共 4 类。
     if ACDC_NUM_CLASSES != 4:
         # 常量被意外改动时立即停止，避免用错误输出通道静默训练。
@@ -452,6 +459,7 @@ def main():
             # 进入自动混合精度上下文；scaler 未启用时等同普通前向。
             with autocast(enabled=scaler.is_enabled()):
                 area_loss = None
+                boundary_loss = None
                 # EMCAD 训练前向并统一转成 list；典型 4 个输出均为 [B,4,224,224] logits。
                 outputs = model_outputs(model, images, mode="train")
                 # 按监督策略组合输出，每组计算 0.3*CE+0.7*Dice，再把所有组相加。
@@ -471,6 +479,10 @@ def main():
                 if args.use_area_adaptive_tversky:
                     area_loss = area_adaptive_tversky_loss(outputs[-1], labels)
                     loss = loss + args.area_tversky_weight * area_loss
+                if args.use_robust_boundary_loss:
+                    boundary_loss = robust_boundary_loss(outputs[-1], labels,
+                                                        args.robust_boundary_percentile)
+                    loss = loss + args.robust_boundary_weight * boundary_loss
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。
@@ -497,6 +509,8 @@ def main():
             writer.add_scalar("train/loss", loss.item(), global_step)
             if area_loss is not None:
                 writer.add_scalar("train/area_adaptive_tversky", area_loss.detach(), global_step)
+            if boundary_loss is not None:
+                writer.add_scalar("train/robust_boundary_loss", boundary_loss.detach(), global_step)
             # 记录常数基础学习率；代码没有 scheduler。
             writer.add_scalar("train/lr", args.base_lr, global_step)
             # 在 tqdm 尾部显示当前 batch loss，保留 4 位小数。

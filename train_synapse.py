@@ -85,6 +85,9 @@ parser.add_argument('--use_area_adaptive_tversky', type=int, choices=[0, 1], def
                     help='add area adaptive foreground Tversky supervision to p1')
 parser.add_argument('--area_tversky_weight', type=float, default=1.0,
                     help='weight of the optional p1 auxiliary loss')
+parser.add_argument('--use_robust_boundary_loss', type=int, choices=[0, 1], default=0)
+parser.add_argument('--robust_boundary_weight', type=float, default=0.1)
+parser.add_argument('--robust_boundary_percentile', type=float, default=95.0)
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
                     help='1: online top-K checkpoints with full metrics; 0: single best.pth')
 parser.add_argument('--synapse_topk_size', type=int, default=10,
