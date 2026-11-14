@@ -5,6 +5,13 @@
 set -euo pipefail
 
 
+
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
@@ -14,6 +21,9 @@ set -euo pipefail
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
+#并行3个月
+# CONDA_BASE="/base/mambaforge"
+# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
 CONDA_BASE="/home/mlf/anaconda3"
@@ -58,7 +68,7 @@ esac
 # 1 表示加载编码器预训练权重，0 表示随机初始化；结构选择与权重选择是两件事。
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-./pretrained_pth/pvt/}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 # EMCAD 解码器的主要结构参数；这里显式传给 Python，避免以后 Python 默认值改动造成实验漂移。
 EXPANSION_FACTOR="${EXPANSION_FACTOR:-2}"
 #MSDC 的三个深度卷积核；数组展开后对应 --kernel_sizes 1 3 5。
@@ -84,6 +94,12 @@ case "${USE_PRETRAIN}" in
   1) ;;
   *) echo "[ERROR] USE_PRETRAIN must be 0 or 1" >&2; exit 1 ;;
 esac
+if [[ "${USE_PRETRAIN}" == "1" && "${ENCODER}" == pvt_v2_* ]]; then
+  test -f "${PRETRAINED_DIR}/${ENCODER}.pth" || {
+    echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/${ENCODER}.pth" >&2
+    exit 1
+  }
+fi
 case "${NO_DW_PARALLEL}" in
   0) ;;
   1) ARCH_FLAGS+=(--no_dw_parallel) ;;
@@ -111,6 +127,19 @@ case "${SMALL_TARGET_HARD_SUPERVISION}" in
 esac
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+case "${SYNAPSE_TOPK_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1"; exit 1 ;;
+esac
+[[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
+  echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer"; exit 1;
+}
 
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
@@ -152,6 +181,9 @@ PARAM_NAMES=(
   CAA_MODE
   CAA_RESIDUAL_SCALE
   SMALL_TARGET_HARD_SUPERVISION
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
 )
 
 {
@@ -187,6 +219,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

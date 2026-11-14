@@ -1,3 +1,4 @@
+from lib.pretrained_paths import DEFAULT_PVT_DIR
 # PyTorch 提供权重加载、张量和模型参数统计等基础能力。
 import torch
 # nn 用于构建输入适配层和四个分割输出头。
@@ -61,7 +62,7 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/',
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
                  caa_mode='off', caa_residual_scale=0.1):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()

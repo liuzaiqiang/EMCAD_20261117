@@ -10,6 +10,13 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
+
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
@@ -165,9 +172,9 @@ IMAGE_MODE_ARGS=()
 if [[ "${INPUT_CHANNELS}" == "1" ]]; then IMAGE_MODE_ARGS+=(--grayscale); fi
 
 # 数据根目录应包含 <dataset>/{train,val}/{images,masks}；默认输出按 DATASET 隔离并可外部覆盖。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../data/polyp/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/polyp/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/${DATASET}}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 白名单正则只允许安全文件名字符，防止DATASET_NAME把路径拼接到意外目录；失败退出码为1。
 [[ "${DATASET_NAME}" =~ ^[A-Za-z0-9._-]+$ ]] || {

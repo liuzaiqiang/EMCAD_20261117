@@ -494,6 +494,7 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
     # sorted(cmaps.keys()) 只是建立稳定的字典顺序；真正选中的颜色由 my_colors过滤。classes 超过预设颜色数量时，颜色字典不会自动扩容，可能导致图例颜色
     # 不足，这是当前可视化配置的边界条件。
     cmap = {k: cmaps[k] for k in sorted(cmaps.keys()) if k in my_colors[:classes - 1]}
+    prediction_time_seconds = 0.0
     # 三维输入按 [D,H,W] 逐轴向切片送入二维 EMCAD 网络。
     if len(image.shape) == 3:
         # 三维分支是病例级主要路径。此时 image/label 通常为 [D,H,W]；网络本身仍
@@ -502,6 +503,9 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         prediction = np.zeros_like(label)
         # 沿深度 D 遍历每一张二维切片。
         for ind in range(image.shape[0]):
+            if benchmark is not None:
+                synchronize(torch.device("cuda"))
+                prediction_start = time.perf_counter()
             # ind 代表轴向切片编号；prediction[ind] 最终与 label[ind] 一一对应，
             # 这样病例级指标可以在完整三维坐标中比较预测和真值。
             # 取当前轴向 CT 切片 [H,W]。
@@ -523,6 +527,8 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
             net.eval()
             # 推理无需构建反向传播图，节省显存和计算。
             if benchmark is not None:
+                if benchmark.first_forward_input is None:
+                    benchmark.first_forward_input = input
                 synchronize(torch.device("cuda"))
                 forward_start = time.perf_counter()
             with torch.no_grad():
@@ -560,6 +566,9 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
                 # pred 的空间尺寸已经恢复为 x*y；赋值把本切片结果写到与标签同形状的
                 # 三维缓存中，循环结束后 prediction 就是整个病例的预测标签体。
                 prediction[ind] = pred
+                if benchmark is not None:
+                    synchronize(torch.device("cuda"))
+                    prediction_time_seconds += time.perf_counter() - prediction_start
                 # saving the final output as a PNG file
                 # print(test_save_path + '/'+case + '' +str(ind))
                 # Image.fromarray((pred/8 * 255).astype(np.uint8)).save(test_save_path + '/'+case + '' +str(ind)+'_pred.png')
@@ -608,6 +617,9 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         # PNG 叠加图，只在函数末尾计算指标并按需保存 NIfTI（对二维数据写出的其实
         # 是二维图像对象）。
         # 增加 batch 和 channel 维，并将 float 输入送到 CUDA。
+        if benchmark is not None:
+            synchronize(torch.device("cuda"))
+            prediction_start = time.perf_counter()
         input = torch.from_numpy(image).unsqueeze(
             # 两个 unsqueeze 最终形成 [1,1,H,W]。
             0).unsqueeze(0).float().cuda()
@@ -615,6 +627,8 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
         net.eval()
         # 关闭梯度记录。
         if benchmark is not None:
+            if benchmark.first_forward_input is None:
+                benchmark.first_forward_input = input
             synchronize(torch.device("cuda"))
             forward_start = time.perf_counter()
         with torch.no_grad():
@@ -633,6 +647,11 @@ def test_single_volume(image, label, net, classes, patch_size=[256, 256], test_s
             out = torch.argmax(torch.softmax(outputs, dim=1), dim=1).squeeze(0)
             # 去掉设备和计算图依赖，得到二维预测数组。
             prediction = out.cpu().detach().numpy()
+            synchronize(torch.device("cuda"))
+            prediction_time_seconds += time.perf_counter() - prediction_start
+    if benchmark is not None:
+        benchmark.prediction_seconds += prediction_time_seconds
+        benchmark.prediction_samples += 1
     # 保存当前病例每个前景类别的四指标元组。
     # prediction 和 label 都是整数类别图；prediction == i 会生成第 i 类的 bool
     # 掩膜，再由 calculate_metric_percase 计算一个 (Dice, HD95, Jaccard, ASD) 元组。
@@ -691,7 +710,8 @@ overlay_masks 是从外部库 segmentation_mask_overlay 导入的一个可视化
     预测可视化：将模型预测的多类别掩膜以完全相同的颜色配置叠加到同一 CT 切片上，生成预测结果的标注图像。
 通过这种方式，可以直观地对比模型预测的器官区域与真实器官区域的位置和形状差异。该函数仅用于结果的可视化检查与论文插图生成，不参与任何分割指标的计算或模型的梯度更新。
 """
-def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
+def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1,
+                      full_metrics=False):
     # 去掉 batch 维、转到 CPU，并转换为 NumPy 体数据。
     # 验证只做前向和指标，不需要保留 PyTorch 图；把数据转 NumPy 后可以直接使用
     # scipy.zoom 和本文件的 NumPy 比较逻辑。这里的 squeeze(0) 依赖调用方保留 batch=1。
@@ -785,7 +805,12 @@ def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_sa
     for i in range(1, classes):
         # 第 i 类单独转成 bool mask；跳过背景后，列表第 0 项对应类别 1，而不是类别 0。
         # 对第 i 类预测/真值二值掩膜计算 Dice。
-        metric_list.append(calculate_dice_percase(prediction == i, label == i))
+        if full_metrics:
+            # 候选权重评估复用同一份预测，但计算与 Synapse 正式测试一致的四项指标。
+            # 不生成 PNG/NIfTI，也不改变模型参数或优化器状态。
+            metric_list.append(calculate_metric_percase(prediction == i, label == i))
+        else:
+            metric_list.append(calculate_dice_percase(prediction == i, label == i))
     # 返回逐类 Dice，trainer.py 再求病例及类别平均。
     return metric_list
 
