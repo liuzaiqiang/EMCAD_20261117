@@ -61,14 +61,15 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
 ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
 test -d "${ROOT_PATH}/train" || { echo "[ERROR] ROOT_PATH/train not found: ${ROOT_PATH}/train"; exit 1; }
 test -d "${ROOT_PATH}/valid" || { echo "[ERROR] ROOT_PATH/valid not found: ${ROOT_PATH}/valid"; exit 1; }
 test -f "${LIST_DIR}/train.txt" || { echo "[ERROR] train list not found: ${LIST_DIR}/train.txt"; exit 1; }
 test -f "${LIST_DIR}/valid.txt" || { echo "[ERROR] valid list not found: ${LIST_DIR}/valid.txt"; exit 1; }
-test -f "${PROJECT_DIR}/pretrained_pth/pvt/pvt_v2_b2.pth" || {
-  echo "[ERROR] pretrained model not found: ${PROJECT_DIR}/pretrained_pth/pvt/pvt_v2_b2.pth"
+test -f "${PRETRAINED_DIR}/pvt_v2_b2.pth" || {
+  echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/pvt_v2_b2.pth"
   echo "[ERROR] This Synapse-style launcher uses the pretrained EMCAD encoder."
   exit 1
 }
@@ -86,6 +87,7 @@ PID_FILE="${RUN_ID}.pid"
 # CAA 与面积自适应 Tversky 使用独立开关；默认均启用。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+CEPA_ENABLED="${CEPA_ENABLED:-1}"
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 
 CAA_MODE="${CAA_MODE:-caa}"
@@ -101,12 +103,16 @@ case "${USE_AREA_ADAPTIVE_TVERSKY}" in
   0|1) ;;
   *) echo "[ERROR] USE_AREA_ADAPTIVE_TVERSKY must be 0 or 1"; exit 1 ;;
 esac
+case "${CEPA_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] CEPA_ENABLED must be 0 or 1"; exit 1 ;;
+esac
 
 
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR USE_CONTENT_AWARE_ANTIALIAS USE_AREA_ADAPTIVE_TVERSKY AREA_TVERSKY_WEIGHT CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR USE_CONTENT_AWARE_ANTIALIAS USE_AREA_ADAPTIVE_TVERSKY AREA_TVERSKY_WEIGHT CEPA_ENABLED CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
@@ -123,6 +129,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --output_dir "${OUTPUT_DIR}" \
   --run_name "${RUN_ID}" \
   --encoder pvt_v2_b2 \
+  --pretrained_dir "${PRETRAINED_DIR}" \
   --kernel_sizes 1 3 5 \
   --expansion_factor 2 \
   --lgag_ks 3 \
@@ -139,6 +146,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --use_area_adaptive_tversky "${USE_AREA_ADAPTIVE_TVERSKY}" \
   --area_tversky_weight "${AREA_TVERSKY_WEIGHT}" \
+  --cepa_enabled "${CEPA_ENABLED}" \
   --seed "${SEED}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 

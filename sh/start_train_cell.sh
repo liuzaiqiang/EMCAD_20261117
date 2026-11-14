@@ -66,6 +66,7 @@ export N_GPU="${N_GPU:-1}"
 # Cell uses the shared binary trainer, so expose the same CAA and area-adaptive loss switches here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 export USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+export CEPA_ENABLED="${CEPA_ENABLED:-1}"
 export AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0|1) ;;
@@ -74,6 +75,10 @@ esac
 case "${USE_AREA_ADAPTIVE_TVERSKY}" in
   0|1) ;;
   *) echo "[ERROR] USE_AREA_ADAPTIVE_TVERSKY must be 0 or 1" >&2; exit 2 ;;
+esac
+case "${CEPA_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] CEPA_ENABLED must be 0 or 1" >&2; exit 2 ;;
 esac
 if [[ "${USE_AREA_ADAPTIVE_TVERSKY}" == "1" ]]; then
   if ! [[ "${AREA_TVERSKY_WEIGHT}" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]] ||

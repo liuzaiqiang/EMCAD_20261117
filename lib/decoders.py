@@ -2,6 +2,7 @@
 import torch
 # 导入神经网络模块别名，卷积、归一化、激活和 ModuleList 均从 nn 创建。
 import torch.nn as nn
+from lib.cepa import CEPA
 # partial 用来预先固定权重初始化函数的 scheme 参数，再交给 named_apply 递归调用。
 from functools import partial
 
@@ -946,7 +947,8 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1):
+                 add=True, lgag_ks=3, activation='relu6', caa_mode='off', caa_residual_scale=0.1,
+                 cepa_enabled=0):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -1015,6 +1017,11 @@ class EMCAD(nn.Module):
         # SAB 不依赖通道数，因此四个解码级共享同一个 7x7 空间注意力模块及其参数。
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
+        if cepa_enabled not in (0, 1):
+            raise ValueError('cepa_enabled must be 0 or 1')
+        self.cepa3 = CEPA(channels[1]) if cepa_enabled else None
+        self.cepa2 = CEPA(channels[2]) if cepa_enabled else None
+        self.cepa1 = CEPA(channels[3]) if cepa_enabled else None
 
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
     def forward(self, x, skips):
@@ -1041,6 +1048,8 @@ class EMCAD(nn.Module):
         # skips[0] 是编码器 x3；LGAG 输出被门控的 x3，通道和分辨率不变。
         # 关键点：LGAG(g=d3,x=skip) 用 d3 决定保留 skip 的哪些空间位置，但返回值内容来源仍是 skip。
         x3 = self.lgag3(g=d3, x=skips[0])
+        if self.cepa3 is not None:
+            x3 = self.cepa3(x3, d3)
 
         # Additive aggregation 3
         # 解码特征与筛选后的 skip 逐元素相加，不采用通道拼接，因此 d3 仍为 C3。
@@ -1065,6 +1074,8 @@ class EMCAD(nn.Module):
         # 门控编码器 x2，输出保持 skips[1] 的 C2 通道。
         # x2 变量名在本函数内表示“门控后的第二级 skip”，不是编码器原始 x2 的原地改写。
         x2 = self.lgag2(g=d2, x=skips[1])
+        if self.cepa2 is not None:
+            x2 = self.cepa2(x2, d2)
 
         # Additive aggregation 2
         # 与门控 skip 相加，形状保持 (B,C2,H/8,W/8)。
@@ -1088,6 +1099,8 @@ class EMCAD(nn.Module):
         # 门控最高分辨率编码器特征 x1。
         # x1 往往包含最丰富的边界/纹理，也最容易带入背景噪声，因此仍需 LGAG 选择后再融合。
         x1 = self.lgag1(g=d1, x=skips[2])
+        if self.cepa1 is not None:
+            x1 = self.cepa1(x1, d1)
 
         # Additive aggregation 1
         # 相加后 d1 保持 (B,C1,H/4,W/4)。

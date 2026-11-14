@@ -11,6 +11,7 @@ from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # 导入论文提出的 EMCAD 解码器。
 from lib.decoders import EMCAD
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 
 # 工程定位：当前 train/test 脚本均从 lib.networks 导入 EMCADNet，本文件是根目录副本并带额外预训练诊断逻辑。
 # 下方已有字符串是原文件说明，本次仅在其外部补充 # 注释，不改动其内容。
@@ -40,7 +41,7 @@ class EMCADNet(nn.Module):
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu',
                  # encoder 和 pretrain 分别控制骨干类型与是否使用预训练，二者是相互独立的选择。
-                 encoder='pvt_v2_b2', pretrain=True, pretrained_dir='./pretrained_pth/pvt/'):
+                 encoder='pvt_v2_b2', pretrain=True, pretrained_dir=SHARED_PRETRAINED_DIR):
         # 初始化 nn.Module 的模块注册机制。
         super(EMCADNet, self).__init__()
 

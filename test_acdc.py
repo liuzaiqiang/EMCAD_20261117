@@ -30,6 +30,7 @@ import numpy as np
 import torch
 import time
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
                               log_environment, log_json, peak_memory_mb,
                               reset_peak_memory, synchronize)
@@ -96,10 +97,11 @@ def parse_args():
     # 出现该旗标表示用 concat 聚合多尺度特征；默认 add。
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
 
     # 每张切片进入模型前缩放到的正方形尺寸，须与训练设置相符。
     parser.add_argument("--img_size", type=int, default=256)
@@ -143,6 +145,7 @@ def restore_checkpoint_config(args):
         "concatenation": "--concatenation",
         "caa_mode": "--caa_mode",
         "caa_residual_scale": "--caa_residual_scale",
+        "cepa_enabled": "--cepa_enabled",
         "img_size": "--img_size",
     }
     for field, option in options.items():

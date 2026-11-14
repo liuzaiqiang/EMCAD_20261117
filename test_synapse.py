@@ -46,6 +46,7 @@ from utils.utils import test_single_volume
 
 # EMCADNet 必须用与训练 checkpoint 一致的结构参数重新实例化。
 from lib.networks import EMCADNet
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 
 # 创建命令行解析器。
 parser = argparse.ArgumentParser()
@@ -92,7 +93,7 @@ parser.add_argument('--concatenation', action='store_true',
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # 构造模型时 PVT 预训练文件目录；随后完整 checkpoint 会覆盖模型参数。
-parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default=SHARED_PRETRAINED_DIR,
                     help='path to pretrained encoder dir')
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,
@@ -106,6 +107,7 @@ parser.add_argument('--train_config', type=str, default='',
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'])
 parser.add_argument('--caa_residual_scale', type=float, default=0.1)
+parser.add_argument('--cepa_enabled', type=int, choices=[0, 1], default=0)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
@@ -143,7 +145,7 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
+        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale', 'cepa_enabled',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -372,8 +374,9 @@ if __name__ == "__main__":
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir,
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     cepa_enabled=args.cepa_enabled)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

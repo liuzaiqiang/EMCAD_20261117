@@ -38,6 +38,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 # Project-specific imports
 # EMCADNet 封装编码器、解码器与四个二分类输出头。
 from lib.networks import EMCADNet
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 # get_loader 配对图像/掩膜，并按 train/test 模式返回不同批结构。
 from utils.dataloader_polyp import get_loader as get_loader
 # clip_gradient 做逐参数梯度截断；adjust_lr 是旧阶梯衰减；AvgMeter 记录 loss；cal_params_flops 统计复杂度。
@@ -359,7 +360,7 @@ if __name__ == '__main__':
                         default=False, help='use this flag to turn off loading pretrained enocder weights')
     # PVT 预训练文件目录。
     parser.add_argument('--pretrained_dir', type=str,
-                        default='./pretrained_pth/pvt/', help='path to pretrained encoder dir')
+                        default=SHARED_PRETRAINED_DIR, help='path to pretrained encoder dir')
     # 该参数参与 run_id，但 train() 当前固定使用“五路 paper 风格损失”，没有读取 opt.supervision 分支。
     parser.add_argument('--supervision', type=str,
                         default='mutation', help='loss supervision: mutation, deep_supervision or last_layer')

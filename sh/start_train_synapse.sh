@@ -5,25 +5,41 @@
 set -euo pipefail
 
 
+
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+#209服务器
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
-
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
-
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+
+
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+CEPA_ENABLED="${CEPA_ENABLED:-1}"
+
+
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-7}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 
 
@@ -34,8 +50,7 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
-# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
@@ -61,7 +76,7 @@ esac
 # 1 表示加载编码器预训练权重，0 表示随机初始化；结构选择与权重选择是两件事。
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-./pretrained_pth/pvt/}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 # EMCAD 解码器的主要结构参数；这里显式传给 Python，避免以后 Python 默认值改动造成实验漂移。
 EXPANSION_FACTOR="${EXPANSION_FACTOR:-2}"
 #MSDC 的三个深度卷积核；数组展开后对应 --kernel_sizes 1 3 5。
@@ -97,6 +112,12 @@ case "${CONCATENATION}" in
   1) ARCH_FLAGS+=(--concatenation) ;;
   *) echo "[ERROR] CONCATENATION must be 0 or 1" >&2; exit 1 ;;
 esac
+if [[ "${USE_PRETRAIN}" == "1" && "${ENCODER}" == pvt_v2_* ]]; then
+  test -f "${PRETRAINED_DIR}/${ENCODER}.pth" || {
+    echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/${ENCODER}.pth" >&2
+    exit 1
+  }
+fi
 
 
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
@@ -105,17 +126,14 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+
+
+
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
@@ -135,6 +153,10 @@ esac
 case "${USE_AREA_ADAPTIVE_TVERSKY}" in
   0|1) ;;
   *) echo "[ERROR] USE_AREA_ADAPTIVE_TVERSKY must be 0 or 1"; exit 1 ;;
+esac
+case "${CEPA_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] CEPA_ENABLED must be 0 or 1"; exit 1 ;;
 esac
 
 PARAM_NAMES=(
@@ -172,6 +194,7 @@ PARAM_NAMES=(
   CAA_RESIDUAL_SCALE
   USE_AREA_ADAPTIVE_TVERSKY
   AREA_TVERSKY_WEIGHT
+  CEPA_ENABLED
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -211,6 +234,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --use_area_adaptive_tversky "${USE_AREA_ADAPTIVE_TVERSKY}" \
   --area_tversky_weight "${AREA_TVERSKY_WEIGHT}" \
+  --cepa_enabled "${CEPA_ENABLED}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \

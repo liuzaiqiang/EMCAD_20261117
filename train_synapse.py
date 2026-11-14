@@ -30,6 +30,7 @@ import torch.backends.cudnn as cudnn
 # EMCADNet 封装“编码器 + EMCAD 解码器 + 四个分割头”；结构细节在 lib/networks.py。
 from lib.networks import EMCADNet
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 # trainer_synapse 承担 DataLoader、损失、反向传播、验证和 checkpoint 保存。
 from trainer import trainer_synapse
 
@@ -71,7 +72,7 @@ parser.add_argument('--concatenation', action='store_true', default=False,
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # PVT 预训练权重目录；EMCADNet 会按 encoder 名称拼接具体 .pth 文件名。
-parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default=SHARED_PRETRAINED_DIR,
                     help='path to pretrained encoder dir')
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
@@ -81,6 +82,8 @@ parser.add_argument('--caa_mode', type=str, default='off',
                     help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
 parser.add_argument('--caa_residual_scale', type=float, default=0.1,
                     help='initial scale of the content-aware residual; must match the checkpoint')
+parser.add_argument('--cepa_enabled', type=int, choices=[0, 1], default=0,
+                    help='enable connectivity-edge attention at three skip fusion stages')
 parser.add_argument('--use_area_adaptive_tversky', type=int, choices=[0, 1], default=0,
                     help='add area adaptive foreground Tversky supervision to p1')
 parser.add_argument('--area_tversky_weight', type=float, default=1.0,
@@ -233,7 +236,8 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale)
+                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     cepa_enabled=args.cepa_enabled)
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。
     model.cuda()

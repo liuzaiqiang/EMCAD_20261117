@@ -53,6 +53,7 @@ from utils.polyp_utils import (
 )
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 from utils.area_adaptive_tversky import area_adaptive_tversky_loss
 
@@ -170,11 +171,12 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=SHARED_PRETRAINED_DIR,
     )
     # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
+    parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
     parser.add_argument("--use_area_adaptive_tversky", type=int, choices=[0, 1], default=0)
     parser.add_argument("--area_tversky_weight", type=float, default=1.0)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。

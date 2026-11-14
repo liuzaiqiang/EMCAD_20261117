@@ -79,6 +79,7 @@ exec > >(tee -a "${QUEUE_LOG}") 2>&1
 echo "[QUEUE] 启动器=${LAUNCHER}"
 echo "[QUEUE] seeds=$*"
 echo "[QUEUE] USE_AREA_ADAPTIVE_TVERSKY=${USE_AREA_ADAPTIVE_TVERSKY:-launcher_default} AREA_TVERSKY_WEIGHT=${AREA_TVERSKY_WEIGHT:-1.0}"
+echo "[QUEUE] CEPA_ENABLED=${CEPA_ENABLED:-launcher_default}"
 if [[ -n "${DATASET_NAME:-}" ]]; then
   echo "[QUEUE] DATASET_NAME=${DATASET_NAME}"
 fi
