@@ -11,7 +11,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
+mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 
 #205

@@ -15,7 +15,7 @@ cd "${PROJECT_DIR}"
 
 # 训练stdout/stderr统一写入项目logs目录。
 LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
+mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 
 #205
