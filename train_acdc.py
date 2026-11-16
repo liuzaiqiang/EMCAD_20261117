@@ -1,3 +1,4 @@
+from lib.pair_runtime import train_forward as pair_train_forward, add_loss as add_pair_loss
 # ============================== 初学者阅读总览 ==============================
 # 本文件是 ACDC 心脏分割的独立训练入口，训练样本是二维切片，验证样本按病例重组成三维体。
 # 类别固定为 4：0=背景，1=右心室(RV)，2=心肌(MYO)，3=左心室(LV)。
@@ -445,7 +446,7 @@ def main():
             # 进入自动混合精度上下文；scaler 未启用时等同普通前向。
             with autocast(enabled=scaler.is_enabled()):
                 # EMCAD 训练前向并统一转成 list；典型 4 个输出均为 [B,4,224,224] logits。
-                outputs = model_outputs(model, images, mode="train")
+                outputs, pair_aux = pair_train_forward(model, images, mode="train")
                 # 按监督策略组合输出，每组计算 0.3*CE+0.7*Dice，再把所有组相加。
                 loss = supervised_loss(
                     # 四级 logits 列表。
@@ -461,6 +462,8 @@ def main():
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
+            loss = add_pair_loss(loss, model, outputs, pair_aux, labels,
+                lambda p, y: 0.3 * ce_loss(p, y.long()) + 0.7 * dice_loss(p, y))
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。
             scaler.step(optimizer)
