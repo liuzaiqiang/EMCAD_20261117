@@ -2,6 +2,9 @@
 # 使用Bash严格模式；任一未处理错误、未定义变量或失败管道都会终止启动，避免后台任务带错参数运行。
 set -euo pipefail
 
+# 本次实验要验证的目的；Cell 启动器会复用这里的日志逻辑。
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 
@@ -230,6 +233,7 @@ PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 # 参数快照追加到日志；终端只保留便于复制的RUN_ID和后续PID/路径信息。
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS USE_AREA_ADAPTIVE_TVERSKY AREA_TVERSKY_WEIGHT CEPA_ENABLED USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"

@@ -2,6 +2,9 @@
 # Bash严格模式让路径检查、环境激活或后台命令准备失败时立即退出。
 set -euo pipefail
 
+# 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+
 # 固定项目根和工作目录，避免调用者所在目录影响相对路径。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -172,6 +175,7 @@ PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 # 把关键配置追加进日志，终端单独打印RUN_ID供停止脚本使用。
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS USE_AREA_ADAPTIVE_TVERSKY AREA_TVERSKY_WEIGHT CEPA_ENABLED RUN_ID)
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"

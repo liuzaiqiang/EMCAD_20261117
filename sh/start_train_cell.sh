@@ -14,6 +14,9 @@
 # -e 遇到未处理失败即停，-u 拒绝空未定义变量，pipefail 检查管道中每个环节的退出状态。
 set -euo pipefail
 
+# 本次实验要验证的目的；传给共用的 Polyp 启动器并写入 Cell 训练日志。
+export RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+
 
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"

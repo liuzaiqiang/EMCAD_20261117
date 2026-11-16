@@ -18,6 +18,7 @@
 # 可选环境变量：
 #   CUDA_DEVICE=0       选择物理 GPU；不设置时由各启动脚本采用自己的默认值。
 #   DATASET_NAME=...    选择 Polyp/ISIC 等启动器支持的具体子数据集。
+#   RUN_PURPOSE=...    本轮队列的验证目的，写入队列日志和每个训练日志。
 #   CONTINUE_ON_ERROR=1 单个 seed 失败后继续队列；默认失败即停止，避免漏看错误。
 # -----------------------------------------------------------------------------
 
@@ -78,6 +79,7 @@ exec > >(tee -a "${QUEUE_LOG}") 2>&1
 
 echo "[QUEUE] 启动器=${LAUNCHER}"
 echo "[QUEUE] seeds=$*"
+echo "[QUEUE] RUN_PURPOSE=${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 echo "[QUEUE] USE_AREA_ADAPTIVE_TVERSKY=${USE_AREA_ADAPTIVE_TVERSKY:-launcher_default} AREA_TVERSKY_WEIGHT=${AREA_TVERSKY_WEIGHT:-1.0}"
 echo "[QUEUE] CEPA_ENABLED=${CEPA_ENABLED:-launcher_default}"
 if [[ -n "${DATASET_NAME:-}" ]]; then
