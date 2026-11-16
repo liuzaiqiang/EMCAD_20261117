@@ -1,0 +1,18 @@
+{
+  "caa": {
+    "branch": "contentAware_mjzsy_1029",
+    "commit": "e3f4be293994abf301a545c99503c99126c3ba20",
+    "path": "lib/decoders.py",
+    "symbols": [
+      "ContentAwareAntiAliasUpsample"
+    ]
+  },
+  "bfc": {
+    "branch": "base_kxxtlkjdq_sxtzyzx_261017",
+    "commit": "d4e0508c6d147a6fdcfd13f84bc1c9a3fe41d47d",
+    "path": "lib/decoders.py",
+    "symbols": [
+      "bidirectional_feature_consistency"
+    ]
+  }
+}
