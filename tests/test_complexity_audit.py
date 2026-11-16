@@ -22,4 +22,26 @@ class AuditTests(unittest.TestCase):
         self.assertTrue(m.training)
         self.assertTrue(all(torch.equal(v,m.state_dict()[k]) for k,v in before.items()))
         self.assertFalse(any('total_ops' in k for k in m.state_dict()))
+    def test_mcc_scalar_formulas(self):
+        from lib.model_complexity import scalar_ops
+        x=torch.zeros(1,2,4,4)
+        self.assertEqual(scalar_ops('mean',(x,),x.mean((-2,-1),keepdim=True)),32)
+        self.assertEqual(scalar_ops('upsample_bilinear2d',(x,),torch.zeros(1,2,8,8)),7*128)
+        self.assertEqual(scalar_ops('_upsample_bilinear2d_aa',(x,),torch.zeros(1,2,4,4)),0)
+        # 4->2 AA triangle filter has 3 valid taps at each of two positions.
+        self.assertEqual(scalar_ops('_upsample_bilinear2d_aa',(x,),torch.zeros(1,2,2,2)),2*(4*10+2*10))
+    def test_failure_does_not_abort_training(self):
+        from lib.model_complexity import log_model_complexity
+        class Unknown(torch.nn.Module):
+            def forward(self,x):return x.sin()
+        r=log_model_complexity(Unknown(),(1,1,4,4))
+        self.assertEqual(r['status'],'failed')
+        self.assertIsNone(r['flops'])
+    def test_rng_unchanged_and_shared_parameters(self):
+        m=torch.nn.Sequential(torch.nn.Linear(4,4),torch.nn.Linear(4,4))
+        m[1].weight=m[0].weight
+        state=torch.get_rng_state().clone()
+        r=measure_model_complexity(m,(1,1,2,4))
+        self.assertTrue(torch.equal(state,torch.get_rng_state()))
+        self.assertEqual(r['parameters'],24)
 if __name__=='__main__':unittest.main()
