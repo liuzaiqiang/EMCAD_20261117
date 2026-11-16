@@ -44,4 +44,12 @@ class AuditTests(unittest.TestCase):
         r=measure_model_complexity(m,(1,1,2,4))
         self.assertTrue(torch.equal(state,torch.get_rng_state()))
         self.assertEqual(r['parameters'],24)
+    def test_relu6_inplace_and_out_of_place(self):
+        for inplace in (False,True):
+            m=torch.nn.ReLU6(inplace=inplace)
+            r=measure_model_complexity(m,(1,2,4,4))
+            self.assertEqual(r['status'],'ok')
+            self.assertEqual(r['macs'],0)
+            self.assertEqual(r['supplemental_scalar_ops_estimate'],64)
+            self.assertIn('hardtanh_' if inplace else 'hardtanh',r['operator_calls'])
 if __name__=='__main__':unittest.main()
