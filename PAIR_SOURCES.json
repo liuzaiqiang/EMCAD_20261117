@@ -1,0 +1,14 @@
+{
+  "prf": {
+    "branch": "base_xsjkkxdtrh_261112",
+    "commit": "ab5a3d9304f68a8d074fa25772402fb23af09bbb",
+    "path": "lib/pixel_reliability_fusion.py",
+    "symbols": "whole file"
+  },
+  "mcc": {
+    "branch": "contentAware_and_dcdlkyzx",
+    "commit": "c4049ecba5b24f62507446b12f985fc2d1a5100d",
+    "path": "lib/contour_consistency.py",
+    "symbols": "whole file"
+  }
+}
