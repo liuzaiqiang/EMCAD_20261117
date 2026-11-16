@@ -1,0 +1,14 @@
+{
+  "frd": {
+    "branch": "baseModel_261017_qfblxjzl_yymkccrh",
+    "commit": "a61b0729c8c1aaa30c2a71db259063b0ad75139e",
+    "path": "lib/full_resolution_detail.py",
+    "symbols": "whole file"
+  },
+  "sdg": {
+    "branch": "base_try5_add_bmjllhjd",
+    "commit": "8fd578094b7ac5bc936a1362622b04aeaea813d6",
+    "path": "utils/surface_distance_loss.py",
+    "symbols": "whole file"
+  }
+}
