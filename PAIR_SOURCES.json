@@ -1,0 +1,14 @@
+{
+  "lrci": {
+    "branch": "classConditionalScaleFusion_findAnother_1025_1",
+    "commit": "25f89ef64d40788d4259d0be33d5a694e1f82b53",
+    "path": "research_emcad/low_rank_covariance.py",
+    "symbols": "whole file"
+  },
+  "mcc": {
+    "branch": "contentAware_and_dcdlkyzx",
+    "commit": "c4049ecba5b24f62507446b12f985fc2d1a5100d",
+    "path": "lib/contour_consistency.py",
+    "symbols": "whole file"
+  }
+}
