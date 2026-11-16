@@ -54,6 +54,16 @@ def make_experiment_dir(args, family, output_root=None):
         ("act", _value(args, "activation_mscb")),
         ("seed", _value(args, "seed")),
     ]
+    from lib.pair_runtime import settings, MODULE_A, MODULE_B
+    active = settings()
+    if active:
+        import json, os
+        values.append(("pair", "-".join(active)))
+        args.pair_modules = {"module_a": MODULE_A, "module_b": MODULE_B,
+                             "active": list(active),
+                             "aat_weight": float(os.getenv("AAT_WEIGHT", "1.0")),
+                             "bfc_weight": float(os.getenv("BFC_WEIGHT", "0.05")),
+                             "sdg_weight": float(os.getenv("SDG_WEIGHT", "0.001"))}
     parameter_parts = [
         Path(_safe_component(label) + "_" + _safe_component(value))
         for label, value in values
@@ -68,4 +78,6 @@ def make_experiment_dir(args, family, output_root=None):
         candidate = Path(str(base) + "_{:02d}".format(suffix))
         suffix += 1
     candidate.mkdir(parents=True, exist_ok=False)
+    if active:
+        (candidate / "pair_config.json").write_text(json.dumps(args.pair_modules, indent=2), encoding="utf-8")
     return str(candidate.resolve())
