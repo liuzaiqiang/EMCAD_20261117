@@ -2,6 +2,16 @@
 # Bash 严格模式：遇到失败命令、未定义变量或失败管道即退出，避免错误配置被带入后台测试。
 set -euo pipefail
 
+# 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
+export MODULE_A="${MODULE_A:-1}"
+export MODULE_B="${MODULE_B:-1}"
+case "${MODULE_A}${MODULE_B}" in
+  00|01|10|11) ;;
+  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+esac
+echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+
+
 # 定位脚本所在项目根并切换过去，使相对PID文件以及后续路径具有固定基准。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

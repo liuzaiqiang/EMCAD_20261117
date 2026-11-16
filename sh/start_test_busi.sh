@@ -2,6 +2,16 @@
 # Bash 严格模式：任一未处理错误、未定义变量或失败管道都会终止启动，避免用残缺参数执行评估。
 set -euo pipefail
 
+# 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
+export MODULE_A="${MODULE_A:-1}"
+export MODULE_B="${MODULE_B:-1}"
+case "${MODULE_A}${MODULE_B}" in
+  00|01|10|11) ;;
+  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+esac
+echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+
+
 # 取得当前脚本所在的项目根目录并切换过去，使数据、日志和辅助脚本的相对路径不受调用位置影响。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
