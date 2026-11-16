@@ -33,7 +33,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
+mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 # 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"

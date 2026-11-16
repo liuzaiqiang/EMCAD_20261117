@@ -35,7 +35,7 @@ cd "${PROJECT_DIR}"
 
 # 所有后台输出集中写入项目 logs 目录。
 LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}"
+mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 
 
@@ -64,6 +64,7 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
 ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
+mkdir -p "${OUTPUT_DIR}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
