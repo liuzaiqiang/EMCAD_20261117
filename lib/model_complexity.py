@@ -23,7 +23,7 @@ except ImportError:
             pass
 
 # Explicitly excluded from the conv/matrix MAC convention, never implicit zero.
-NON_MAC = set('add add_ sub mul div pow square sqrt rsqrt abs tanh sigmoid silu relu relu_ gelu clamp clamp_min mean sum amax max _softmax native_layer_norm native_batch_norm _native_batch_norm_legit_no_training adaptive_avg_pool2d _adaptive_avg_pool2d avg_pool2d adaptive_max_pool2d max_pool2d_with_indices upsample_nearest2d upsample_bilinear2d _upsample_bilinear2d_aa'.split())
+NON_MAC = set('add add_ sub mul div pow square sqrt rsqrt abs tanh sigmoid silu relu relu_ hardtanh hardtanh_ gelu clamp clamp_min mean sum amax max _softmax native_layer_norm native_batch_norm _native_batch_norm_legit_no_training adaptive_avg_pool2d _adaptive_avg_pool2d avg_pool2d adaptive_max_pool2d max_pool2d_with_indices upsample_nearest2d upsample_bilinear2d _upsample_bilinear2d_aa'.split())
 MOVEMENT = set('view _unsafe_view reshape transpose permute t expand squeeze unsqueeze slice select split split_with_sizes unbind cat stack clone contiguous detach alias _to_copy copy_ lift_fresh empty empty_like empty_strided zeros zeros_like ones ones_like full arange scalar_tensor fill_ constant_pad_nd replication_pad2d reflection_pad2d resolve_conj resolve_neg'.split())
 
 def scalar_ops(name, args, out):
@@ -45,6 +45,7 @@ def scalar_ops(name, args, out):
         return 8*x.numel()  # two-pass variance, affine, scalar roots estimated
     if 'batch_norm' in name:
         return 4*x.numel()  # unfused inference normalization plus affine
+    if name in ('hardtanh', 'hardtanh_'): return 2*n  # lower and upper clamp comparisons
     if name == 'gelu': return 8*n  # erf formulation, erf counts as one
     if name in ('sigmoid','silu'): return (4 if name=='sigmoid' else 5)*n
     if name == 'upsample_nearest2d': return 0
