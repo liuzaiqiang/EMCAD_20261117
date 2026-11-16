@@ -2,6 +2,16 @@
 # Bash严格模式确保参数准备和路径校验失败时不会继续启动测试。
 set -euo pipefail
 
+# 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
+export MODULE_A="${MODULE_A:-1}"
+export MODULE_B="${MODULE_B:-1}"
+case "${MODULE_A}${MODULE_B}" in
+  00|01|10|11) ;;
+  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+esac
+echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+
+
 # 切换到脚本所在项目根，使数据、日志和PID路径可预测。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

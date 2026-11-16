@@ -1,0 +1,16 @@
+{
+  "caa": {
+    "branch": "contentAware_mjzsy_1029",
+    "commit": "e3f4be293994abf301a545c99503c99126c3ba20",
+    "path": "lib/decoders.py",
+    "symbols": [
+      "ContentAwareAntiAliasUpsample"
+    ]
+  },
+  "aat": {
+    "branch": "contentAware_mjzsy_1029",
+    "commit": "e3f4be293994abf301a545c99503c99126c3ba20",
+    "path": "utils/area_adaptive_tversky.py",
+    "symbols": "whole file"
+  }
+}

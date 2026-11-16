@@ -2,6 +2,16 @@
 # Bash严格模式让路径检查、环境激活或后台命令准备失败时立即退出。
 set -euo pipefail
 
+# 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
+export MODULE_A="${MODULE_A:-1}"
+export MODULE_B="${MODULE_B:-1}"
+case "${MODULE_A}${MODULE_B}" in
+  00|01|10|11) ;;
+  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+esac
+echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+
+
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
 RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
