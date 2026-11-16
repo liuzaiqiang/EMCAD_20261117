@@ -4,6 +4,9 @@
 # -e 遇到未处理的非零退出码即停止，-u 拒绝未定义变量，pipefail 让管道任一环节失败都算失败。
 set -euo pipefail
 
+# 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
+RUN_PURPOSE="${RUN_PURPOSE:-未填写本次实验目的}"
+
 
 
 #205
@@ -187,6 +190,7 @@ PARAM_NAMES=(
 )
 
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
