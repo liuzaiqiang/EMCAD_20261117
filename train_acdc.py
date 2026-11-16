@@ -66,7 +66,6 @@ from utils.acdc_utils import (
     seed_everything,
     # 按监督策略组合四级输出并计算 0.3*CE+0.7*Dice。
     supervised_loss,
-    fusion_auxiliary_loss,
     # 只计算 RV/MYO/LV 的病例 Dice。
     validation_dice,
 )
@@ -111,10 +110,6 @@ def parse_args():
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
-    parser.add_argument("--caa_mode", default="off",
-                        choices=["off", "aa_only", "content_only", "caa"])
-    parser.add_argument("--caa_residual_scale", type=float, default=0.1)
-    parser.add_argument("--fusion_mode", choices=["p1", "pixel_reliability"], default="p1")
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -465,8 +460,6 @@ def main():
                     dice_loss=dice_loss,
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
-                if args.fusion_mode == "pixel_reliability":
-                    loss = loss + fusion_auxiliary_loss(model, outputs, labels, ce_loss, dice_loss)
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。

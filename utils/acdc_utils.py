@@ -69,10 +69,6 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # 本地 PVT 权重目录。
         pretrained_dir=args.pretrained_dir,
-        # CAA 结构和残差初始尺度必须与训练 checkpoint 一致。
-        caa_mode=args.caa_mode,
-        caa_residual_scale=args.caa_residual_scale,
-        fusion_mode=getattr(args, "fusion_mode", "p1"),
     )
 
 
@@ -85,17 +81,8 @@ def model_outputs(model, images, mode="test"):
 
 
 def selected_logits(model, outputs):
-    base_model = model.module if isinstance(model, nn.DataParallel) else model
-    return base_model.fuse_outputs(outputs)
+    return outputs[-1]
 
-
-def fusion_auxiliary_loss(model, outputs, target, ce_loss, dice_loss):
-    base_model = model.module if isinstance(model, nn.DataParallel) else model
-    return base_model.fusion_auxiliary_loss(
-        outputs, target,
-        lambda logits, labels: 0.3 * ce_loss(logits, labels.long()) + 0.7 * dice_loss(logits, labels),
-        reliability_loss_weight=1.0,
-    )
 
 
 # ACDC 多类别 soft Dice 损失，直接使用 PyTorch one_hot 实现。

@@ -99,11 +99,6 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # PVTv2 本地预训练权重所在目录；ResNet 采用自身加载路径。
         pretrained_dir=args.pretrained_dir,
-        # 将内容感知抗混叠模式传给 EMCAD 的 EUCB 上采样路径。
-        caa_mode=args.caa_mode,
-        # 内容门控残差初始强度；关闭 CAA 时 EUCB 沿用基础模型结构。
-        caa_residual_scale=args.caa_residual_scale,
-        fusion_mode=getattr(args, "fusion_mode", "p1"),
     )
 
 
@@ -124,17 +119,8 @@ def model_outputs(model, images, mode="test"):
 
 
 def selected_logits(model, outputs):
-    base_model = model.module if isinstance(model, nn.DataParallel) else model
-    return base_model.fuse_outputs(outputs)
+    return outputs[-1]
 
-
-def fusion_auxiliary_loss(model, outputs, mask):
-    base_model = model.module if isinstance(model, nn.DataParallel) else model
-    return base_model.fusion_auxiliary_loss(
-        outputs, mask,
-        lambda logits, target: structure_loss(logits, target),
-        reliability_loss_weight=1.0,
-    )
 
 
 # 提取适合保存的参数字典；DataParallel 会在真实模型外再包一层 module。

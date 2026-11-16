@@ -112,11 +112,7 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
-USE_PIXEL_RELIABILITY_FUSION="${USE_PIXEL_RELIABILITY_FUSION:-0}"
 
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
@@ -133,16 +129,6 @@ if [[ "${SYNAPSE_TOPK_ENABLED}" == "1" ]]; then
   }
 fi
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
-esac
-case "${USE_PIXEL_RELIABILITY_FUSION}" in
-  0) FUSION_MODE="p1" ;;
-  1) FUSION_MODE="pixel_reliability" ;;
-  *) echo "[ERROR] USE_PIXEL_RELIABILITY_FUSION must be 0 or 1"; exit 1 ;;
-esac
 
 PARAM_NAMES=(
   CONDA_BASE
@@ -174,11 +160,6 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
-  USE_CONTENT_AWARE_ANTIALIAS
-  CAA_MODE
-  CAA_RESIDUAL_SCALE
-  USE_PIXEL_RELIABILITY_FUSION
-  FUSION_MODE
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -215,9 +196,6 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
-  --fusion_mode "${FUSION_MODE}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \

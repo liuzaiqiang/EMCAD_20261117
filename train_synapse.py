@@ -77,12 +77,6 @@ parser.add_argument('--pretrained_dir', type=str, default=DEFAULT_PVT_DIR,
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
-parser.add_argument('--caa_mode', type=str, default='off',
-                    choices=['off', 'aa_only', 'content_only', 'caa'],
-                    help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
-parser.add_argument('--caa_residual_scale', type=float, default=0.1,
-                    help='initial scale of the content-aware residual; must match the checkpoint')
-parser.add_argument('--fusion_mode', choices=['p1', 'pixel_reliability'], default='p1')
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
                     help='1: online top-K checkpoints with full metrics; 0: single best.pth')
 parser.add_argument('--synapse_topk_size', type=int, default=10,
@@ -230,9 +224,7 @@ if __name__ == "__main__":
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
-                     fusion_mode=args.fusion_mode)
+                     encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir)
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。
     model.cuda()
