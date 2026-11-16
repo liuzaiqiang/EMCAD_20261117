@@ -1,0 +1,14 @@
+{
+  "ccsf": {
+    "branch": "baseModelAndCLASS_CONDITIONAL_SCALE_FUSION_clean",
+    "commit": "ff215b547dd4f51aaf2f7f5e553195076694017d",
+    "path": "research_emcad/class_conditional_scale_fusion.py",
+    "symbols": "whole file"
+  },
+  "aat": {
+    "branch": "contentAware_mjzsy_1029",
+    "commit": "e3f4be293994abf301a545c99503c99126c3ba20",
+    "path": "utils/area_adaptive_tversky.py",
+    "symbols": "whole file"
+  }
+}

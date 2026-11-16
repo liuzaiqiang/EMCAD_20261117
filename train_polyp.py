@@ -1,3 +1,4 @@
+from lib.pair_runtime import train_forward as pair_train_forward, add_loss as add_pair_loss
 # argparse 定义 Polyp/BUSI/ISIC 共用训练命令行接口。
 import argparse
 # csv 追加 epoch 级训练历史与逐病例验证指标。
@@ -951,7 +952,7 @@ def main():
                 with autocast(
                         enabled=scaler.is_enabled()
                 ):
-                    outputs = model_outputs(
+                    outputs, pair_aux = pair_train_forward(
                         model,
                         scaled_images,
                         mode="train",
@@ -963,6 +964,8 @@ def main():
                         args.supervision,
                     )
 
+                loss = add_pair_loss(loss, model, outputs, pair_aux, scaled_masks,
+                    lambda p, y: supervised_structure_loss([p], y, "last_layer"))
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
 
