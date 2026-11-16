@@ -1,0 +1,14 @@
+{
+  "sgr": {
+    "branch": "baseModel_261017_qfblxjzl_yymkccrh",
+    "commit": "a61b0729c8c1aaa30c2a71db259063b0ad75139e",
+    "path": "lib/semantic_gated_residual.py",
+    "symbols": "whole file"
+  },
+  "aat": {
+    "branch": "contentAware_mjzsy_1029",
+    "commit": "e3f4be293994abf301a545c99503c99126c3ba20",
+    "path": "utils/area_adaptive_tversky.py",
+    "symbols": "whole file"
+  }
+}
