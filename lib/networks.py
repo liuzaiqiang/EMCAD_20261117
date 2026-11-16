@@ -217,6 +217,9 @@ class EMCADNet(nn.Module):
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
 
+        from lib.pair_runtime import initialize
+        initialize(self, channels)
+
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
     # 若传入 C=2、C=4 等其他通道数，本方法不会自动转换，随后骨干第一层通常会因期望 3 通道而报错。
@@ -225,7 +228,10 @@ class EMCADNet(nn.Module):
     # 调用 model.eval()、torch.no_grad() 以及选择最终预测头，仍由测试脚本负责。
     # -------------------------------------------------------------------------
     # 输入 x 约定为 (B,C,H,W)；mode 当前不改变返回值，训练策略由外部 trainer 决定。
-    def forward(self, x, mode='test'):
+    def forward(self, x, mode='test', return_pair_aux=False):
+        if getattr(self, '_pair_active', ()):
+            from lib.pair_runtime import forward
+            return forward(self, x, mode, return_pair_aux)
         # 只在 C=1 时使用可学习适配器；已经是 RGB/C=3 时直接送入编码器。
         if x.size()[1] == 1:
             # (B,1,H,W) -> (B,3,H,W)，空间尺寸保持不变。
