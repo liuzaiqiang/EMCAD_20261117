@@ -5,17 +5,18 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export XSJKKXDTRH="${XSJKKXDTRH:-1}"
+export DCDLKYZX="${DCDLKYZX:-1}"
+
+case "${XSJKKXDTRH}${DCDLKYZX}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "XSJKKXDTRH/DCDLKYZX must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] XSJKKXDTRH=${XSJKKXDTRH} DCDLKYZX=${DCDLKYZX}"
 
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证：像素级可靠性多头融合+多尺度轮廓一致性}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
@@ -35,6 +36,12 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+
+
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-5}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.80}"
 
 
 
@@ -124,10 +131,7 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
@@ -173,6 +177,9 @@ PARAM_NAMES=(
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
+
+  XSJKKXDTRH
+  DCDLKYZX
 )
 
 {

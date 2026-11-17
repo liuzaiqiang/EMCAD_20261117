@@ -1,2 +1,2 @@
-MODULE_A = 'prf'
-MODULE_B = 'mcc'
+PRF_NAME = 'prf'
+MCC_NAME = 'mcc'

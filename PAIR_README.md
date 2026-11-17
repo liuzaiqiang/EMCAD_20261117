@@ -1,38 +1,20 @@
-# PRF＋MCC：尺度间特征协调与像素读出
+# PRF + MCC 分支
 
-研究假设：MCC作用于分割头前的特征，PRF作用于分割头后的读出；检验减少无效尺度差异后可靠性分配是否更有效。
+- `XSJKKXDTRH`：**像素级可靠性动态融合**（PRF）。学习四个分割头逐像素可靠性评分，在推理时融合预测；训练时另有可靠性辅助监督。
+- `DCDLKYZX`：**多尺度轮廓一致性**（MCC）。比较解码器 d3/d2/d1 特征的轮廓响应，并反馈调节特征。它是网络前向模块，不是边界损失。
 
-基线：`261117_baseModel`，提交`f0f3c5ba7d1dda1c071e01727feda8235104d62e`。来源及精确提交见PAIR_SOURCES.json。原模块算法保留，组合调度见lib/pair_runtime.py。CAA在基础模型初始化完成后替换上采样，初始化随机序列与旧组合分支可能不同，不能把旧实验数值直接当成本分支结果。
-
-## 开关与运行
-
-所有sh/start_train_*.sh和start_test_*.sh中两个开关相邻。MODULE_A=PRF，MODULE_B=MCC。脚本默认11，直接运行Python默认00。
+两者均继承 `nn.Module`，有可学习参数且参与推理。训练和测试脚本中的两个开关均支持 `0`（关闭）或 `1`（开启），脚本默认 `11`；直接调用 Python 的默认值为 `00`。训练与测试应使用相同组合。
 
 ```bash
-MODULE_A=1 MODULE_B=1 bash sh/start_train_synapse.sh
-MODULE_A=1 MODULE_B=0 bash sh/start_train_synapse.sh
-MODULE_A=0 MODULE_B=1 bash sh/start_train_synapse.sh
-MODULE_A=0 MODULE_B=0 bash sh/start_train_synapse.sh
+XSJKKXDTRH=1 DCDLKYZX=1 bash sh/start_train_synapse.sh
 ```
 
-测试必须使用与训练相同的开关。先沿用原脚本设置本机conda、数据和预训练路径。12数据集入口：Synapse、ACDC各独立入口；5个Polyp数据集共用polyp入口；BUSI使用busi；ISIC2017/2018使用isic；DSB18/EM使用cell入口。训练损失在三类公共训练器接入，推理统一使用最终输出。00不创建任何附加模块参数、不计算辅助损失。
+代码入口覆盖 12 个数据集：Synapse、ACDC、BKAI、ClinicDB、ColonDB、ETIS、Kvasir、BUSI、ISIC2017、ISIC2018、DSB18、EM。Synapse 和 ACDC 各有独立入口；Polyp/BUSI/ISIC/Cell 通过二值任务入口或包装脚本运行。此处的覆盖指代码路径，尚未完成 12 个真实数据集的训练和测试验证。
 
-AAT_WEIGHT默认1，BFC_WEIGHT默认0.05；SDG_WEIGHT默认0.001为用户确认的新实验起始值，源分支未记录涨点权重。距离损失保持原像素距离、原求和归约，二分类仅用[0,z]转换为等价双类softmax。BFC使用源实现关闭空间对齐的模式，不额外加入第三模块。
+## 复杂度记录
 
-## 验证边界与科研记录
+每次训练启动后、优化器训练前，按 EMCAD 原作者的 `thop.profile` 口径做一次 batch=1 的**全网络前向**统计。`model_complexity.txt` 保存直接注册参数数、THOP 参数数、THOP 原始返回值及其除以 `1e9` 的 GFLOPs；日志同时打印。**不乘 2**。二值任务固定输入 `1×3×256×256`，与论文 Table 1 的全模型输入一致。Synapse/ACDC 使用实际 `1×1×img_size×img_size`，因此其结果不得与论文二值任务 Table 1 或只统计解码器的 Table 6 直接混比。
 
-CPU合成输入检查覆盖1/4/9输出类别、四种开关、前向反向、有限梯度、严格检查点重载。未执行真实数据集训练、CUDA/AMP或完整12数据集端到端实验；服务器数据与预训练文件需沿用既有配置。不能保证涨点或无环境差异。运行`python tests/test_pair_integration.py`可复查当前分支。
+THOP 的默认模块钩子会漏计 MCC 的函数式 `F.conv2d`，以及 PRF/MCC 的部分函数式运算；PRF 的卷积评分头与 MCC 的注册卷积层会被计入。记录值符合原作者工具口径，但不是完整算子 FLOPs。论文中应称为 **THOP 估计 GFLOPs**，注明输入尺寸、统计范围及这一限制。参数数按 `sum(p.numel() for p in model.parameters())` 统计，包括冻结参数。
 
-00已与精确基线同种子参数及输出逐项比较。原数据划分、指标实现和训练超参数保留；现有空掩膜规则、体素间距和按测试集选择checkpoint的风险应在正式论文实验前独立审查。不得把测试集用于组合筛选。报告00/10/01/11、多个随机种子、逐类Dice与HD95、参数量与运行开销，组合改善仍是待验证假设。
-
-## 相关文献
-
-- EMCAD：https://openaccess.thecvf.com/content/CVPR2024/html/Rahman_EMCAD_Efficient_Multi-scale_Convolutional_Attention_Decoding_for_Medical_Image_Segmentation_CVPR_2024_paper.html
-- 抗混叠：https://proceedings.mlr.press/v97/zhang19a.html （讨论降采样，不能直接证明本CAA上采样有效）
-- 区域不均衡：https://arxiv.org/abs/1706.05721
-- 距离监督：https://proceedings.mlr.press/v102/kervadec19a.html
-- 形状与语义流：https://openaccess.thecvf.com/content_ICCV_2019/html/Takikawa_Gated-SCNN_Gated_Shape_CNNs_for_Semantic_Segmentation_ICCV_2019_paper.html
-- 二阶统计：https://openaccess.thecvf.com/content_CVPR_2019/papers/Gao_Global_Second-Order_Pooling_Convolutional_Networks_CVPR_2019_paper.pdf
-- 梯度冲突：https://arxiv.org/abs/2001.06782 （需要测量，不能仅凭模块名断言冲突）
-
-文献支持研究方向，不证明本组合的原创性或实验收益；不能穷尽全部互联网文献。本次优先20组可明确描述机制的实验候选，其余35组暂缓，未断言必然冲突。
+原作者实现：[EMCAD utils.py](https://github.com/SLDGroup/EMCAD/blob/main/utils/utils.py)；论文：[EMCAD, CVPR 2024](https://openaccess.thecvf.com/content/CVPR2024/papers/Rahman_EMCAD_Efficient_Multi-scale_Convolutional_Attention_Decoding_for_Medical_Image_Segmentation_CVPR_2024_paper.pdf)。
