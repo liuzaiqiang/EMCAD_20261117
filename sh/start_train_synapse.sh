@@ -7,6 +7,7 @@ set -euo pipefail
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
 export MODULE_A="${MODULE_A:-1}"
 export MODULE_B="${MODULE_B:-1}"
+
 case "${MODULE_A}${MODULE_B}" in
   00|01|10|11) ;;
   *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
@@ -15,7 +16,7 @@ echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
 
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证：全分别率细节支路+多尺度轮廓一致性}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
@@ -39,6 +40,11 @@ conda activate "${CONDA_ENV_PREFIX}"
 
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-7}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
 
 
 cd "${PROJECT_DIR}"
@@ -124,10 +130,7 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
