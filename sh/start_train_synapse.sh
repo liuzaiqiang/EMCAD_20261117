@@ -5,13 +5,13 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export LBTJCDRH="${LBTJCDRH:-1}"
+export DZTDXFCJH="${DZTDXFCJH:-1}"
+case "${LBTJCDRH}${DZTDXFCJH}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "LBTJCDRH/DZTDXFCJH must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] LBTJCDRH=${LBTJCDRH} DZTDXFCJH=${DZTDXFCJH}"
 
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
@@ -173,6 +173,8 @@ PARAM_NAMES=(
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
+  LBTJCDRH
+  DZTDXFCJH
 )
 
 {

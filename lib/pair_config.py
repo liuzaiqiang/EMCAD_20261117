@@ -1,2 +1,2 @@
-MODULE_A = 'ccsf'
-MODULE_B = 'lrci'
+CCSF_NAME = 'ccsf'
+LRCI_NAME = 'lrci'

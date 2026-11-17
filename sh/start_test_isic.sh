@@ -3,13 +3,13 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export LBTJCDRH="${LBTJCDRH:-1}"
+export DZTDXFCJH="${DZTDXFCJH:-1}"
+case "${LBTJCDRH}${DZTDXFCJH}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "LBTJCDRH/DZTDXFCJH must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] LBTJCDRH=${LBTJCDRH} DZTDXFCJH=${DZTDXFCJH}"
 
 
 # 获取项目根绝对路径并切换过去，统一相对路径解析。
@@ -140,7 +140,7 @@ LOG_FILE="${RUN_DIR}/test.log"
 PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将路径、阈值和RUN_ID追加到日志，方便复核本次评估配置。
-PARAM_NAMES=(PROJECT_DIR DATASET_NAME SPLIT DATA_ROOT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV THRESHOLD RUN_ID)
+PARAM_NAMES=(PROJECT_DIR DATASET_NAME SPLIT DATA_ROOT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV THRESHOLD RUN_ID LBTJCDRH DZTDXFCJH)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done

@@ -3,13 +3,13 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export LBTJCDRH="${LBTJCDRH:-1}"
+export DZTDXFCJH="${DZTDXFCJH:-1}"
+case "${LBTJCDRH}${DZTDXFCJH}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "LBTJCDRH/DZTDXFCJH must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] LBTJCDRH=${LBTJCDRH} DZTDXFCJH=${DZTDXFCJH}"
 
 
 # 取得当前脚本所在的项目根目录并切换过去，使数据、日志和辅助脚本的相对路径不受调用位置影响。
@@ -143,7 +143,7 @@ PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # tee -a 将本次评估的关键路径和参数追加到日志；重定向到 /dev/null 避免每项在终端重复显示。
 # MODEL_CONFIG 这一记录强调网络结构来自检查点旁的 config.json；RUN_ID 单独打印供停止脚本使用。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATA_ROOT SPLIT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV MAX_CASES RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATA_ROOT SPLIT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV MAX_CASES RUN_ID LBTJCDRH DZTDXFCJH)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
