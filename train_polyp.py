@@ -859,7 +859,7 @@ def main():
     # Polyp、BUSI 和 ISIC 共用此入口；复杂度统计只观察已构建模型一次。
     log_model_complexity(
         model,
-        (1, 3, args.img_size, args.img_size),
+        (1, 3, 256, 256),
         output_path=os.path.join(run_dir, "model_complexity.txt"),
     )
 

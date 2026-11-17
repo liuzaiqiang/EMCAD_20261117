@@ -1,2 +1,2 @@
-MODULE_A = 'lrci'
-MODULE_B = 'mcc'
+LRCI_NAME = 'lrci'
+MCC_NAME = 'mcc'
