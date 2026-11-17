@@ -6,18 +6,22 @@
 
 ## 开关与运行
 
-所有sh/start_train_*.sh和start_test_*.sh中两个开关相邻。MODULE_A=FRD，MODULE_B=MCC。脚本默认11，直接运行Python默认00。
+所有 sh/start_train_*.sh 和 start_test_*.sh 中两个开关相邻。`QFBLXJZL` 是“全分辨率细节支路”的拼音首字母，对应 FRD；`DCDLKYZX` 是“多尺度轮廓一致性”的拼音首字母，对应 MCC。脚本默认 11，直接运行 Python 默认 00。有 `PARAM_NAMES` 的启动脚本会打印两个开关。
 
 ```bash
-MODULE_A=1 MODULE_B=1 bash sh/start_train_synapse.sh
-MODULE_A=1 MODULE_B=0 bash sh/start_train_synapse.sh
-MODULE_A=0 MODULE_B=1 bash sh/start_train_synapse.sh
-MODULE_A=0 MODULE_B=0 bash sh/start_train_synapse.sh
+QFBLXJZL=1 DCDLKYZX=1 bash sh/start_train_synapse.sh
+QFBLXJZL=1 DCDLKYZX=0 bash sh/start_train_synapse.sh
+QFBLXJZL=0 DCDLKYZX=1 bash sh/start_train_synapse.sh
+QFBLXJZL=0 DCDLKYZX=0 bash sh/start_train_synapse.sh
 ```
 
 测试必须使用与训练相同的开关。先沿用原脚本设置本机conda、数据和预训练路径。12数据集入口：Synapse、ACDC各独立入口；5个Polyp数据集共用polyp入口；BUSI使用busi；ISIC2017/2018使用isic；DSB18/EM使用cell入口。训练损失在三类公共训练器接入，推理统一使用最终输出。00不创建任何附加模块参数、不计算辅助损失。
 
-AAT_WEIGHT默认1，BFC_WEIGHT默认0.05；SDG_WEIGHT默认0.001为用户确认的新实验起始值，源分支未记录涨点权重。距离损失保持原像素距离、原求和归约，二分类仅用[0,z]转换为等价双类softmax。BFC使用源实现关闭空间对齐的模式，不额外加入第三模块。
+FRD 与 MCC 都是参与推理前向的有参数模块；MCC 的轮廓是特征梯度，不是额外的标注边界损失。
+
+## 复杂度统计口径
+
+训练日志和每次实验目录的 `model_complexity.txt` 按 EMCAD 原作者 `utils/utils.py::cal_params_flops` 调用 `thop.profile(model, inputs=(input,))`。THOP 第一返回值直接除以 1e9，沿用原作者称作 FLOPs 的标签，**不乘 2**；同时记录 THOP 参数数及 `sum(p.numel() for p in model.parameters())` 的直接参数数。二分类整网按原论文表 1 使用单张 3×256×256 输入，即使训练尺寸为 352 也保持论文对比尺寸；Synapse/ACDC 整网按各自输入尺寸统计。另记录 224×224 的 EMCAD 解码器核心加已开启 FRD/MCC 扩展的统计，明确不含编码器和原预测头；这个扩展范围由本项目定义，不能直接冒充原论文表 6 的纯 EMCAD 解码器。FRD 与 MCC 都纳入整网统计；MCC 内部函数式 Sobel 卷积不被原作者使用的 THOP 默认规则计入，故 THOP 数值可比的是**相同计数方法**，不代表完整硬件运算量。复杂度文件不存储开关组合，组合由实验配置和用户记录对应。当前本地 THOP 0.1.1 测得纯 B2 解码器 224×224 为 0.385190G，而原论文表 6 为 0.381G；论文使用时须如实注明此差异。
 
 ## 验证边界与科研记录
 

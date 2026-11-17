@@ -877,37 +877,10 @@ def tta_model(model, image):
     return mean_mask
 
 
-# 使用随机输入统计模型 FLOPs、THOP 参数量和直接求和参数量。
-#
-# 调用位置：train_polyp_SLDGroup.py 启动每个 run 时调用 cal_params_flops(model,opt.img_size, logging)，用于把模型复杂度写入日志。
-# 它和 CalParams 的区别是： CalParams 接收调用方准备好的真实 input_tensor；本函数自己创建一个 [1,3,S,S]的随机 CUDA 输入，并同时打印 THOP 统计和直接计数得到的参数量。
-#
-# 当前实现假设模型接受 3 通道输入且 CUDA 可用。EMCAD 的某些医学图像路径可能是单通道 [B,1,H,W]，这种情况下直接调用此函数可能在 forward 阶段报通道数错误；
-# 复杂度统计的输入通道数必须与实际模型入口保持一致，否则 FLOPs 没有可比性。
+# 旧二分类训练入口也统一按原论文表 1 的 256×256 整网口径记录。
 def cal_params_flops(model, size, logger):
-    # 构造 [1,3,size,size] 的随机 CUDA 输入；适用于三通道模型接口。
-    # 使用随机值只是为了触发一次与真实尺寸相同的 forward；THOP 统计的是结构和
-    # 空间尺寸，不依赖这组随机像素的医学含义。
-    input = torch.randn(1, 3, size, size).cuda()
-    # THOP 执行前向钩子统计操作数和参数量。
-    # profile 可能真的执行模型 forward，因此模型所在 device、输入 dtype 和模型
-    # 当前模式都必须兼容；统计前最好确保没有正在进行的训练梯度累积。
-    flops, params = profile(model, inputs=(input,))
-    # 以十亿为单位打印 FLOPs。
-    print('flops', flops / 1e9)  ## 打印计算量
-    # 以百万为单位打印 THOP 参数量。
-    print('params', params / 1e6)  ## 打印参数量
-
-    # 直接累计 model.parameters() 中每个张量的元素数量。
-    # 这是最直观的参数量统计：每个标量权重算一个参数；它不依赖 THOP 是否认识
-    # 某个自定义层，因此可与 THOP 返回的 params 互相核对。
-    total = sum(p.numel() for p in model.parameters())
-    # 打印百万参数规模。
-    print("Total params: %.2fM" % (total / 1e6))
-    # 把同一统计写入调用方日志。
-    # logger 通常是 logging 模块；写日志后可在实验结果中追溯当时使用的模型规模，
-    # 避免只在终端打印而丢失记录。
-    logger.info(f'flops: {flops / 1e9}, params: {params / 1e6}, Total params: : {total / 1e6:.4f}')
+    from lib.model_complexity import log_model_complexity
+    return log_model_complexity(model, (1, 3, 256, 256))
 
 
 # Example function to calculate and print GMACs and parameter count for a given model

@@ -30,13 +30,17 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(scalar_ops('_upsample_bilinear2d_aa',(x,),torch.zeros(1,2,4,4)),0)
         # 4->2 AA triangle filter has 3 valid taps at each of two positions.
         self.assertEqual(scalar_ops('_upsample_bilinear2d_aa',(x,),torch.zeros(1,2,2,2)),2*(4*10+2*10))
-    def test_failure_does_not_abort_training(self):
+    def test_author_thop_report(self):
         from lib.model_complexity import log_model_complexity
-        class Unknown(torch.nn.Module):
-            def forward(self,x):return x.sin()
-        r=log_model_complexity(Unknown(),(1,1,4,4))
-        self.assertEqual(r['status'],'failed')
-        self.assertIsNone(r['flops'])
+        model=torch.nn.Sequential(torch.nn.Conv2d(1,2,3),torch.nn.BatchNorm2d(2))
+        before={name: value.clone() for name,value in model.state_dict().items()}
+        r=log_model_complexity(model,(1,1,8,8))
+        self.assertGreater(r['author_labeled_flops_g'],0)
+        self.assertEqual(r['direct_parameters'],24)
+        self.assertEqual(set(model.state_dict()),set(before))
+        self.assertTrue(all(torch.equal(model.state_dict()[name],value)
+                            for name,value in before.items()))
+        self.assertFalse(any(module._forward_hooks for module in model.modules()))
     def test_rng_unchanged_and_shared_parameters(self):
         m=torch.nn.Sequential(torch.nn.Linear(4,4),torch.nn.Linear(4,4))
         m[1].weight=m[0].weight

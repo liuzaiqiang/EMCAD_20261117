@@ -11,9 +11,9 @@ from lib.networks import EMCADNet
 import lib.pair_runtime as runtime
 
 def check_pair(a, b, classes=1, size=64, encoder='pvt_v2_b0'):
-    runtime.MODULE_A, runtime.MODULE_B = a, b
+    runtime.FRD_NAME, runtime.MCC_NAME = a, b
     for va, vb in ((0,0), (1,0), (0,1), (1,1)):
-        os.environ['MODULE_A'], os.environ['MODULE_B'] = str(va), str(vb)
+        os.environ['QFBLXJZL'], os.environ['DCDLKYZX'] = str(va), str(vb)
         torch.manual_seed(123)
         model = EMCADNet(num_classes=classes, encoder=encoder, pretrain=False)
         x = torch.randn(2, 1 if classes > 1 else 3, size, size)
@@ -49,5 +49,5 @@ def check_pair(a, b, classes=1, size=64, encoder='pvt_v2_b0'):
 
 if __name__ == '__main__':
     torch.set_num_threads(2)
-    result = check_pair(runtime.MODULE_A, runtime.MODULE_B)
+    result = check_pair(runtime.FRD_NAME, runtime.MCC_NAME)
     print(json.dumps(result))

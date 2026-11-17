@@ -1,15 +1,14 @@
-"""Audited convolution/matrix MACs, including functional Sobel and attention.
+"""EMCAD-author THOP records plus a separate operator audit utility.
 
-One MAC = one multiplication plus accumulation; FLOPs_2MAC = 2*MACs.
-This is explicitly NOT an all-scalar-instructions count. Non-MAC operations
-(interpolation, normalization, activations, reductions, etc.) are inventoried.
-Unknown operators invalidate the report rather than silently counting zero.
+The optional audit estimates convolution/matrix MACs including functional
+Sobel. Its 2*MAC convention is not used for the paper-comparable THOP record.
 """
 import copy
 import json
 import logging
 import math
 import os
+from importlib.metadata import PackageNotFoundError, version
 from collections import Counter
 from pathlib import Path
 import torch
@@ -147,27 +146,115 @@ def measure_model_complexity(model, input_shape):
 
 
 def log_model_complexity(model, input_shape, prefix='model', output_path=None):
+    """Use the EMCAD authors' raw THOP value and direct parameter count.
+
+    Their binary whole-network table uses batch 1 at 256x256. THOP's first
+    return is called FLOPs in their code; do not multiply it by two.
+    """
     target = model.module if isinstance(model, torch.nn.DataParallel) else model
+    shape = tuple(int(value) for value in input_shape)
+    if len(shape) != 4 or shape[0] != 1:
+        raise ValueError('complexity input must be NCHW with batch size 1')
+    parameters = list(target.parameters())
+    direct_parameters = sum(p.numel() for p in parameters)
+    report = {
+        'protocol': 'SLDGroup/EMCAD utils/utils.py cal_params_flops',
+        'scope': 'whole model, eval forward, four output heads',
+        'input_shape_nchw': shape,
+        'torch_version': torch.__version__,
+        'thop_version': None,
+        'author_labeled_flops_g': None,
+        'thop_raw_ops': None,
+        'thop_macs_g': None,
+        'thop_parameters': None,
+        'thop_parameters_m': None,
+        'direct_parameters': direct_parameters,
+        'direct_parameters_m': direct_parameters / 1e6,
+        'direct_trainable_parameters': sum(p.numel() for p in parameters if p.requires_grad),
+        'decoder_core_and_extensions_224': None,
+        'note': 'Raw THOP output, no x2 conversion. Functional Sobel in MCC is not counted by THOP.',
+    }
+    module_state = [(module, module.training, set(module._buffers),
+                     set(module._forward_hooks)) for module in target.modules()]
     try:
-        report = measure_model_complexity(model, input_shape)
+        from thop import profile
+        try:
+            report['thop_version'] = version('thop')
+        except PackageNotFoundError:
+            report['thop_version'] = 'unavailable'
+        device, dtype = parameters[0].device, parameters[0].dtype
+        image = torch.randn(shape, device=device, dtype=dtype)
+        target.eval()
+        with torch.no_grad():
+            raw_ops, thop_parameters = profile(target, inputs=(image,), verbose=False)
+        report.update(author_labeled_flops_g=raw_ops / 1e9,
+                      thop_raw_ops=raw_ops, thop_macs_g=raw_ops / 1e9,
+                      thop_parameters=thop_parameters,
+                      thop_parameters_m=thop_parameters / 1e6)
+
+        if hasattr(target, 'decoder') and all(hasattr(target, 'out_head' + str(stage))
+                                              for stage in (4, 3, 2, 1)):
+            channels = [getattr(target, 'out_head' + str(stage)).in_channels
+                        for stage in (4, 3, 2, 1)]
+            features = [torch.randn((1, channel, side, side), device=device, dtype=dtype)
+                        for channel, side in zip(channels, (7, 14, 28, 56))]
+            active = getattr(target, '_pair_active', ())
+            with torch.no_grad():
+                decoder_ops, _ = profile(target.decoder,
+                                         inputs=(features[0], features[1:]), verbose=False)
+                extension_ops = 0
+                extension_parameters = 0
+                if 'mcc' in active:
+                    module = target.pair_modules['mcc']
+                    ops, _ = profile(module, inputs=(features[1:],), verbose=False)
+                    extension_ops += ops
+                    extension_parameters += sum(p.numel() for p in module.parameters())
+                if 'frd' in active:
+                    module = target.pair_modules['frd']
+                    detail_image = torch.randn((1, shape[1], 224, 224),
+                                               device=device, dtype=dtype)
+                    ops, _ = profile(module, inputs=(detail_image,), verbose=False)
+                    extension_ops += ops
+                    extension_parameters += sum(p.numel() for p in module.parameters())
+            decoder_parameters = sum(p.numel() for p in target.decoder.parameters())
+            report['decoder_core_and_extensions_224'] = {
+                'scope': 'EMCAD decoder core plus active MCC/FRD branches; excludes backbone and original prediction heads',
+                'author_labeled_flops_g': (decoder_ops + extension_ops) / 1e9,
+                'direct_parameters_m': (decoder_parameters + extension_parameters) / 1e6,
+                'core_flops_g': decoder_ops / 1e9,
+                'extension_flops_g': extension_ops / 1e9,
+            }
     except Exception as exc:
-        report = dict(status='failed', error=f'{type(exc).__name__}: {exc}',
-                      parameters=sum(p.numel() for p in target.parameters()),
-                      input_shape=list(input_shape), macs=None, flops=None)
-        logging.exception('%s_complexity_failed; do not use this run for complexity reporting', prefix)
+        report['error'] = '{}: {}'.format(type(exc).__name__, exc)
+        logging.warning('%s_thop_complexity_failed=%s', prefix, report['error'])
         if os.getenv('COMPLEXITY_STRICT', '0') == '1':
             raise
-    logging.info('%s_complexity_audit=%s', prefix, json.dumps(report))
-    for key in ('parameters', 'trainable_parameters', 'macs', 'flops', 'convention'):
-        if key in report:
-            logging.info('%s_%s=%s', prefix, key, report[key])
+    finally:
+        # THOP 0.1.1 leaves temporary counters on some nested modules. Keep the
+        # measured network identical to the one that continues training/saving.
+        for module, training, buffer_names, hook_names in module_state:
+            module.training = training
+            for name in ('total_ops', 'total_params'):
+                if name not in buffer_names:
+                    module._buffers.pop(name, None)
+            for key in set(module._forward_hooks) - hook_names:
+                module._forward_hooks.pop(key, None)
+
+    logging.info('%s_complexity=%s', prefix, json.dumps(report, ensure_ascii=False, sort_keys=True))
+    if report['author_labeled_flops_g'] is not None:
+        print('[EMCAD complexity] input={} THOP raw FLOPs(label)/MACs={:.6f}G '
+              'THOP Params={:.6f}M Direct Params={:.6f}M'.format(
+                  shape, report['author_labeled_flops_g'],
+                  report['thop_parameters_m'], report['direct_parameters_m']))
+    else:
+        print('[EMCAD complexity] THOP unavailable; Direct Params={:.6f}M; error={}'.format(
+            report['direct_parameters_m'], report.get('error', 'unknown')))
+    if report['decoder_core_and_extensions_224'] is not None:
+        decoder = report['decoder_core_and_extensions_224']
+        print('[EMCAD decoder+extensions 224] THOP raw FLOPs(label)/MACs={:.6f}G '
+              'Direct Params={:.6f}M'.format(decoder['author_labeled_flops_g'],
+                                            decoder['direct_parameters_m']))
     if output_path is not None:
-        path = Path(output_path)
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('\n'.join(f'{prefix}_{k}={v}' for k,v in report.items()
-                                      if not isinstance(v, dict))+'\n', encoding='utf-8')
-            Path(str(path)+'.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-        except OSError:
-            logging.exception('%s_complexity_report_write_failed', prefix)
+        Path(output_path).write_text(json.dumps(report, ensure_ascii=False, indent=2,
+                                               sort_keys=True) + '\n', encoding='utf-8')
     return report
