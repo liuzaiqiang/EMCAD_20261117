@@ -1,62 +1,74 @@
-"""在不改动训练逻辑的前提下，记录模型参数量和计算量。"""
+"""Record full-network complexity using the EMCAD authors' THOP convention."""
 
+import json
 import logging
+from pathlib import Path
 
 import torch
 
 
 def log_model_complexity(model, input_shape, prefix="model", output_path=None):
-    """对已经构建完成的模型做一次性复杂度探测，并写入当前训练日志。
-
-    这里的探测只用于实验记录，不参与反向传播，也不修改模型结构、权重或
-    优化器。THOP 原生返回 MACs（乘加次数），论文中常见的 FLOPs 口径将一次
-    乘法和一次加法分别计数，因此这里按 ``FLOPs = 2 * MACs`` 写入日志。
-    """
-    # DataParallel 只是训练时的外层包装。复杂度工具应当分析真正的网络模块，
-    # 否则可能把并行封装当成网络本身，或者在不同 GPU 数量下得到不一致结果。
+    """Profile one image once; report THOP's raw result as the paper's FLOPs."""
     target = model.module if isinstance(model, torch.nn.DataParallel) else model
+    shape = tuple(int(value) for value in input_shape)
+    if len(shape) != 4 or shape[0] != 1:
+        raise ValueError("Complexity input must be a single NCHW image")
 
-    # 参数量与输入尺寸即使没有安装 thop 也可以记录；参数量统计包含可训练和
-    # 不可训练参数，和论文中通常报告的 total parameters 口径一致。
-    parameter_count = sum(parameter.numel() for parameter in target.parameters())
-    records = [
-        "{}_parameters={}".format(prefix, parameter_count),
-        "{}_complexity_input_shape={}".format(prefix, tuple(input_shape)),
-    ]
-    logging.info("%s_parameters=%d", prefix, parameter_count)
-    logging.info("%s_complexity_input_shape=%s", prefix, tuple(input_shape))
-
-    # 训练入口在这里传入的是已经迁移到 CPU/GPU 的模型。保存原始 training 状态，
-    # 使本次探测结束后恢复到调用前状态，避免 BatchNorm/Dropout 状态影响后续训练。
-    was_training = target.training
+    modules = list(target.modules())
+    before = [(module, module.training, set(module._buffers),
+               set(module._forward_hooks)) for module in modules]
+    direct_params = sum(parameter.numel() for parameter in target.parameters())
+    record = {
+        "method": "EMCAD author convention: THOP profile, raw output / 1e9",
+        "scope": "full network, one forward pass, batch size 1",
+        "input_shape": list(shape),
+        "parameters": direct_params,
+        "parameters_million": direct_params / 1e6,
+        "thop_flops": None,
+        "thop_gflops": None,
+        "thop_parameters": None,
+        "thop_parameter_gap": None,
+        "note": "THOP counts registered convolutions but may omit FRD/PDS functional interpolation and elementwise operations; this is not complete operator FLOPs.",
+    }
     try:
-        # thop 是 requirements.txt 中声明的可选统计依赖。导入放在函数内部，
-        # 这样即使用户暂时没有安装它，训练仍可启动并至少记录参数量。
         from thop import profile
 
-        target.eval()
-        # dummy input 必须和模型参数位于同一设备，否则 GPU 训练时会设备不匹配。
         device = next(target.parameters()).device
-        dummy_input = torch.zeros(tuple(input_shape), device=device)
-        # 关闭梯度，避免复杂度探测额外分配反向图显存；verbose=False 防止 THOP
-        # 把逐层统计刷屏，只把汇总结果写入训练日志。
+        target.eval()
         with torch.no_grad():
-            macs, _ = profile(target, inputs=(dummy_input,), verbose=False)
-        logging.info("%s_macs=%.0f", prefix, macs)
-        logging.info("%s_flops=%.0f (2 * MACs)", prefix, 2.0 * macs)
-        records.extend([
-            "{}_macs={:.0f}".format(prefix, macs),
-            "{}_flops={:.0f} (2 * MACs)".format(prefix, 2.0 * macs),
-        ])
+            # A local generator prevents profiling from advancing training RNG.
+            generator = torch.Generator(device=device).manual_seed(0)
+            sample = torch.randn(shape, device=device, generator=generator)
+            flops, thop_params = profile(target, inputs=(sample,), verbose=False)
+        record["thop_flops"] = int(round(flops))
+        record["thop_gflops"] = flops / 1e9
+        record["thop_parameters"] = int(round(thop_params))
+        record["thop_parameter_gap"] = direct_params - record["thop_parameters"]
     except Exception as exc:
-        # 统计工具对自定义算子或某些模型分支可能不兼容。复杂度记录失败不应
-        # 让已经可以正常训练的实验失败，因此把具体原因持久化后继续训练。
-        logging.warning("%s_flops_unavailable=%s", prefix, exc)
-        records.append("{}_flops_unavailable={}".format(prefix, exc))
+        record["error"] = "{}: {}".format(type(exc).__name__, exc)
     finally:
-        # 只有调用前处于 train 模式时才切回 train；调用前本来是 eval 时保持原状。
-        if was_training:
-            target.train()
-        if output_path is not None:
-            with open(output_path, "w", encoding="utf-8") as stream:
-                stream.write("\n".join(records) + "\n")
+        # THOP registers temporary counters and hooks. Remove only additions.
+        for module, training, buffers, hooks in before:
+            for name in set(module._buffers) - buffers:
+                if name in ("total_ops", "total_params"):
+                    delattr(module, name)
+            for key in set(module._forward_hooks) - hooks:
+                del module._forward_hooks[key]
+            module.training = training
+
+    logging.info("%s_parameters=%d (%.6f M, direct count)",
+                 prefix, direct_params, direct_params / 1e6)
+    if record["thop_gflops"] is None:
+        logging.warning("%s_THOP_GFlops_unavailable=%s", prefix, record["error"])
+    else:
+        logging.info("%s_THOP_GFlops=%.6f (raw THOP / 1e9; input=%s)",
+                     prefix, record["thop_gflops"], shape)
+        logging.info("%s_THOP_parameters=%d", prefix, record["thop_parameters"])
+        logging.info("%s_THOP_parameter_gap=%d (direct minus THOP)",
+                     prefix, record["thop_parameter_gap"])
+        if set(getattr(target, "_pair_active", ())) & {"frd", "pds"}:
+            logging.warning("%s_THOP_coverage_incomplete: FRD/PDS functional "
+                            "operations may not be fully counted", prefix)
+    if output_path is not None:
+        Path(output_path).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return record

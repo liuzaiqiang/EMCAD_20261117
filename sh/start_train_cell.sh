@@ -15,13 +15,13 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export QFBLXJZL="${QFBLXJZL:-1}"
+export SCYYZJCD="${SCYYZJCD:-1}"
+case "${QFBLXJZL}${SCYYZJCD}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "QFBLXJZL/SCYYZJCD must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] QFBLXJZL=${QFBLXJZL} SCYYZJCD=${SCYYZJCD}"
 
 
 # 本次实验要验证的目的；传给共用的 Polyp 启动器并写入 Cell 训练日志。

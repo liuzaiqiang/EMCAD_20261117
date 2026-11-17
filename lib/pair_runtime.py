@@ -8,14 +8,14 @@ import json
 import torch
 from torch import nn
 from torch.nn import functional as F
-from lib.pair_config import MODULE_A, MODULE_B
+from lib.pair_config import FRD_NAME, PDS_NAME
 
 
 def settings():
-    values = tuple(os.environ.get(k, '0') for k in ('MODULE_A', 'MODULE_B'))
+    values = tuple(os.environ.get(k, '0') for k in ('QFBLXJZL', 'SCYYZJCD'))
     if any(v not in ('0', '1') for v in values):
-        raise ValueError('MODULE_A and MODULE_B must be 0 or 1')
-    return tuple(m for m, v in zip((MODULE_A, MODULE_B), values) if v == '1')
+        raise ValueError('QFBLXJZL and SCYYZJCD must be 0 or 1')
+    return tuple(m for m, v in zip((FRD_NAME, PDS_NAME), values) if v == '1')
 
 
 def initialize(model, channels):
@@ -52,10 +52,7 @@ def initialize(model, channels):
         from lib.pair_modules.prf import PixelReliabilityFusion
         modules['prf'] = PixelReliabilityFusion(k)
     model.pair_modules = modules
-    print('PAIR_CONFIG ' + json.dumps({'pair': [MODULE_A, MODULE_B], 'active': active,
-          'aat_weight': float(os.getenv('AAT_WEIGHT', '1.0')),
-          'bfc_weight': float(os.getenv('BFC_WEIGHT', '0.05')),
-          'sdg_weight': float(os.getenv('SDG_WEIGHT', '0.001'))}))
+    print('PAIR_CONFIG ' + json.dumps({'pair': [FRD_NAME, PDS_NAME], 'active': active}))
 
 
 def forward(model, image, mode='test', return_pair_aux=False):
