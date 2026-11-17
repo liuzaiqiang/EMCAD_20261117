@@ -12,13 +12,13 @@
 set -euo pipefail
 
 # 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
-export MODULE_A="${MODULE_A:-1}"
-export MODULE_B="${MODULE_B:-1}"
-case "${MODULE_A}${MODULE_B}" in
+export PDS="${PDS:-1}"
+export BFC="${BFC:-1}"
+case "${PDS}${BFC}" in
   00|01|10|11) ;;
-  *) echo "MODULE_A/MODULE_B must be 0 or 1" >&2; exit 1 ;;
+  *) echo "PDS/BFC must be 0 or 1" >&2; exit 1 ;;
 esac
-echo "[PAIR] MODULE_A=${MODULE_A} MODULE_B=${MODULE_B}"
+echo "[PAIR] PDS=${PDS} BFC=${BFC}"
 
 
 # 从本文件位置推导项目根，使相对数据和脚本路径不受启动目录影响。

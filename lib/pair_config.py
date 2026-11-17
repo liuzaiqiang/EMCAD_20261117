@@ -1,2 +1,2 @@
-MODULE_A = 'pds'
-MODULE_B = 'bfc'
+PDS_NAME = 'pds'
+BFC_NAME = 'bfc'

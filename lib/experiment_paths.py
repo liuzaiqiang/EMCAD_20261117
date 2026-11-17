@@ -54,12 +54,13 @@ def make_experiment_dir(args, family, output_root=None):
         ("act", _value(args, "activation_mscb")),
         ("seed", _value(args, "seed")),
     ]
-    from lib.pair_runtime import settings, MODULE_A, MODULE_B
+    from lib.pair_runtime import settings
+    from lib.pair_config import PDS_NAME, BFC_NAME
     active = settings()
     if active:
         import json, os
         values.append(("pair", "-".join(active)))
-        args.pair_modules = {"module_a": MODULE_A, "module_b": MODULE_B,
+        args.pair_modules = {"pds": PDS_NAME, "bfc": BFC_NAME,
                              "active": list(active),
                              "aat_weight": float(os.getenv("AAT_WEIGHT", "1.0")),
                              "bfc_weight": float(os.getenv("BFC_WEIGHT", "0.05")),

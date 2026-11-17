@@ -189,32 +189,10 @@ class AvgMeter(object):
 
 
 
-# 使用 THOP 计算给定 model 和实际 input_tensor 的 FLOPs/参数量并打印。
-# 适用场景：在模型正式训练前，给一个已经构造好的网络和一份“代表性输入”，快速估计一次前向传播的计算量与参数量。它是实验记录/模型对比工具，不会计算loss、不会调用 backward，也不会更新权重。
-# input_tensor 的形状和设备必须与 model.forward() 的真实接口一致；如果网络要求 [B,1,H,W]，就不能随便传 [B,3,H,W]。
-# THOP 是通过 forward hook 观察模块执行来估算 FLOPs，因此含有自定义算子、动态分支或多个输出时，统计值可能只是近似值。
-# 不同工具（THOP、ptflops）对一次乘加是否算 1 次或 2 次操作的口径也可能不同，论文中比较复杂度时要保持工具和输入尺寸一致。
+# 与 EMCAD 原作者相同的 THOP 原始返回值及直接参数求和口径。
 def CalParams(model, input_tensor):
-    """
-    Usage:
-        Calculate Params and FLOPs via [THOP](https://github.com/Lyken17/pytorch-OpCounter)
-    Necessarity:
-        from thop import profile
-        from thop import clever_format
-    :param model:
-    :param input_tensor:
-    :return:
-    """
-    # profile 会执行模型前向钩子统计运算，inputs 必须是元组。
-    # 这里使用单元素元组而不是直接传 input_tensor，是 THOP profile 的调用约定：
-    # profile(model, inputs=(x,)) 会把 x 作为 forward 的第一个位置参数。
-    flops, params = profile(model, inputs=(input_tensor,))
-    # 将原始整数统计转换为例如 12.345G、26.789M 的字符串。
-    flops, params = clever_format([flops, params], "%.3f")
-    # 输出统一格式的模型复杂度摘要。
-    # 函数没有 return；如果其他代码需要原始数值，必须自行调用 profile，不能从
-    # CalParams 的返回值获得，因为当前函数返回值是 None。
-    print('[Statistics Information]\nFLOPs: {}\nParams: {}'.format(flops, params))
+    from lib.model_complexity import log_model_complexity
+    return log_model_complexity(model, tuple(input_tensor.shape))
 
 
 # 把整数类别标签 [B,H,W] 转成张量 [B,C,H,W]。
@@ -877,60 +855,14 @@ def tta_model(model, image):
     return mean_mask
 
 
-# 使用随机输入统计模型 FLOPs、THOP 参数量和直接求和参数量。
-#
-# 调用位置：train_polyp_SLDGroup.py 启动每个 run 时调用 cal_params_flops(model,opt.img_size, logging)，用于把模型复杂度写入日志。
-# 它和 CalParams 的区别是： CalParams 接收调用方准备好的真实 input_tensor；本函数自己创建一个 [1,3,S,S]的随机 CUDA 输入，并同时打印 THOP 统计和直接计数得到的参数量。
-#
-# 当前实现假设模型接受 3 通道输入且 CUDA 可用。EMCAD 的某些医学图像路径可能是单通道 [B,1,H,W]，这种情况下直接调用此函数可能在 forward 阶段报通道数错误；
-# 复杂度统计的输入通道数必须与实际模型入口保持一致，否则 FLOPs 没有可比性。
+# 旧 Polyp 入口仍调用此兼容函数；按原论文二分类整网表固定三通道 256×256。
 def cal_params_flops(model, size, logger):
-    # 构造 [1,3,size,size] 的随机 CUDA 输入；适用于三通道模型接口。
-    # 使用随机值只是为了触发一次与真实尺寸相同的 forward；THOP 统计的是结构和
-    # 空间尺寸，不依赖这组随机像素的医学含义。
-    input = torch.randn(1, 3, size, size).cuda()
-    # THOP 执行前向钩子统计操作数和参数量。
-    # profile 可能真的执行模型 forward，因此模型所在 device、输入 dtype 和模型
-    # 当前模式都必须兼容；统计前最好确保没有正在进行的训练梯度累积。
-    flops, params = profile(model, inputs=(input,))
-    # 以十亿为单位打印 FLOPs。
-    print('flops', flops / 1e9)  ## 打印计算量
-    # 以百万为单位打印 THOP 参数量。
-    print('params', params / 1e6)  ## 打印参数量
-
-    # 直接累计 model.parameters() 中每个张量的元素数量。
-    # 这是最直观的参数量统计：每个标量权重算一个参数；它不依赖 THOP 是否认识
-    # 某个自定义层，因此可与 THOP 返回的 params 互相核对。
-    total = sum(p.numel() for p in model.parameters())
-    # 打印百万参数规模。
-    print("Total params: %.2fM" % (total / 1e6))
-    # 把同一统计写入调用方日志。
-    # logger 通常是 logging 模块；写日志后可在实验结果中追溯当时使用的模型规模，
-    # 避免只在终端打印而丢失记录。
-    logger.info(f'flops: {flops / 1e9}, params: {params / 1e6}, Total params: : {total / 1e6:.4f}')
+    from lib.model_complexity import log_model_complexity
+    return log_model_complexity(model, (1, 3, 256, 256))
 
 
-# Example function to calculate and print GMACs and parameter count for a given model
-# 使用 ptflops 打印模型参数量和 MACs 的辅助函数。这是另一套复杂度统计入口，使用 ptflops 而不是 THOP。
-# input_size 使用不含 batch的 CHW 格式（默认 [3,224,224]），ptflops 会自行添加 batch=1 并尝试分析各层。
-# 该函数主要用于交互式比较模型，不参与训练或测试；若模型含有 ptflops 不认识的自定义模块，可能需要额外的 hook 或会出现统计警告。
+# 交互式辅助入口也使用原作者 THOP 口径；input_size 为 CHW。
 def print_model_stats(model, input_size=(3, 224, 224)):
-    # Print model parameter count
-    # 遍历全部参数张量并累计元素数量，不区分是否 requires_grad。
-    # 这里与 cal_params_flops 的直接计数相同，包含被冻结的参数；如果只想统计可训练
-    # 参数，需要额外筛选 requires_grad，但当前代码保留“模型总参数量”的口径。
-    total_params = sum(p.numel() for p in model.parameters())
-    # 输出精确参数个数。
-    print(f'Model created, param count: {total_params}')
-
-    # Calculate GMACs using ptflops
-    # ptflops 按给定 CHW 输入尺寸分析模型，并输出逐层统计。
-    # as_strings=True 让返回值直接带 K/M/G 等单位，便于打印；
-    # print_per_layer_stat=True 会输出每层详情，适合定位计算量主要来自哪里，但会
-    # 产生较多终端输出。这里的 params 字符串可能与上面的精确整数略有格式差异。
-    macs, params = get_model_complexity_info(model, input_size, as_strings=True, print_per_layer_stat=True)
-
-    # Display GMACs and params
-    # 打印 ptflops 返回的可读 MACs 和参数量字符串。
-    print(f'Model: {macs} GMACs, {params} parameters')
+    from lib.model_complexity import log_model_complexity
+    return log_model_complexity(model, (1, *input_size))
 

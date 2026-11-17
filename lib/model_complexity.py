@@ -1,62 +1,133 @@
-"""在不改动训练逻辑的前提下，记录模型参数量和计算量。"""
+"""EMCAD-author-compatible THOP complexity record for the complete network."""
 
+import json
 import logging
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 import torch
+from torch import nn
+
+
+class _DecoderWithPDS(nn.Module):
+    """Decoder path used by pair_runtime.forward, excluding prediction heads."""
+
+    def __init__(self, decoder, pds):
+        super().__init__()
+        self.decoder = decoder
+        self.pds = pds
+
+    def forward(self, deep, skips):
+        dec = self.decoder
+        d = dec.cab4(deep) * deep
+        d = dec.sab(d) * d
+        d = dec.mscb4(d)
+        features = [d]
+        semantic = self.pds.start(d)
+        for index, (stage, skip) in enumerate(zip((3, 2, 1), skips)):
+            d = getattr(dec, "eucb" + str(stage))(d)
+            gated = getattr(dec, "lgag" + str(stage))(g=d, x=skip)
+            semantic, gated = self.pds.filter_skip(semantic, gated, index)
+            d = d + gated
+            d = getattr(dec, "cab" + str(stage))(d) * d
+            d = dec.sab(d) * d
+            d = getattr(dec, "mscb" + str(stage))(d)
+            features.append(d)
+            if index < 2:
+                semantic = self.pds.update(semantic, d, index)
+        return features
 
 
 def log_model_complexity(model, input_shape, prefix="model", output_path=None):
-    """对已经构建完成的模型做一次性复杂度探测，并写入当前训练日志。
+    """Replicate the original EMCAD utility's profile and direct Params count.
 
-    这里的探测只用于实验记录，不参与反向传播，也不修改模型结构、权重或
-    优化器。THOP 原生返回 MACs（乘加次数），论文中常见的 FLOPs 口径将一次
-    乘法和一次加法分别计数，因此这里按 ``FLOPs = 2 * MACs`` 写入日志。
+    The authors label THOP's first raw return value ``flops`` and divide it by
+    1e9, without multiplying by two. The paper's binary whole-model table uses
+    a single 256x256 image. THOP calls this value MACs; both names are saved.
     """
-    # DataParallel 只是训练时的外层包装。复杂度工具应当分析真正的网络模块，
-    # 否则可能把并行封装当成网络本身，或者在不同 GPU 数量下得到不一致结果。
     target = model.module if isinstance(model, torch.nn.DataParallel) else model
+    shape = tuple(int(x) for x in input_shape)
+    if len(shape) != 4 or shape[0] != 1:
+        raise ValueError("EMCAD complexity input must be NCHW, batch size 1")
 
-    # 参数量与输入尺寸即使没有安装 thop 也可以记录；参数量统计包含可训练和
-    # 不可训练参数，和论文中通常报告的 total parameters 口径一致。
-    parameter_count = sum(parameter.numel() for parameter in target.parameters())
-    records = [
-        "{}_parameters={}".format(prefix, parameter_count),
-        "{}_complexity_input_shape={}".format(prefix, tuple(input_shape)),
-    ]
-    logging.info("%s_parameters=%d", prefix, parameter_count)
-    logging.info("%s_complexity_input_shape=%s", prefix, tuple(input_shape))
-
-    # 训练入口在这里传入的是已经迁移到 CPU/GPU 的模型。保存原始 training 状态，
-    # 使本次探测结束后恢复到调用前状态，避免 BatchNorm/Dropout 状态影响后续训练。
+    parameters = list(target.parameters())
+    active = tuple(getattr(target, "_pair_active", ()))
+    record = {
+        "protocol": "SLDGroup/EMCAD utils/utils.py cal_params_flops",
+        "scope": "whole model, eval forward, all four output heads",
+        "input_shape_nchw": shape,
+        "torch_version": torch.__version__,
+        "thop_version": None,
+        "author_labeled_flops_g": None,
+        "thop_raw_ops": None,
+        "thop_macs_g": None,
+        "thop_parameters": None,
+        "thop_parameters_m": None,
+        "direct_parameters": sum(p.numel() for p in parameters),
+        "direct_parameters_m": sum(p.numel() for p in parameters) / 1e6,
+        "direct_trainable_parameters": sum(p.numel() for p in parameters if p.requires_grad),
+        "decoder_224": None,
+        "note": "Original EMCAD code labels raw THOP result FLOPs; THOP documents it as MACs. No x2 conversion.",
+    }
     was_training = target.training
     try:
-        # thop 是 requirements.txt 中声明的可选统计依赖。导入放在函数内部，
-        # 这样即使用户暂时没有安装它，训练仍可启动并至少记录参数量。
         from thop import profile
-
+        try:
+            record["thop_version"] = version("thop")
+        except PackageNotFoundError:
+            record["thop_version"] = "unavailable"
+        dummy = torch.randn(shape, device=parameters[0].device, dtype=parameters[0].dtype)
         target.eval()
-        # dummy input 必须和模型参数位于同一设备，否则 GPU 训练时会设备不匹配。
-        device = next(target.parameters()).device
-        dummy_input = torch.zeros(tuple(input_shape), device=device)
-        # 关闭梯度，避免复杂度探测额外分配反向图显存；verbose=False 防止 THOP
-        # 把逐层统计刷屏，只把汇总结果写入训练日志。
         with torch.no_grad():
-            macs, _ = profile(target, inputs=(dummy_input,), verbose=False)
-        logging.info("%s_macs=%.0f", prefix, macs)
-        logging.info("%s_flops=%.0f (2 * MACs)", prefix, 2.0 * macs)
-        records.extend([
-            "{}_macs={:.0f}".format(prefix, macs),
-            "{}_flops={:.0f} (2 * MACs)".format(prefix, 2.0 * macs),
-        ])
+            raw_ops, thop_params = profile(target, inputs=(dummy,), verbose=False)
+        record.update(
+            author_labeled_flops_g=raw_ops / 1e9,
+            thop_raw_ops=raw_ops,
+            thop_macs_g=raw_ops / 1e9,
+            thop_parameters=thop_params,
+            thop_parameters_m=thop_params / 1e6,
+        )
+        # Paper Table 6 measures the decoder alone at 224x224, not the network.
+        # PDS lives outside model.decoder, so include it explicitly when enabled.
+        decoder = target.decoder
+        if "pds" in active:
+            decoder = _DecoderWithPDS(target.decoder, target.pair_modules["pds"])
+        channels = [getattr(target, "out_head" + str(stage)).in_channels
+                    for stage in (4, 3, 2, 1)]
+        features = [torch.randn((1, channel, side, side), device=dummy.device, dtype=dummy.dtype)
+                    for channel, side in zip(channels, (7, 14, 28, 56))]
+        with torch.no_grad():
+            decoder_ops, decoder_thop_params = profile(
+                decoder, inputs=(features[0], features[1:]), verbose=False)
+        record["decoder_224"] = {
+            "scope": "decoder including PDS if enabled; no backbone or prediction heads",
+            "author_labeled_flops_g": decoder_ops / 1e9,
+            "thop_raw_ops": decoder_ops,
+            "thop_parameters_m": decoder_thop_params / 1e6,
+            "direct_parameters_m": sum(p.numel() for p in decoder.parameters()) / 1e6,
+        }
     except Exception as exc:
-        # 统计工具对自定义算子或某些模型分支可能不兼容。复杂度记录失败不应
-        # 让已经可以正常训练的实验失败，因此把具体原因持久化后继续训练。
-        logging.warning("%s_flops_unavailable=%s", prefix, exc)
-        records.append("{}_flops_unavailable={}".format(prefix, exc))
+        record["error"] = "{}: {}".format(type(exc).__name__, exc)
     finally:
-        # 只有调用前处于 train 模式时才切回 train；调用前本来是 eval 时保持原状。
-        if was_training:
-            target.train()
-        if output_path is not None:
-            with open(output_path, "w", encoding="utf-8") as stream:
-                stream.write("\n".join(records) + "\n")
+        target.train(was_training)
+
+    logging.info("%s_complexity=%s", prefix, json.dumps(record, ensure_ascii=False, sort_keys=True))
+    if record["author_labeled_flops_g"] is not None:
+        print("[EMCAD complexity] input={} THOP raw FLOPs(label)/MACs={:.6f}G THOP Params={:.6f}M Direct Params={:.6f}M".format(
+            shape, record["author_labeled_flops_g"], record["thop_parameters_m"],
+            record["direct_parameters_m"],
+        ))
+    else:
+        print("[EMCAD complexity] THOP unavailable; Direct Params={:.6f}M; error={}".format(
+            record["direct_parameters_m"], record.get("error", "unknown"),
+        ))
+    if record["decoder_224"] is not None:
+        print("[EMCAD decoder 224] THOP raw FLOPs(label)/MACs={:.6f}G Direct Params={:.6f}M".format(
+            record["decoder_224"]["author_labeled_flops_g"],
+            record["decoder_224"]["direct_parameters_m"],
+        ))
+    if "error" in record:
+        logging.warning("%s THOP profiling incomplete: %s", prefix, record["error"])
+    if output_path is not None:
+        Path(output_path).write_text(json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return record
