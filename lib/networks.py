@@ -12,6 +12,7 @@ from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # EMCAD 是论文提出的解码器，接收四级编码特征并逐级恢复空间分辨率。
 from lib.decoders import EMCAD
+from lib.edge_guided_feature import EdgeGuidedFeatureBranch
 
 
 # ===========================================================
@@ -62,7 +63,8 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
+                 efb_enabled=0):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -200,6 +202,10 @@ class EMCADNet(nn.Module):
         # 这里只“创建”解码器各层，尚未流过任何图像；真正的张量计算发生在 forward 的 self.decoder(...) 调用中。
         self.decoder = EMCAD(channels=channels, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
                              dw_parallel=dw_parallel, add=add, lgag_ks=lgag_ks, activation=activation)
+        if efb_enabled not in (0, 1):
+            raise ValueError('efb_enabled must be 0 or 1')
+        self.efb_enabled = int(efb_enabled)
+        self.efb = EdgeGuidedFeatureBranch(channels[3]) if self.efb_enabled else None
 
         # 打印仅 EMCAD 解码器的参数量，便于核对轻量化设计。解码器参数统计不包含编码器和下面的四个 segmentation head。
         print('Model %s created, param count: %d' % ('EMCAD decoder: ',
@@ -226,6 +232,7 @@ class EMCADNet(nn.Module):
     # -------------------------------------------------------------------------
     # 输入 x 约定为 (B,C,H,W)；mode 当前不改变返回值，训练策略由外部 trainer 决定。
     def forward(self, x, mode='test'):
+        original_image = x
         # 只在 C=1 时使用可学习适配器；已经是 RGB/C=3 时直接送入编码器。
         if x.size()[1] == 1:
             # (B,1,H,W) -> (B,3,H,W)，空间尺寸保持不变。
@@ -243,6 +250,8 @@ class EMCADNet(nn.Module):
         # 返回 dec_outs=[d4,d3,d2,d1]，默认通道依次为 [512,320,128,64]。
         # 列表顺序不能改成 [x1,x2,x3]：EMCAD 第一次上采样后空间是 H/16，只能先与同为 H/16 的 x3 对齐融合。
         dec_outs = self.decoder(x4, [x3, x2, x1])
+        if self.efb is not None:
+            dec_outs[-1] = self.efb(dec_outs[-1], original_image)
 
         # prediction heads  
         # d4 位于 H/32，先产生最深尺度 logits p4，形状 (B,K,H/32,W/32)。

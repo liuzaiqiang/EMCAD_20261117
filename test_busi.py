@@ -93,6 +93,7 @@ ARCHITECTURE_OPTIONS = {
     "img_size": "--img_size",
     # 灰度模式。
     "grayscale": "--grayscale",
+    "efb_enabled": "--efb_enabled",
 }
 
 # 保存通用解析器。
@@ -258,7 +259,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 缺字段无法确定 state_dict shape。
-        if field not in config:
+        if field not in config and field != "efb_enabled":
             # 报告字段。
             raise RuntimeError(
                 # 错误正文。
@@ -273,7 +274,7 @@ def _parse_args():
         # 规范保存值。
         configured = _normalized(
             # config值。
-            config[field]
+            config.get(field, 0)
         )
         # 规范当前命令行解析值。
         current = _normalized(

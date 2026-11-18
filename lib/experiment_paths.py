@@ -53,6 +53,7 @@ def make_experiment_dir(args, family, output_root=None):
         ("lgag_ks", _value(args, "lgag_ks")),
         ("act", _value(args, "activation_mscb")),
         ("small_hard", _value(args, "small_target_hard_supervision", 0)),
+        ("efb", _value(args, "efb_enabled", 0)),
         ("seed", _value(args, "seed")),
     ]
     parameter_parts = [

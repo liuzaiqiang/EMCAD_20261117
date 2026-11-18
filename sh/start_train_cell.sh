@@ -77,6 +77,11 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
+export EFB_ENABLED="${EFB_ENABLED:-0}"
+case "${EFB_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] EFB_ENABLED must be 0 or 1" >&2; exit 2 ;;
+esac
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 2 ;;

@@ -95,6 +95,7 @@ parser.add_argument('--no_pretrain', action='store_true', default=False,
 # 构造模型时 PVT 预训练文件目录；随后完整 checkpoint 会覆盖模型参数。
 parser.add_argument('--pretrained_dir', type=str, default=DEFAULT_PVT_DIR,
                     help='path to pretrained encoder dir')
+parser.add_argument('--efb_enabled', type=int, choices=[0, 1], default=0)
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,
                     default='mutation', help='loss supervision: mutation, deep_supervision or last_layer')
@@ -141,7 +142,7 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision',
+        'pretrained_dir', 'supervision', 'efb_enabled',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -378,7 +379,8 @@ if __name__ == "__main__":
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir)
+                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir,
+                     efb_enabled=args.efb_enabled)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 
