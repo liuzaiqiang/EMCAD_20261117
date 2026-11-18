@@ -121,15 +121,12 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-0}"
+SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 1 ;;
 esac
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
@@ -144,11 +141,6 @@ esac
   echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer"; exit 1;
 }
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
-esac
 
 PARAM_NAMES=(
   CONDA_BASE
@@ -180,9 +172,6 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
-  USE_CONTENT_AWARE_ANTIALIAS
-  CAA_MODE
-  CAA_RESIDUAL_SCALE
   SMALL_TARGET_HARD_SUPERVISION
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
@@ -220,8 +209,6 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \

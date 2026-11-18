@@ -76,16 +76,10 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 # 以免严格模式 set -u 因变量未定义而在创建训练进程前退出；多卡时可在命令前覆盖。
 export N_GPU="${N_GPU:-1}"
 
-# Cell uses the shared binary trainer and exposes its CAA switch here.
-export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-0}"
+export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 2 ;;
-esac
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0|1) ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
 esac
 
 # 在访问数据前检查通道数和掩膜合并开关，避免把非法值传入训练入口。
