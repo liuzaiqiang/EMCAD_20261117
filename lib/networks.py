@@ -183,10 +183,22 @@ class EMCADNet(nn.Module):
             model_dict = self.backbone.state_dict()
             # 过滤 checkpoint：只保留当前模型存在的键；这里按键名过滤，未单独检查张量形状。
             state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+            if not state_dict:
+                raise RuntimeError(
+                    'PRETRAIN_LOAD failed: no checkpoint keys matched the {} backbone in {}'.format(
+                        encoder, path))
             # 把匹配到的预训练参数合并进当前随机初始化参数。
             model_dict.update(state_dict)
             # 加载合并后的完整字典；未匹配到的参数保留初始化值。
             self.backbone.load_state_dict(model_dict)
+            matched_elements = sum(value.numel() for value in state_dict.values())
+            backbone_elements = sum(value.numel() for value in model_dict.values())
+            print('PRETRAIN_LOAD enabled=1 encoder={} path={} matched_keys={}/{} '
+                  'matched_elements={}/{} checkpoint_keys={}'.format(
+                      encoder, path, len(state_dict), len(model_dict),
+                      matched_elements, backbone_elements, len(save_model)))
+        elif encoder.startswith('pvt_v2'):
+            print('PRETRAIN_LOAD enabled=0 encoder={} (random initialization)'.format(encoder))
 
         # numel() 返回单个参数张量含有多少个标量；对 parameters() 求和得到参数数量，而不是显存字节数或 FLOPs。
         # 这条输出用于确认所选骨干规模，不能直接代表训练速度；特征图尺寸、算子类型和硬件同样影响耗时。
