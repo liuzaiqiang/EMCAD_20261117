@@ -12,6 +12,7 @@ from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # EMCAD 是论文提出的解码器，接收四级编码特征并逐级恢复空间分辨率。
 from lib.decoders import EMCAD
+from lib.reverse_attention import ReverseAttentionRefinement
 
 
 # ===========================================================
@@ -62,7 +63,8 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
+                 ra_enabled=0):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -200,6 +202,10 @@ class EMCADNet(nn.Module):
         # 这里只“创建”解码器各层，尚未流过任何图像；真正的张量计算发生在 forward 的 self.decoder(...) 调用中。
         self.decoder = EMCAD(channels=channels, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
                              dw_parallel=dw_parallel, add=add, lgag_ks=lgag_ks, activation=activation)
+        if ra_enabled not in (0, 1):
+            raise ValueError('ra_enabled must be 0 or 1')
+        self.ra_enabled = int(ra_enabled)
+        self.ra_d1 = ReverseAttentionRefinement(channels[3], num_classes) if self.ra_enabled else None
 
         # 打印仅 EMCAD 解码器的参数量，便于核对轻量化设计。解码器参数统计不包含编码器和下面的四个 segmentation head。
         print('Model %s created, param count: %d' % ('EMCAD decoder: ',
@@ -215,7 +221,9 @@ class EMCADNet(nn.Module):
         # d2 输出头：channels[2] -> K。
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
-        self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        # RA replaces the final EMCAD 1x1 head with its own residual logit head.
+        self.out_head1 = (nn.Identity() if self.ra_enabled
+                          else nn.Conv2d(channels[3], num_classes, 1))
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -252,7 +260,10 @@ class EMCADNet(nn.Module):
         # d2 位于 H/8，产生 p2。
         p2 = self.out_head2(dec_outs[2])
         # d1 位于 H/4，产生代码命名的 p1；它是实际推理采用的最高分辨率解码头。
-        p1 = self.out_head1(dec_outs[3])
+        # On: PraNet-style residual correction of d2 logits using gated d1.
+        # Off: the original EMCAD d1 prediction, with identical parameters.
+        p1 = (self.ra_d1(dec_outs[3], p2) if self.ra_d1 is not None
+              else self.out_head1(dec_outs[3]))
 
         # 这里使用 scale_factor 而非显式 size=x.shape[-2:]，所以代码假设输入尺寸经过四次下采样后能被这些倍率精确还原。
         # 352 可被 32 整除，四个输出都会严格回到 352x352；若 H/W 不是 32 的合适倍数，卷积取整可能使放大后尺寸偏离原图。

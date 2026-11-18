@@ -174,6 +174,7 @@ def parse_args():
         default=DEFAULT_PVT_DIR,
     )
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--ra_enabled", type=int, choices=[0, 1], default=0)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -860,7 +861,7 @@ def main():
     # Polyp、BUSI 和 ISIC 共用此入口；复杂度统计只观察已构建模型一次。
     log_model_complexity(
         model,
-        (1, 3, args.img_size, args.img_size),
+        (1, 1 if args.grayscale else 3, args.img_size, args.img_size),
         output_path=os.path.join(run_dir, "model_complexity.txt"),
     )
 

@@ -54,6 +54,7 @@ ARCHITECTURE_OPTIONS = {
     "img_size": "--img_size",
     # 灰度/RGB 模式。
     "grayscale": "--grayscale",
+    "ra_enabled": "--ra_enabled",
 }
 
 # 保存通用测试参数解析函数，避免补丁递归。
@@ -189,7 +190,7 @@ def _parse_args():
             option,
     ) in ARCHITECTURE_OPTIONS.items():
         # 配置缺字段意味着无法完整重建训练模型。
-        if field not in config:
+        if field not in config and field != "ra_enabled":
             # 报告具体字段。
             raise RuntimeError(
                 # 错误正文。
@@ -204,7 +205,7 @@ def _parse_args():
         # 规范化保存值以比较 tuple/list。
         configured = _normalized(
             # 配置字段值。
-            config[field]
+            config.get(field, 0)
         )
         # 规范化当前 argparse 值。
         current = _normalized(

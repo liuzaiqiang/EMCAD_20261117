@@ -112,6 +112,7 @@ def parse_args():
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--ra_enabled", type=int, choices=[0, 1], default=0)
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(

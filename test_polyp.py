@@ -164,6 +164,7 @@ def parse_args():
         # 默认目录。
         default=DEFAULT_PVT_DIR,
     )
+    parser.add_argument("--ra_enabled", type=int, choices=[0, 1], default=0)
 
 
     # 推理输入的统一正方形边长。
@@ -284,6 +285,7 @@ def restore_checkpoint_model_options(args):
         "activation_mscb": "--activation_mscb",
         "no_dw_parallel": "--no_dw_parallel",
         "concatenation": "--concatenation",
+        "ra_enabled": "--ra_enabled",
         "img_size": "--img_size",
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",
