@@ -4,9 +4,11 @@
 # -e 遇到未处理的非零退出码即停止，-u 拒绝未定义变量，pipefail 让管道任一环节失败都算失败。
 set -euo pipefail
 
-# 两个模块开关必须相邻；0=不构造/不执行，1=开启。对应模块见PAIR_README.md。
+
 export FULL_RESOLUTION_DETAIL_ENABLED="${FULL_RESOLUTION_DETAIL_ENABLED:-1}"
 export SURFACE_DISTANCE_SUPERVISION_ENABLED="${SURFACE_DISTANCE_SUPERVISION_ENABLED:-1}"
+
+
 case "${FULL_RESOLUTION_DETAIL_ENABLED}${SURFACE_DISTANCE_SUPERVISION_ENABLED}" in
   00|01|10|11) ;;
   *) echo "FULL_RESOLUTION_DETAIL_ENABLED/SURFACE_DISTANCE_SUPERVISION_ENABLED must be 0 or 1" >&2; exit 1 ;;
@@ -36,6 +38,11 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
+
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
 
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -124,10 +131,7 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
