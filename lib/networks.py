@@ -12,6 +12,7 @@ from lib.pvtv2 import pvt_v2_b0, pvt_v2_b1, pvt_v2_b2, pvt_v2_b3, pvt_v2_b4, pvt
 from lib.resnet import resnet18, resnet34, resnet50, resnet101, resnet152
 # EMCAD 是论文提出的解码器，接收四级编码特征并逐级恢复空间分辨率。
 from lib.decoders import EMCAD
+from lib.uaca import UACACascade
 
 
 # ===========================================================
@@ -62,7 +63,8 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
+                 uaca_enabled=0):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -216,6 +218,9 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        self.uaca_enabled = bool(uaca_enabled)
+        if self.uaca_enabled:
+            self.uaca = UACACascade(channels)
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -243,6 +248,14 @@ class EMCADNet(nn.Module):
         # 返回 dec_outs=[d4,d3,d2,d1]，默认通道依次为 [512,320,128,64]。
         # 列表顺序不能改成 [x1,x2,x3]：EMCAD 第一次上采样后空间是 H/16，只能先与同为 H/16 的 x3 对齐融合。
         dec_outs = self.decoder(x4, [x3, x2, x1])
+        if self.uaca_enabled:
+            p4, p3, p2, p1 = self.uaca(
+                dec_outs, (self.out_head4, self.out_head3, self.out_head2, self.out_head1)
+            )
+            return [F.interpolate(p4, scale_factor=32, mode='bilinear'),
+                    F.interpolate(p3, scale_factor=16, mode='bilinear'),
+                    F.interpolate(p2, scale_factor=8, mode='bilinear'),
+                    F.interpolate(p1, scale_factor=4, mode='bilinear')]
 
         # prediction heads  
         # d4 位于 H/32，先产生最深尺度 logits p4，形状 (B,K,H/32,W/32)。

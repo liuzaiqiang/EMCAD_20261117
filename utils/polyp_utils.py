@@ -7,6 +7,7 @@ import random
 import cv2
 # NumPy 用于布尔掩膜统计、逐病例指标汇总以及有限值筛选。
 import numpy as np
+import utils.medpy_compat  # noqa: F401
 # torch/nn/F 分别提供张量、模型包装判断和二分类损失/插值等函数式接口。
 import torch
 import torch.nn as nn
@@ -100,6 +101,7 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # PVTv2 本地预训练权重所在目录；ResNet 采用自身加载路径。
         pretrained_dir=args.pretrained_dir,
+        uaca_enabled=getattr(args, "uaca_enabled", 0),
     )
 
 

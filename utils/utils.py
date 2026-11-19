@@ -6,6 +6,7 @@ from lib.benchmarking import synchronize
 import torch.nn as nn
 # NumPy 用于体数据推理、类别掩膜和指标数组处理。
 import numpy as np
+import utils.medpy_compat  # noqa: F401
 # MedPy 提供医学分割常用的 Dice、HD95、Jaccard 和平均表面距离实现。
 from medpy import metric
 # scipy.zoom 在二维切片推理前后进行连续图像和离散预测的尺寸变换。

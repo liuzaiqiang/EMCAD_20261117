@@ -54,6 +54,7 @@ from utils.polyp_utils import (
 )
 from utils.small_target_loss import small_target_hard_positive_loss
 from lib.model_complexity import log_model_complexity
+from lib.topn_checkpoints import TopNCheckpoints
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
@@ -174,6 +175,9 @@ def parse_args():
         default=DEFAULT_PVT_DIR,
     )
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--uaca_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_size", type=int, default=10)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -897,6 +901,7 @@ def main():
     )
 
     best_dice = float("-inf")
+    topn = TopNCheckpoints(run_dir, args.topn_size, save_checkpoint) if args.topn_enabled else None
     best_epoch = 0
     global_step = 0
     scale_rates = (
@@ -1055,13 +1060,16 @@ def main():
                 threshold=args.threshold,
                 max_cases=args.max_valid_cases,
                 output_dir=None,
-                compute_surface=False,
+                compute_surface=bool(args.topn_enabled),
                 # 用 dataset_name 显示实际数据集，避免 Cell/BUSI/ISIC 训练时进度标题仍写 Polyp。
                 description="{} val".format(args.dataset_name),
             )
 
             val_dice = val_mean["dice"]
             val_iou = val_mean["iou"]
+            if topn is not None:
+                topn.update(model, epoch, val_dice, val_mean["hd95"])
+                logging.info("epoch=%d val_hd95=%.6f", epoch, val_mean["hd95"])
 
             append_validation_rows(
                 validation_path,

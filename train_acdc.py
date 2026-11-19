@@ -70,10 +70,12 @@ from utils.acdc_utils import (
     supervised_loss,
     # 只计算 RV/MYO/LV 的病例 Dice。
     validation_dice,
+    volume_metrics,
 )
 # ACDCdataset 读取训练二维切片；ACDCVolumeDataset 读取/重组验证体；RandomGenerator 做同步增强。
 from utils.dataset_ACDC import ACDCVolumeDataset, ACDCdataset, RandomGenerator
 from lib.model_complexity import log_model_complexity
+from lib.topn_checkpoints import TopNCheckpoints
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
@@ -112,6 +114,9 @@ def parse_args():
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--uaca_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_size", type=int, default=10)
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -214,6 +219,7 @@ def validate(args, model, device, csv_path, epoch):
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
     # 收集每个病例的器官 Dice 与病例均值，稍后写 CSV 并做总体平均。
     rows = []
+    hd95_values = []
     # 切换评估模式；下一 epoch 开头 main 会再次 model.train()。
     model.eval()
     # 逐病例验证，leave=False 表示完成后移除该内部进度条。
@@ -244,6 +250,10 @@ def validate(args, model, device, csv_path, epoch):
         )
         # 分别计算标签 1、2、3 的 Dice，返回 {1:...,2:...,3:...}。
         per_class = validation_dice(prediction, label)
+        if args.topn_enabled:
+            metrics = volume_metrics(prediction, label,
+                                     voxelspacing=(float(args.z_spacing), 1.0, 1.0))
+            hd95_values.append(float(np.mean([item["hd95"] for item in metrics.values()])))
         # 对 RV/MYO/LV 三个 Dice 做算术平均，得到该病例 mean Dice。
         mean_dice = float(np.mean(list(per_class.values())))
         # 追加结构化病例结果。
@@ -271,7 +281,8 @@ def validate(args, model, device, csv_path, epoch):
     # 将本 epoch 所有病例明细追加进 validation_metrics.csv。
     append_validation_csv(csv_path, epoch, rows)
     # 对病例 mean_dice 再取平均，作为验证集模型选择指标。
-    return float(np.mean([row["mean_dice"] for row in rows]))
+    dice = float(np.mean([row["mean_dice"] for row in rows]))
+    return (dice, float(np.mean(hd95_values))) if args.topn_enabled else dice
 
 
 # ACDC 训练总控函数，负责从参数检查一直运行到打印 best checkpoint 路径。
@@ -419,6 +430,7 @@ def main():
 
     # 最好验证 Dice 从 -1 开始，确保第一次有效验证一定能保存 best.pth。
     best_dice = -1.0
+    topn = TopNCheckpoints(snapshot_path, args.topn_size, save_state_dict) if args.topn_enabled else None
     # 全局更新步数用于 TensorBoard x 轴。
     global_step = 0
     # 验证明细 CSV 的固定路径。
@@ -510,7 +522,11 @@ def main():
         # 达到验证间隔或最后一轮时执行完整病例验证。
         if (epoch + 1) % args.validate_every == 0 or epoch + 1 == args.max_epochs:
             # validate 返回病例宏平均后的总体 mean Dice，并把每病例明细追加到 CSV。
-            mean_dice = validate(args, model, device, valid_csv, epoch + 1)
+            result = validate(args, model, device, valid_csv, epoch + 1)
+            mean_dice, mean_hd95 = result if topn is not None else (result, None)
+            if topn is not None:
+                topn.update(model, epoch + 1, mean_dice, mean_hd95)
+                logging.info("epoch=%d validation_mean_hd95=%.6f", epoch + 1, mean_hd95)
             # 记录验证指标。
             logging.info("epoch=%d validation_mean_dice=%.6f", epoch + 1, mean_dice)
             # 写入 TensorBoard 验证曲线。

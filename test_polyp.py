@@ -164,6 +164,7 @@ def parse_args():
         # 默认目录。
         default=DEFAULT_PVT_DIR,
     )
+    parser.add_argument("--uaca_enabled", type=int, choices=[0, 1], default=0)
 
 
     # 推理输入的统一正方形边长。
@@ -287,6 +288,7 @@ def restore_checkpoint_model_options(args):
         "img_size": "--img_size",
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",
+        "uaca_enabled": "--uaca_enabled",
     }
     for field, option in options.items():
         if field not in config:

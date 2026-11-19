@@ -77,6 +77,13 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
+export UACA_ENABLED="${UACA_ENABLED:-0}"
+export TOPN_ENABLED="${TOPN_ENABLED:-0}"
+export TOPN_SIZE="${TOPN_SIZE:-10}"
+case "${UACA_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] UACA_ENABLED must be 0 or 1" >&2; exit 2 ;;
+esac
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 2 ;;
