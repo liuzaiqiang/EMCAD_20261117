@@ -52,7 +52,6 @@ from utils.polyp_utils import (
     # 论文结构损失及多头监督组合。
     supervised_structure_loss,
 )
-from utils.small_target_loss import small_target_hard_positive_loss
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
@@ -173,7 +172,6 @@ def parse_args():
         # 默认目录。
         default=DEFAULT_PVT_DIR,
     )
-    parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -963,8 +961,6 @@ def main():
                         outputs,
                         scaled_masks,
                         args.supervision,
-                        hard_positive_loss=(small_target_hard_positive_loss
-                                            if args.small_target_hard_supervision else None),
                     )
 
                 scaler.scale(loss).backward()

@@ -144,13 +144,11 @@ def _supervision_groups(output_count, supervision):
 
 
 # 按指定监督策略累计交叉熵与 Dice 混合损失。
-def supervised_loss(outputs, target, supervision, ce_loss, dice_loss,
-                    hard_positive_loss=None):
+def supervised_loss(outputs, target, supervision, ce_loss, dice_loss):
     # 在 target 所在设备创建标量浮点零，避免 CPU/CUDA 设备不一致。
     total = target.new_tensor(0.0, dtype=torch.float32)
     # 遍历 last/deep/mutation 策略生成的每个输出组合。
-    groups = _supervision_groups(len(outputs), supervision)
-    for group in groups:
+    for group in _supervision_groups(len(outputs), supervision):
         # 将组合中的多尺度 logits 逐元素相加；各输出已由 EMCADNet 上采样到同一尺寸。
         logits = sum(outputs[index] for index in group)
         # 交叉熵权重 0.3，监督离散互斥类别。
@@ -158,10 +156,6 @@ def supervised_loss(outputs, target, supervision, ce_loss, dice_loss,
         # Dice 权重 0.7，直接优化区域重叠。
         total = total + 0.7 * dice_loss(logits, target)
     # 返回所有监督组合损失之和，原实现没有再除以组合数量。
-    if hard_positive_loss is not None:
-        from utils.small_target_loss import HARD_POSITIVE_WEIGHT
-        total = total + (HARD_POSITIVE_WEIGHT * len(groups) *
-                         hard_positive_loss(outputs[-1], target))
     return total
 
 

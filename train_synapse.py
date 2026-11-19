@@ -77,8 +77,6 @@ parser.add_argument('--pretrained_dir', type=str, default=DEFAULT_PVT_DIR,
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
-parser.add_argument('--small_target_hard_supervision', type=int, choices=[0, 1], default=1,
-                    help='1 adds size-aware hard-positive supervision to the final head')
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
                     help='1: online top-K checkpoints with full metrics; 0: single best.pth')
 parser.add_argument('--synapse_topk_size', type=int, default=10,

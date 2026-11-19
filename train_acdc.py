@@ -40,7 +40,6 @@ from tensorboardX import SummaryWriter
 from torch.cuda.amp import GradScaler, autocast
 # 多类交叉熵处理每像素 4 类分类。
 from torch.nn.modules.loss import CrossEntropyLoss
-from utils.small_target_loss import small_target_hard_positive_loss
 # DataLoader 负责切片批处理和病例迭代。
 from torch.utils.data import DataLoader
 # Compose 串联 ACDC 的训练增强/缩放变换。
@@ -111,7 +110,6 @@ def parse_args():
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
-    parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -460,8 +458,6 @@ def main():
                     ce_loss=ce_loss,
                     # 已构造的 4 类 DiceLoss 对象。
                     dice_loss=dice_loss,
-                    hard_positive_loss=(small_target_hard_positive_loss
-                                        if args.small_target_hard_supervision else None),
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
