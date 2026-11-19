@@ -8,6 +8,8 @@ from pathlib import Path
 import torch
 from torch import nn
 
+from utils.utils import cal_params_flops
+
 
 class _DecoderWithPDS(nn.Module):
     """Decoder path used by pair_runtime.forward, excluding prediction heads."""
@@ -70,33 +72,37 @@ def log_model_complexity(model, input_shape, prefix="model", output_path=None):
         "note": "Original EMCAD code labels raw THOP result FLOPs; THOP documents it as MACs. No x2 conversion.",
     }
     was_training = target.training
+    rng_devices = ([parameters[0].device.index if parameters[0].device.index is not None
+                    else torch.cuda.current_device()]
+                   if parameters[0].device.type == "cuda" else [])
     try:
         from thop import profile
         try:
             record["thop_version"] = version("thop")
         except PackageNotFoundError:
             record["thop_version"] = "unavailable"
-        dummy = torch.randn(shape, device=parameters[0].device, dtype=parameters[0].dtype)
         target.eval()
-        with torch.no_grad():
-            raw_ops, thop_params = profile(target, inputs=(dummy,), verbose=False)
-        record.update(
-            author_labeled_flops_g=raw_ops / 1e9,
-            thop_raw_ops=raw_ops,
-            thop_macs_g=raw_ops / 1e9,
-            thop_parameters=thop_params,
-            thop_parameters_m=thop_params / 1e6,
-        )
-        # Paper Table 6 measures the decoder alone at 224x224, not the network.
-        # PDS lives outside model.decoder, so include it explicitly when enabled.
-        decoder = target.decoder
-        if "pds" in active:
-            decoder = _DecoderWithPDS(target.decoder, target.pair_modules["pds"])
-        channels = [getattr(target, "out_head" + str(stage)).in_channels
-                    for stage in (4, 3, 2, 1)]
-        features = [torch.randn((1, channel, side, side), device=dummy.device, dtype=dummy.dtype)
-                    for channel, side in zip(channels, (7, 14, 28, 56))]
-        with torch.no_grad():
+        with torch.random.fork_rng(devices=rng_devices), torch.no_grad():
+            raw_ops, thop_params, direct_params = cal_params_flops(target, shape, logging)
+            record.update(
+                author_labeled_flops_g=raw_ops / 1e9,
+                thop_raw_ops=raw_ops,
+                thop_macs_g=raw_ops / 1e9,
+                thop_parameters=thop_params,
+                thop_parameters_m=thop_params / 1e6,
+                direct_parameters=direct_params,
+                direct_parameters_m=direct_params / 1e6,
+            )
+            # Paper Table 6 measures the decoder alone at 224x224, not the network.
+            # PDS lives outside model.decoder, so include it explicitly when enabled.
+            decoder = target.decoder
+            if "pds" in active:
+                decoder = _DecoderWithPDS(target.decoder, target.pair_modules["pds"])
+            channels = [getattr(target, "out_head" + str(stage)).in_channels
+                        for stage in (4, 3, 2, 1)]
+            features = [torch.randn((1, channel, side, side),
+                                    device=parameters[0].device, dtype=parameters[0].dtype)
+                        for channel, side in zip(channels, (7, 14, 28, 56))]
             decoder_ops, decoder_thop_params = profile(
                 decoder, inputs=(features[0], features[1:]), verbose=False)
         record["decoder_224"] = {
@@ -112,12 +118,7 @@ def log_model_complexity(model, input_shape, prefix="model", output_path=None):
         target.train(was_training)
 
     logging.info("%s_complexity=%s", prefix, json.dumps(record, ensure_ascii=False, sort_keys=True))
-    if record["author_labeled_flops_g"] is not None:
-        print("[EMCAD complexity] input={} THOP raw FLOPs(label)/MACs={:.6f}G THOP Params={:.6f}M Direct Params={:.6f}M".format(
-            shape, record["author_labeled_flops_g"], record["thop_parameters_m"],
-            record["direct_parameters_m"],
-        ))
-    else:
+    if record["author_labeled_flops_g"] is None:
         print("[EMCAD complexity] THOP unavailable; Direct Params={:.6f}M; error={}".format(
             record["direct_parameters_m"], record.get("error", "unknown"),
         ))

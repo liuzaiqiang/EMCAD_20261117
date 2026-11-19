@@ -855,10 +855,23 @@ def tta_model(model, image):
     return mean_mask
 
 
-# 旧 Polyp 入口仍调用此兼容函数；按原论文二分类整网表固定三通道 256×256。
+# 与原 EMCAD 工具相同的 THOP /1e9、参数 /1e6 和直接参数求和口径。
+# 整数 size 保持作者的 [1,3,size,size]；NCHW 形状用于医学灰度输入。
 def cal_params_flops(model, size, logger):
-    from lib.model_complexity import log_model_complexity
-    return log_model_complexity(model, (1, 3, 256, 256))
+    if isinstance(size, int):
+        input_shape = (1, 3, size, size)
+    else:
+        input_shape = tuple(int(dimension) for dimension in size)
+    if len(input_shape) != 4 or input_shape[0] != 1:
+        raise ValueError("size must be an integer or a batch-one NCHW shape")
+    input_tensor = torch.randn(input_shape, device=next(model.parameters()).device)
+    flops, params = profile(model, inputs=(input_tensor,))
+    print('flops', flops / 1e9)
+    print('params', params / 1e6)
+    total = sum(parameter.numel() for parameter in model.parameters())
+    print("Total params: %.2fM" % (total / 1e6))
+    logger.info(f'flops: {flops / 1e9}, params: {params / 1e6}, Total params: : {total / 1e6:.4f}')
+    return flops, params, total
 
 
 # 交互式辅助入口也使用原作者 THOP 口径；input_size 为 CHW。

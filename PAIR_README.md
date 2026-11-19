@@ -27,7 +27,7 @@ CPU合成输入检查覆盖1/4/9输出类别、四种开关、前向反向、有
 
 ## 复杂度统计口径
 
-训练日志与 `model_complexity.txt` 仿照原作者 `utils/utils.py::cal_params_flops`：单张图像调用 `thop.profile(model, inputs=(input,))`，将 THOP 原始第一返回值直接除以 1e9，记录为 `author_labeled_flops_g`，**不乘 2**；第二返回值记录为 `thop_parameters_m`；另按原作者方式直接累计 `model.parameters()` 为 `direct_parameters_m`。也同时打印三项数值。原作者把 THOP 第一返回值标作 FLOPs，THOP 自己称为 MACs；记录中两个名称保留同一原始值，避免偷换计数口径。
+训练入口直接调用 `utils/utils.py::cal_params_flops`：单张图像调用 `thop.profile(model, inputs=(input,))`，按原函数打印 `flops / 1e9`、`params / 1e6` 和直接求和参数量，写入训练日志；`model_complexity.txt` 另存结构化数值。THOP 原始第一返回值**不乘 2**。整数 `size` 保持作者的三通道输入，NCHW 形状允许 Synapse/ACDC 按真实灰度输入统计。原作者将 THOP 第一返回值标作 FLOPs，THOP 也常称其为 MACs；记录中保留同一原始值，避免偷换计数口径。
 
 复杂度文件只记录模型参数量与计算量，不存储开关组合。PDS 的参数与推理计算进入整网及解码器统计；BFC 是训练辅助损失，不增加推理参数或计算量。
 
