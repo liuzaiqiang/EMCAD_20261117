@@ -77,6 +77,8 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
+export PMA_ENABLED="${PMA_ENABLED:-0}"
+[[ "${PMA_ENABLED}" == "0" || "${PMA_ENABLED}" == "1" ]] || { echo "[ERROR] PMA_ENABLED must be 0 or 1" >&2; exit 2; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 2 ;;

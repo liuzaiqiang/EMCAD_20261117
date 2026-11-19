@@ -873,7 +873,7 @@ class SAB(nn.Module):
 class EMCAD(nn.Module):
     # channels 按深到浅排列；PVTv2-B2 默认为 [512,320,128,64]。
     def __init__(self, channels=[512, 320, 128, 64], kernel_sizes=[1, 3, 5], expansion_factor=6, dw_parallel=True,
-                 add=True, lgag_ks=3, activation='relu6'):
+                 add=True, lgag_ks=3, activation='relu6', pma_enabled=False):
         # 此处默认 expansion_factor=6 只在直接调用 EMCAD() 且不传参数时生效；项目标准入口
         # EMCADNet(... expansion_factor=2) 会显式把 2 传到这里，所以训练脚本的实际默认值是 2。
         # channels、kernel_sizes 都只读取不修改；尽管写成可变 list 默认参数，当前实现不会原地污染它们。
@@ -939,9 +939,12 @@ class EMCAD(nn.Module):
         # SAB 不依赖通道数，因此四个解码级共享同一个 7x7 空间注意力模块及其参数。
         # 同一个 Module 多次调用在 PyTorch 中是合法的：每次根据当前输入重新计算权重图，但学习参数是同一份。
         self.sab = SAB()
+        if pma_enabled:
+            from lib.pma import PredictionMapAuxiliary
+            self.pma = PredictionMapAuxiliary(channels)
 
     # x 是最深层 x4，skips 必须按 [x3,x2,x1] 从深到浅传入。
-    def forward(self, x, skips):
+    def forward(self, x, skips, return_pma=False):
         # 本方法没有显式检查 len(skips)、通道或尺寸。若顺序误传为 [x1,x2,x3]，通常会在 LGAG 卷积
         # 因通道不符而报错；若相邻空间尺寸不是严格 2 倍，也会在 g1+x1 或 d+x 时报 shape mismatch。
         # skips 中的张量不会被原地修改；x1/x2/x3 变量接收的是 LGAG 返回的新乘法结果。
@@ -955,6 +958,10 @@ class EMCAD(nn.Module):
         # MSCB 完成多尺度深度卷积细化；CAB -> SAB -> MSCB 合起来对应论文式(3)的 MSCAM。
         # MSCB 内部有残差，因此即使注意力压低某些响应，主分支仍能在训练中学习必要的局部修正。
         d4 = self.mscb4(d4)
+        if hasattr(self, 'pma'):
+            d4, region4, _ = self.pma.predict(d4, 0)
+            regions = [region4]
+            boundaries = []
 
         # EUCB3
         # d4 二倍上采样并把 C4 投影为 C3；PVTv2-B2 为 512 -> 320。
@@ -969,7 +976,13 @@ class EMCAD(nn.Module):
         # Additive aggregation 3
         # 解码特征与筛选后的 skip 逐元素相加，不采用通道拼接，因此 d3 仍为 C3。
         # 相比 concat，相加不会把通道翻倍，也不需要额外卷积立即降维；代价是两路必须提前严格对齐 shape。
-        d3 = d3 + x3
+        if hasattr(self, 'pma'):
+            d3, region3, boundary3 = self.pma.predict(d3, 1)
+            d3 = self.pma.fuse(d3, x3, region3, boundary3, 1)
+            regions.append(region3)
+            boundaries.append(boundary3)
+        else:
+            d3 = d3 + x3
 
         # MSCAM3
         # 第三级通道注意力。
@@ -993,7 +1006,13 @@ class EMCAD(nn.Module):
         # Additive aggregation 2
         # 与门控 skip 相加，形状保持 (B,C2,H/8,W/8)。
         # 这一层重复 d3 的融合范式，使网络逐级把高层语义与更高分辨率边缘信息结合。
-        d2 = d2 + x2
+        if hasattr(self, 'pma'):
+            d2, region2, boundary2 = self.pma.predict(d2, 2)
+            d2 = self.pma.fuse(d2, x2, region2, boundary2, 2)
+            regions.append(region2)
+            boundaries.append(boundary2)
+        else:
+            d2 = d2 + x2
 
         # MSCAM2
         # 第二级通道注意力。
@@ -1015,7 +1034,13 @@ class EMCAD(nn.Module):
 
         # Additive aggregation 1
         # 相加后 d1 保持 (B,C1,H/4,W/4)。
-        d1 = d1 + x1
+        if hasattr(self, 'pma'):
+            d1, region1, boundary1 = self.pma.predict(d1, 3)
+            d1 = self.pma.fuse(d1, x1, region1, boundary1, 3)
+            regions.append(region1)
+            boundaries.append(boundary1)
+        else:
+            d1 = d1 + x1
 
         # MSCAM1
         # 第一级通道注意力。
@@ -1029,4 +1054,6 @@ class EMCAD(nn.Module):
         # 返回顺序固定为从深到浅 [d4,d3,d2,d1]；网络封装器据此连接四个分割头。
         # 返回 list 而不是只返回 d1，是为了支持 deep supervision/mutation 等多输出训练策略；
         # 在项目测试路径中，最终主预测通常取上层返回列表的最后一个 p1，而不是直接使用这里的 d1。
+        if return_pma:
+            return [d4, d3, d2, d1], (regions, boundaries)
         return [d4, d3, d2, d1]

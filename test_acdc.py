@@ -98,6 +98,7 @@ def parse_args():
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
+    parser.add_argument("--pma_enabled", type=int, choices=[0, 1], default=0)
 
     # 每张切片进入模型前缩放到的正方形尺寸，须与训练设置相符。
     parser.add_argument("--img_size", type=int, default=256)
@@ -140,6 +141,7 @@ def restore_checkpoint_config(args):
         "no_dw_parallel": "--no_dw_parallel",
         "concatenation": "--concatenation",
         "img_size": "--img_size",
+        "pma_enabled": "--pma_enabled",
     }
     for field, option in options.items():
         if field not in config:

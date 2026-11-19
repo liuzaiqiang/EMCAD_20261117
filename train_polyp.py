@@ -53,6 +53,7 @@ from utils.polyp_utils import (
     supervised_structure_loss,
 )
 from utils.small_target_loss import small_target_hard_positive_loss
+from utils.pma_loss import pma_auxiliary_loss
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
@@ -174,6 +175,7 @@ def parse_args():
         default=DEFAULT_PVT_DIR,
     )
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--pma_enabled", type=int, choices=[0, 1], default=0)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -953,11 +955,14 @@ def main():
                 with autocast(
                         enabled=scaler.is_enabled()
                 ):
-                    outputs = model_outputs(
-                        model,
-                        scaled_images,
-                        mode="train",
-                    )
+                    if args.pma_enabled:
+                        outputs, pma_maps = model(scaled_images, mode="train_pma")
+                    else:
+                        outputs = model_outputs(
+                            model,
+                            scaled_images,
+                            mode="train",
+                        )
 
                     loss = supervised_structure_loss(
                         outputs,
@@ -966,6 +971,8 @@ def main():
                         hard_positive_loss=(small_target_hard_positive_loss
                                             if args.small_target_hard_supervision else None),
                     )
+                    if args.pma_enabled:
+                        loss = loss + pma_auxiliary_loss(pma_maps, scaled_masks)
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)

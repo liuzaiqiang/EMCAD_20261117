@@ -62,7 +62,8 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
+                 pma_enabled=False):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -199,7 +200,8 @@ class EMCADNet(nn.Module):
         # 需要区分论文描述与当前调用默认值：本构造函数的 activation 默认实参是 'relu'，实际建层始终以传入字符串为准。
         # 这里只“创建”解码器各层，尚未流过任何图像；真正的张量计算发生在 forward 的 self.decoder(...) 调用中。
         self.decoder = EMCAD(channels=channels, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
-                             dw_parallel=dw_parallel, add=add, lgag_ks=lgag_ks, activation=activation)
+                             dw_parallel=dw_parallel, add=add, lgag_ks=lgag_ks, activation=activation,
+                             pma_enabled=pma_enabled)
 
         # 打印仅 EMCAD 解码器的参数量，便于核对轻量化设计。解码器参数统计不包含编码器和下面的四个 segmentation head。
         print('Model %s created, param count: %d' % ('EMCAD decoder: ',
@@ -242,7 +244,10 @@ class EMCADNet(nn.Module):
         # x4 进入上采样主路，skip 按深到浅排列为 [x3,x2,x1]。
         # 返回 dec_outs=[d4,d3,d2,d1]，默认通道依次为 [512,320,128,64]。
         # 列表顺序不能改成 [x1,x2,x3]：EMCAD 第一次上采样后空间是 H/16，只能先与同为 H/16 的 x3 对齐融合。
-        dec_outs = self.decoder(x4, [x3, x2, x1])
+        if mode == 'train_pma' and hasattr(self.decoder, 'pma'):
+            dec_outs, pma_maps = self.decoder(x4, [x3, x2, x1], return_pma=True)
+        else:
+            dec_outs = self.decoder(x4, [x3, x2, x1])
 
         # prediction heads  
         # d4 位于 H/32，先产生最深尺度 logits p4，形状 (B,K,H/32,W/32)。
@@ -268,6 +273,8 @@ class EMCADNet(nn.Module):
         p1 = F.interpolate(p1, scale_factor=4, mode='bilinear')
 
         # 论文第5页 Sec.3.3 把最后解码阶段称为 p4；本代码按反方向编号，外部推理实际取返回列表 P[-1]，即这里的 p1。
+        if mode == 'train_pma' and hasattr(self.decoder, 'pma'):
+            return [p4, p3, p2, p1], pma_maps
         if mode == 'test':
             # return 返回的是列表本身，不会复制四个张量；张量仍保留其 autograd 关系，除非外层使用 no_grad 或 detach。
             # 测试模式仍返回全部四个 logits，不在模型内部执行 sigmoid、softmax 或多头求和。

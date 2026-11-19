@@ -100,6 +100,7 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # PVTv2 本地预训练权重所在目录；ResNet 采用自身加载路径。
         pretrained_dir=args.pretrained_dir,
+        pma_enabled=bool(getattr(args, 'pma_enabled', 0)),
     )
 
 
