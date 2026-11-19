@@ -8,6 +8,7 @@ import time
 
 # NumPy 负责体数据分批、类别掩膜和指标均值计算。
 import numpy as np
+import utils.medpy_compat  # noqa: F401 - MedPy expects the removed numpy.bool alias.
 # PyTorch 负责模型输入、张量运算、检查点加载和推理设备管理。
 import torch
 # nn 提供自定义 DiceLoss 的 Module 基类。
@@ -69,6 +70,7 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # 本地 PVT 权重目录。
         pretrained_dir=args.pretrained_dir,
+        spm_enabled=bool(getattr(args, 'spm_enabled', 0)),
     )
 
 
