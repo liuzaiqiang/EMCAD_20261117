@@ -359,7 +359,7 @@ if __name__ == '__main__':
                         default=False, help='use this flag to turn off loading pretrained enocder weights')
     # PVT 预训练文件目录。
     parser.add_argument('--pretrained_dir', type=str,
-                        default='./pretrained_pth/pvt/', help='path to pretrained encoder dir')
+                        default='../../../../pretrained_pth/pvt/', help='path to pretrained encoder dir')
     # 该参数参与 run_id，但 train() 当前固定使用“五路 paper 风格损失”，没有读取 opt.supervision 分支。
     parser.add_argument('--supervision', type=str,
                         default='mutation', help='loss supervision: mutation, deep_supervision or last_layer')
@@ -385,9 +385,9 @@ if __name__ == '__main__':
     # 是否做 loader 数据增强；同样无 type/action。
     parser.add_argument('--augmentation', default=True)
     # 训练划分根目录，默认由上方硬编码 dataset_name 生成。
-    parser.add_argument('--train_path', type=str, default=f'../../data/polyp/target/{dataset_name}/train/')
+    parser.add_argument('--train_path', type=str, default=f'../../../../data/polyp/target/{dataset_name}/train/')
     # 数据集根目录，test() 再追加 val/test。
-    parser.add_argument('--test_path', type=str, default=f'../../data/polyp/target/{dataset_name}/')
+    parser.add_argument('--test_path', type=str, default=f'../../../../data/polyp/target/{dataset_name}/')
     # 单 run 权重目录会在循环中覆盖此初始空字符串。
     parser.add_argument('--train_save', type=str, default='')
     # 解析全部参数。

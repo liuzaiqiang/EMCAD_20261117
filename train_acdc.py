@@ -83,9 +83,9 @@ def parse_args():
     # description 会显示在 python train_ACDC.py --help 的标题中。
     parser = argparse.ArgumentParser(description="Train EMCAD on ACDC")
     # ACDC 根目录，预期含 train/、valid/ 等子目录。
-    parser.add_argument("--root_path", default="../../data/ACDC")
+    parser.add_argument("--root_path", default="../../../../data/ACDC")
     # 列表目录，至少需要 train.txt 和 valid.txt。
-    parser.add_argument("--list_dir", default="../../data/ACDC/lists_ACDC")
+    parser.add_argument("--list_dir", default="../../../../data/ACDC/lists_ACDC")
     # 所有 ACDC 实验目录的根位置。
     parser.add_argument("--output_dir", default="./model_pth/ACDC")
     # 单次实验名；None 时主函数用时间戳自动生成。
@@ -110,7 +110,7 @@ def parse_args():
     # 出现该旗标后不加载 ImageNet 编码器预训练权重。
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default="../../../../pretrained_pth/pvt/")
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
