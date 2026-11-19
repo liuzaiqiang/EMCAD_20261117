@@ -68,11 +68,13 @@ from utils.acdc_utils import (
     supervised_loss,
     # 只计算 RV/MYO/LV 的病例 Dice。
     validation_dice,
+    volume_metrics,
 )
 # ACDCdataset 读取训练二维切片；ACDCVolumeDataset 读取/重组验证体；RandomGenerator 做同步增强。
 from utils.dataset_ACDC import ACDCVolumeDataset, ACDCdataset, RandomGenerator
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
+from utils.topn_checkpoints import TopNCheckpoints, validate_topn_config
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
 
@@ -140,6 +142,10 @@ def parse_args():
     parser.add_argument("--n_gpu", type=int, default=1)
     # 全局随机种子。
     parser.add_argument("--seed", type=int, default=2222)
+    parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_size", type=int, default=10)
+    parser.add_argument("--z_spacing", type=float, default=10.0,
+                        help="ACDC HD95 through-plane spacing, matching test_ACDC.py")
     # 1 要求确定性，0 允许 cuDNN benchmark；在 main 中转为 bool。
     parser.add_argument("--deterministic", type=int, default=1)
     # 每隔多少 epoch 运行一次完整验证。
@@ -215,6 +221,7 @@ def validate(args, model, device, csv_path, epoch):
     loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
     # 收集每个病例的器官 Dice 与病例均值，稍后写 CSV 并做总体平均。
     rows = []
+    hd95_values = []
     # 切换评估模式；下一 epoch 开头 main 会再次 model.train()。
     model.eval()
     # 逐病例验证，leave=False 表示完成后移除该内部进度条。
@@ -247,6 +254,10 @@ def validate(args, model, device, csv_path, epoch):
         per_class = validation_dice(prediction, label)
         # 对 RV/MYO/LV 三个 Dice 做算术平均，得到该病例 mean Dice。
         mean_dice = float(np.mean(list(per_class.values())))
+        if args.topn_enabled:
+            surface = volume_metrics(prediction, label,
+                                     voxelspacing=(args.z_spacing, 1, 1))
+            hd95_values.append(float(np.mean([item["hd95"] for item in surface.values()])))
         # 追加结构化病例结果。
         rows.append(
             # 单病例字典开始。
@@ -272,13 +283,15 @@ def validate(args, model, device, csv_path, epoch):
     # 将本 epoch 所有病例明细追加进 validation_metrics.csv。
     append_validation_csv(csv_path, epoch, rows)
     # 对病例 mean_dice 再取平均，作为验证集模型选择指标。
-    return float(np.mean([row["mean_dice"] for row in rows]))
+    dice = float(np.mean([row["mean_dice"] for row in rows]))
+    return (dice, float(np.mean(hd95_values))) if args.topn_enabled else dice
 
 
 # ACDC 训练总控函数，负责从参数检查一直运行到打印 best checkpoint 路径。
 def main():
     # 读取命令行配置。
     args = parse_args()
+    validate_topn_config(args.topn_enabled, args.topn_size)
     # 防御性检查：ACDC 标签约定必须始终是背景+3个结构共 4 类。
     if ACDC_NUM_CLASSES != 4:
         # 常量被意外改动时立即停止，避免用错误输出通道静默训练。
@@ -314,6 +327,7 @@ def main():
 
     # 统一输出层级并自动避让同一秒内的重复目录；不改变模型或训练流程。
     snapshot_path = make_experiment_dir(args, "ACDC")
+    print("RUN_DIR=" + snapshot_path, flush=True)
 
     # 配置文件日志，写入本实验 train.log。
     logging.basicConfig(
@@ -416,10 +430,11 @@ def main():
     # 仅 args.amp 且 CUDA 时启用梯度缩放；否则 scaler 透明地按普通精度执行。
     scaler = GradScaler(enabled=args.amp and device.type == "cuda")
     # TensorBoard 日志保存到本次实验的 tensorboard 子目录。
-    writer = SummaryWriter(os.path.join(snapshot_path, "tensooard"))
+    writer = SummaryWriter(os.path.join(snapshot_path, "tensorboard"))
 
     # 最好验证 Dice 从 -1 开始，确保第一次有效验证一定能保存 best.pth。
     best_dice = -1.0
+    topn = TopNCheckpoints(snapshot_path, args.topn_size) if args.topn_enabled else None
     # 全局更新步数用于 TensorBoard x 轴。
     global_step = 0
     # 验证明细 CSV 的固定路径。
@@ -510,6 +525,11 @@ def main():
         if (epoch + 1) % args.validate_every == 0 or epoch + 1 == args.max_epochs:
             # validate 返回病例宏平均后的总体 mean Dice，并把每病例明细追加到 CSV。
             mean_dice = validate(args, model, device, valid_csv, epoch + 1)
+            if topn is not None:
+                mean_dice, mean_hd95 = mean_dice
+                topn.record(epoch + 1, mean_dice, mean_hd95,
+                            lambda path: save_state_dict(model, path))
+                logging.info("epoch=%d validation_mean_hd95=%.6f", epoch + 1, mean_hd95)
             # 记录验证指标。
             logging.info("epoch=%d validation_mean_dice=%.6f", epoch + 1, mean_dice)
             # 写入 TensorBoard 验证曲线。

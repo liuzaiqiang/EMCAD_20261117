@@ -5,22 +5,19 @@
 set -euo pipefail
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+#209服务器
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -42,6 +39,19 @@ N_GPU="${N_GPU:-1}"
 NUM_WORKERS=8
 
 SEED="${SEED:-2222}"
+
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-1}"
+
+
+
+[[ "${SYNAPSE_TOPK_ENABLED}" == 0 || "${SYNAPSE_TOPK_ENABLED}" == 1 ]] || { echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] SYNAPSE_TOPK_SIZE must be positive" >&2; exit 2; }
 MAX_EPOCHS=300
 DATASET="Synapse"
 IMG_SIZE=224
@@ -62,6 +72,7 @@ esac
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-./pretrained_pth/pvt/}"
+
 # EMCAD 解码器的主要结构参数；这里显式传给 Python，避免以后 Python 默认值改动造成实验漂移。
 EXPANSION_FACTOR="${EXPANSION_FACTOR:-2}"
 #MSDC 的三个深度卷积核；数组展开后对应 --kernel_sizes 1 3 5。
@@ -105,9 +116,8 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
+
+
 case "${STAGE_ADAPTIVE_KERNELS}" in
   0|1) ;;
   *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 1 ;;
@@ -159,6 +169,9 @@ PARAM_NAMES=(
   CAA_MODE
   CAA_RESIDUAL_SCALE
   STAGE_ADAPTIVE_KERNELS
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
 )
 
 {
@@ -194,6 +207,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

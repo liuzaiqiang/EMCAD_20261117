@@ -43,6 +43,10 @@ N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 SEED="${SEED:-2222}"
+TOPN_ENABLED="${TOPN_ENABLED:-1}"
+TOPN_SIZE="${TOPN_SIZE:-10}"
+[[ "${TOPN_ENABLED}" == 0 || "${TOPN_ENABLED}" == 1 ]] || { echo "[ERROR] TOPN_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${TOPN_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] TOPN_SIZE must be positive" >&2; exit 2; }
 IMG_SIZE="${IMG_SIZE:-224}"
 BATCH_SIZE="${BATCH_SIZE:-12}"
 MAX_EPOCHS="${MAX_EPOCHS:-400}"
@@ -77,7 +81,7 @@ test -f "${PROJECT_DIR}/pretrained_pth/pvt/pvt_v2_b2.pth" || {
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 # 日志名记录关键训练规模，RUN_ID额外记录GPU和随机种子。
-LOG_FILE="${LOG_DIR}/train_${DATASET}_imgSize_${IMG_SIZE}_batchSize_${BATCH_SIZE}_lr_${BASE_LR}_max_epochs_${MAX_EPOCHS}_${TS}.log"
+LOG_FILE="${LOG_DIR}/train_${DATASET}_imgSize_${IMG_SIZE}_batchSize_${BATCH_SIZE}_lr_${BASE_LR}_max_epochs_${MAX_EPOCHS}_seed_${SEED}_${TS}_${RAND}.log"
 RUN_ID="train_${DATASET}_${TS}_gpu_${CUDA_VISIBLE_DEVICES}_SEED_${SEED}_RAND_${RAND}"
 # 脚本已cd到项目根，因此相对PID文件位于项目根目录。
 PID_FILE="${RUN_ID}.pid"
@@ -105,7 +109,7 @@ esac
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR USE_CONTENT_AWARE_ANTIALIAS CAA_MODE CAA_RESIDUAL_SCALE STAGE_ADAPTIVE_KERNELS TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED TOPN_ENABLED TOPN_SIZE IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR USE_CONTENT_AWARE_ANTIALIAS CAA_MODE CAA_RESIDUAL_SCALE STAGE_ADAPTIVE_KERNELS TS RAND LOG_FILE RUN_ID PID_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
@@ -138,6 +142,8 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
   --seed "${SEED}" \
+  --topn_enabled "${TOPN_ENABLED}" \
+  --topn_size "${TOPN_SIZE}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 # 保存刚启动后台任务的PID；脚本本身成功结束不代表训练完成，只表示启动和PID记录成功。

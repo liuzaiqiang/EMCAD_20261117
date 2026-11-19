@@ -76,6 +76,9 @@ parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
+parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=0)
+parser.add_argument('--synapse_topk_size', type=int, default=10)
+parser.add_argument('--synapse_topk_dice_threshold', type=float, default=83.90)
 parser.add_argument('--caa_mode', type=str, default='off',
                     choices=['off', 'aa_only', 'content_only', 'caa'],
                     help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
@@ -216,6 +219,7 @@ if __name__ == "__main__":
 
     # 统一输出层级并自动避让同一秒内的重复目录；不改变模型或训练流程。
     snapshot_path = make_experiment_dir(args, "Synapse", output_root="./model_pth")
+    print("RUN_DIR=" + snapshot_path, flush=True)
     with open(os.path.join(snapshot_path, "config.json"), "w", encoding="utf-8") as stream:
         json.dump(vars(args), stream, ensure_ascii=False, indent=2)
 
