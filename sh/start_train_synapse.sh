@@ -9,16 +9,16 @@ RUN_PURPOSE="${RUN_PURPOSE:-小器官感知的困难区域监督 + 反向注意�
 
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-7}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.00}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
-#CONDA_BASE="/home/mlf/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 
 #210服务器
@@ -26,8 +26,8 @@ SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #212服务器
-CONDA_BASE="/home/zym/anaconda3"
-CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
@@ -45,7 +45,7 @@ LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 # 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-1}"
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
