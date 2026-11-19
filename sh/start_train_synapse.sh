@@ -16,7 +16,7 @@ echo "[PAIR] PDS=${PDS} BFC=${BFC}"
 
 #PDS：逐级传递深层语义，并在解码各级调整跳连特征。
 #BFC：对解码特征与跳连特征施加双向一致性辅助损失；它用于训练，不增加推理模块参数。
-RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证：深层语义逐级传递+双向特征一致性(PDS+BFC)}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
@@ -38,6 +38,17 @@ source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
 
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+
+# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-1}"
+# 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
+N_GPU="${N_GPU:-1}"
+
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -46,10 +57,7 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
-# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
-# 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
-N_GPU="${N_GPU:-1}"
+
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
 NUM_WORKERS=8
 
@@ -125,10 +133,6 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
