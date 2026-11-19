@@ -62,7 +62,8 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
+                 cfp_enabled=False):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -200,6 +201,11 @@ class EMCADNet(nn.Module):
         # 这里只“创建”解码器各层，尚未流过任何图像；真正的张量计算发生在 forward 的 self.decoder(...) 调用中。
         self.decoder = EMCAD(channels=channels, kernel_sizes=kernel_sizes, expansion_factor=expansion_factor,
                              dw_parallel=dw_parallel, add=add, lgag_ks=lgag_ks, activation=activation)
+        if cfp_enabled:
+            from lib.cfp_context import CFPBridge
+            self.cfp2 = CFPBridge(channels[2])
+            self.cfp3 = CFPBridge(channels[1])
+            self.cfp4 = CFPBridge(channels[0])
 
         # 打印仅 EMCAD 解码器的参数量，便于核对轻量化设计。解码器参数统计不包含编码器和下面的四个 segmentation head。
         print('Model %s created, param count: %d' % ('EMCAD decoder: ',
@@ -236,6 +242,10 @@ class EMCADNet(nn.Module):
         # 默认 B2：x1=(B,64,H/4,W/4)、x2=(B,128,H/8,W/8)、x3=(B,320,H/16,W/16)、x4=(B,512,H/32,W/32)。
         # 浅层 x1 保留较多边缘/纹理和定位信息，深层 x4 感受野更大、语义更强但空间细节更少；解码器需要两者互补。
         x1, x2, x3, x4 = self.backbone(x)
+        if hasattr(self, 'cfp2'):
+            x2 = self.cfp2(x2)
+            x3 = self.cfp3(x3)
+            x4 = self.cfp4(x4)
         # print(x1.shape, x2.shape, x3.shape, x4.shape)
 
         # decoder

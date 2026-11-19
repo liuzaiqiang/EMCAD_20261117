@@ -8,6 +8,7 @@ import time
 
 # NumPy 负责体数据分批、类别掩膜和指标均值计算。
 import numpy as np
+import utils.medpy_compat  # noqa: F401
 # PyTorch 负责模型输入、张量运算、检查点加载和推理设备管理。
 import torch
 # nn 提供自定义 DiceLoss 的 Module 基类。
@@ -63,6 +64,7 @@ def build_model(args, pretrain):
         lgag_ks=args.lgag_ks,
         # MSCB 使用的激活函数名称。
         activation=args.activation_mscb,
+        cfp_enabled=bool(getattr(args, 'cfp_enabled', 0)),
         # 选择 PVTv2 或 ResNet 编码器。
         encoder=args.encoder,
         # 控制是否加载编码器预训练权重，与编码器结构选择相互独立。
