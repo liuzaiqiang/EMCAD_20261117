@@ -5,27 +5,33 @@
 set -euo pipefail
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#205服务器
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+#209服务器
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
-
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
-
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
 
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-1}"
+
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
+
+CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -105,13 +111,13 @@ LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_sup
 RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_BOUNDED_DEFORMABLE_MSDC="${USE_BOUNDED_DEFORMABLE_MSDC:-0}"
+
+
+[[ "${SYNAPSE_TOPK_ENABLED}" == 0 || "${SYNAPSE_TOPK_ENABLED}" == 1 ]] || { echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] SYNAPSE_TOPK_SIZE must be positive" >&2; exit 2; }
 
 
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
 case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   0) CAA_MODE="off" ;;
@@ -153,6 +159,9 @@ PARAM_NAMES=(
   CAA_MODE
   CAA_RESIDUAL_SCALE
   USE_BOUNDED_DEFORMABLE_MSDC
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
 )
 
 {
@@ -195,6 +204,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --bounded_deformable_msdc "${USE_BOUNDED_DEFORMABLE_MSDC}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 

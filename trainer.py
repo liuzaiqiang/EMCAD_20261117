@@ -52,6 +52,7 @@ from utils.dataset_synapse import Synapse_dataset, RandomGenerator
 from utils.utils import powerset, one_hot_encoder, DiceLoss, val_single_volume
 from lib.model_complexity import log_model_complexity
 from utils.checkpoint_stats import without_profiling_stats
+from utils.topn_checkpoints import TopNCheckpoints, validate_topn_config
 
 
 # 训练过程中调用的整病例评估函数；它返回所有病例、所有前景类别的平均 Dice 标量。
@@ -114,8 +115,31 @@ def inference(args, model, best_performance, validation_csv=None, epoch=None):
     return performance
 
 
+def evaluate_full_validation_metrics(args, model):
+    """Use the existing Synapse validation split and final output for HD95."""
+    dataset = Synapse_dataset(base_dir=args.volume_path, split="test_vol",
+                              list_dir=args.list_dir, nclass=args.num_classes)
+    if len(dataset) == 0:
+        raise RuntimeError("Synapse validation split is empty")
+    loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
+    model.eval()
+    metrics = np.zeros((args.num_classes - 1, 4), dtype=np.float64)
+    with torch.no_grad():
+        for sample in loader:
+            metrics += np.asarray(val_single_volume(
+                sample["image"], sample["label"], model, classes=args.num_classes,
+                patch_size=[args.img_size, args.img_size], full_metrics=True),
+                dtype=np.float64)
+    return (metrics / len(dataset)).mean(axis=0)
+
+
 # Synapse 训练主函数：args 提供配置，model 是已创建的 EMCADNet，snapshot_path 是本次实验目录。
 def trainer_synapse(args, model, snapshot_path):
+    validate_topn_config(args.synapse_topk_enabled, args.synapse_topk_size,
+                         args.synapse_topk_dice_threshold)
+    topn = (TopNCheckpoints(snapshot_path, args.synapse_topk_size,
+                            args.synapse_topk_dice_threshold)
+            if args.synapse_topk_enabled else None)
     # 配置文件日志；每条记录带时分秒和毫秒，写入当前实验目录的 train.log。
     logging.basicConfig(filename=snapshot_path + "/train.log", level=logging.INFO,
                         # message 是调用 logging.info 传入的正文。
@@ -360,6 +384,21 @@ def trainer_synapse(args, model, snapshot_path):
             validation_csv=validation_csv,
             epoch=epoch_num + 1,
         )
+        if topn is not None:
+            # Check the cheap Dice rank first; full surface metrics are computed
+            # only for candidates that can enter the current board.
+            could_enter = (float(performance) * 100 + 1e-10 >= topn.threshold_percent
+                           and (len(topn.entries) < topn.size or
+                                float(performance) > topn.entries[-1]["dice"]))
+            hd95 = float("nan")
+            if could_enter:
+                full_metrics = evaluate_full_validation_metrics(args, model)
+                hd95 = float(full_metrics[1])
+                logging.info("Synapse candidate epoch=%d dice=%.6f hd95=%.6f",
+                             epoch_num + 1, float(performance), hd95)
+            topn.record(epoch_num + 1, performance, hd95,
+                        lambda path: torch.save(
+                            without_profiling_stats(model.state_dict()), path))
         # 重要的现有代码行为：本函数只在进入 epoch 循环前调用过一次 model.train()，
         # inference 后没有在下一 epoch 开头再次切回 train；因此第 2 个 epoch 起模型保持 eval 模式。
         # 这会影响 BatchNorm/Dropout，但依照用户约束这里只解释，不修改该逻辑。——已经修改

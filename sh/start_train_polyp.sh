@@ -76,6 +76,10 @@ NUM_WORKERS="${NUM_WORKERS:-8}"
 
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
+TOPN_ENABLED="${TOPN_ENABLED:-1}"
+TOPN_SIZE="${TOPN_SIZE:-10}"
+[[ "${TOPN_ENABLED}" == 0 || "${TOPN_ENABLED}" == 1 ]] || { echo "[ERROR] TOPN_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${TOPN_SIZE}" =~ ^[1-9][0-9]*$ ]] || { echo "[ERROR] TOPN_SIZE must be positive" >&2; exit 2; }
 #每隔多少个 epoch 做一次验证。1 表示每个 epoch 都验证，并用于更新 best.pth
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 # 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
@@ -211,12 +215,12 @@ TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 # LOG_FILE编码主要超参数；RUN_ID还承担“日志/PID/输出目录/进程环境”之间的关联键。
-LOG_FILE="${LOG_DIR}/train_${DATASET}_${DATASET_NAME}__imgSize${IMG_SIZE}_batchSize${BATCH_SIZE}_lr${BASE_LR}_epo${MAX_EPOCHS}_${TS}.log"
+LOG_FILE="${LOG_DIR}/train_${DATASET}_${DATASET_NAME}__imgSize${IMG_SIZE}_batchSize${BATCH_SIZE}_lr${BASE_LR}_epo${MAX_EPOCHS}_seed${SEED}_${TS}_${RAND}.log"
 RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
 PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 参数快照追加到日志；终端只保留便于复制的RUN_ID和后续PID/路径信息。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED TOPN_ENABLED TOPN_SIZE CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
@@ -263,6 +267,8 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   "${IMAGE_MODE_ARGS[@]}" \
   --num_workers "${NUM_WORKERS}" \
   --seed "${SEED}" \
+  --topn_enabled "${TOPN_ENABLED}" \
+  --topn_size "${TOPN_SIZE}" \
   --deterministic "${DETERMINISTIC}" \
   --validate_every "${VALIDATE_EVERY}" \
   --max_train_batches "${MAX_TRAIN_BATCHES}" \
@@ -277,4 +283,4 @@ echo "[INFO] PID=${PID}"
 echo "${PID}" > "${PID_FILE}"
 echo "[INFO] PID_FILE=${PID_FILE}"
 echo "[INFO] LOG_FILE=${LOG_FILE}"
-echo "[INFO] RUN_OUTPUT=${OUTPUT_DIR}/${DATASET_NAME}/${RUN_ID}"
+echo "[INFO] OUTPUT_ROOT=${OUTPUT_DIR}; exact RUN_DIR is printed in ${LOG_FILE}"

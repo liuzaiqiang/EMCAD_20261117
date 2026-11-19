@@ -52,6 +52,7 @@ from utils.polyp_utils import (
     supervised_structure_loss,
 )
 from lib.model_complexity import log_model_complexity
+from utils.topn_checkpoints import TopNCheckpoints, validate_topn_config
 from lib.experiment_paths import make_experiment_dir
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
@@ -63,6 +64,8 @@ def parse_args():
         # 显示在 --help 顶部。
         description="Train EMCAD on one Polyp dataset"
     )
+    parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--topn_size", type=int, default=10)
 
     # 准备数据总根，其下按数据集名和 train/val/test 组织。
     parser.add_argument(
@@ -568,6 +571,7 @@ def resized_batch(images, masks, image_size, rate):
 def main():
     # 解析参数；ISIC/BUSI包装器可替换该函数。
     args = parse_args()
+    validate_topn_config(args.topn_enabled, args.topn_size)
 
     # 验证间隔必须是正整数。
     if args.validate_every < 1:
@@ -898,6 +902,7 @@ def main():
     )
 
     best_dice = float("-inf")
+    topn = TopNCheckpoints(run_dir, args.topn_size) if args.topn_enabled else None
     best_epoch = 0
     global_step = 0
     scale_rates = (
@@ -1054,13 +1059,17 @@ def main():
                 threshold=args.threshold,
                 max_cases=args.max_valid_cases,
                 output_dir=None,
-                compute_surface=False,
+                compute_surface=bool(args.topn_enabled),
                 # 用 dataset_name 显示实际数据集，避免 Cell/BUSI/ISIC 训练时进度标题仍写 Polyp。
                 description="{} val".format(args.dataset_name),
             )
 
             val_dice = val_mean["dice"]
             val_iou = val_mean["iou"]
+            if topn is not None:
+                topn.record(epoch, val_dice, val_mean["hd95"],
+                            lambda path: save_checkpoint(model, path))
+                logging.info("epoch=%d val_hd95=%.6f", epoch, val_mean["hd95"])
 
             append_validation_rows(
                 validation_path,

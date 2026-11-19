@@ -691,7 +691,8 @@ overlay_masks 是从外部库 segmentation_mask_overlay 导入的一个可视化
     预测可视化：将模型预测的多类别掩膜以完全相同的颜色配置叠加到同一 CT 切片上，生成预测结果的标注图像。
 通过这种方式，可以直观地对比模型预测的器官区域与真实器官区域的位置和形状差异。该函数仅用于结果的可视化检查与论文插图生成，不参与任何分割指标的计算或模型的梯度更新。
 """
-def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
+def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1,
+                      full_metrics=False):
     # 去掉 batch 维、转到 CPU，并转换为 NumPy 体数据。
     # 验证只做前向和指标，不需要保留 PyTorch 图；把数据转 NumPy 后可以直接使用
     # scipy.zoom 和本文件的 NumPy 比较逻辑。这里的 squeeze(0) 依赖调用方保留 batch=1。
@@ -785,7 +786,10 @@ def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_sa
     for i in range(1, classes):
         # 第 i 类单独转成 bool mask；跳过背景后，列表第 0 项对应类别 1，而不是类别 0。
         # 对第 i 类预测/真值二值掩膜计算 Dice。
-        metric_list.append(calculate_dice_percase(prediction == i, label == i))
+        if full_metrics:
+            metric_list.append(calculate_metric_percase(prediction == i, label == i))
+        else:
+            metric_list.append(calculate_dice_percase(prediction == i, label == i))
     # 返回逐类 Dice，trainer.py 再求病例及类别平均。
     return metric_list
 
@@ -867,7 +871,11 @@ def cal_params_flops(model, size, logger):
     # 构造 [1,3,size,size] 的随机 CUDA 输入；适用于三通道模型接口。
     # 使用随机值只是为了触发一次与真实尺寸相同的 forward；THOP 统计的是结构和
     # 空间尺寸，不依赖这组随机像素的医学含义。
-    input = torch.randn(1, 3, size, size).cuda()
+    shape = (1, 3, size, size) if isinstance(size, int) else tuple(size)
+    if len(shape) != 4 or shape[0] != 1:
+        raise ValueError("size must be an image size or an NCHW shape with batch size 1")
+    device = next(model.parameters()).device
+    input = torch.randn(*shape, device=device)
     # THOP 执行前向钩子统计操作数和参数量。
     # profile 可能真的执行模型 forward，因此模型所在 device、输入 dtype 和模型
     # 当前模式都必须兼容；统计前最好确保没有正在进行的训练梯度累积。
@@ -887,6 +895,7 @@ def cal_params_flops(model, size, logger):
     # logger 通常是 logging 模块；写日志后可在实验结果中追溯当时使用的模型规模，
     # 避免只在终端打印而丢失记录。
     logger.info(f'flops: {flops / 1e9}, params: {params / 1e6}, Total params: : {total / 1e6:.4f}')
+    return flops, params, total
 
 
 # Example function to calculate and print GMACs and parameter count for a given model
