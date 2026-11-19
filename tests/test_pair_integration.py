@@ -11,9 +11,9 @@ from lib.networks import EMCADNet
 import lib.pair_runtime as runtime
 
 def check_pair(a, b, classes=1, size=64, encoder='pvt_v2_b0'):
-    runtime.MODULE_A, runtime.MODULE_B = a, b
     for va, vb in ((0,0), (1,0), (0,1), (1,1)):
-        os.environ['MODULE_A'], os.environ['MODULE_B'] = str(va), str(vb)
+        os.environ['FULL_RESOLUTION_DETAIL_ENABLED'] = str(va)
+        os.environ['SURFACE_DISTANCE_SUPERVISION_ENABLED'] = str(vb)
         torch.manual_seed(123)
         model = EMCADNet(num_classes=classes, encoder=encoder, pretrain=False)
         x = torch.randn(2, 1 if classes > 1 else 3, size, size)
@@ -49,5 +49,6 @@ def check_pair(a, b, classes=1, size=64, encoder='pvt_v2_b0'):
 
 if __name__ == '__main__':
     torch.set_num_threads(2)
-    result = check_pair(runtime.MODULE_A, runtime.MODULE_B)
+    from lib.pair_config import FULL_RESOLUTION_DETAIL, SURFACE_DISTANCE_SUPERVISION
+    result = check_pair(FULL_RESOLUTION_DETAIL, SURFACE_DISTANCE_SUPERVISION)
     print(json.dumps(result))

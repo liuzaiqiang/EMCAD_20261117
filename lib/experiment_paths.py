@@ -54,16 +54,19 @@ def make_experiment_dir(args, family, output_root=None):
         ("act", _value(args, "activation_mscb")),
         ("seed", _value(args, "seed")),
     ]
-    from lib.pair_runtime import settings, MODULE_A, MODULE_B
+    from lib.pair_runtime import settings
     active = settings()
+    args.pair_modules = {
+        "full_resolution_detail_enabled": "frd" in active,
+        "surface_distance_supervision_enabled": "sdg" in active,
+        "active": list(active),
+    }
     if active:
         import json, os
         values.append(("pair", "-".join(active)))
-        args.pair_modules = {"module_a": MODULE_A, "module_b": MODULE_B,
-                             "active": list(active),
-                             "aat_weight": float(os.getenv("AAT_WEIGHT", "1.0")),
-                             "bfc_weight": float(os.getenv("BFC_WEIGHT", "0.05")),
-                             "sdg_weight": float(os.getenv("SDG_WEIGHT", "0.001"))}
+        args.pair_modules.update({"aat_weight": float(os.getenv("AAT_WEIGHT", "1.0")),
+                                  "bfc_weight": float(os.getenv("BFC_WEIGHT", "0.05")),
+                                  "sdg_weight": float(os.getenv("SDG_WEIGHT", "0.001"))})
     parameter_parts = [
         Path(_safe_component(label) + "_" + _safe_component(value))
         for label, value in values

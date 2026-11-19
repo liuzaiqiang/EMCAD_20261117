@@ -880,15 +880,17 @@ def tta_model(model, image):
 # 使用随机输入统计模型 FLOPs、THOP 参数量和直接求和参数量。
 #
 # 调用位置：train_polyp_SLDGroup.py 启动每个 run 时调用 cal_params_flops(model,opt.img_size, logging)，用于把模型复杂度写入日志。
-# 它和 CalParams 的区别是： CalParams 接收调用方准备好的真实 input_tensor；本函数自己创建一个 [1,3,S,S]的随机 CUDA 输入，并同时打印 THOP 统计和直接计数得到的参数量。
+# 它和 CalParams 的区别是：CalParams 接收调用方准备好的 input_tensor；本函数
+# 接收边长或实际 NCHW 形状，自行构造随机输入，并打印 THOP 与直接计数结果。
 #
-# 当前实现假设模型接受 3 通道输入且 CUDA 可用。EMCAD 的某些医学图像路径可能是单通道 [B,1,H,W]，这种情况下直接调用此函数可能在 forward 阶段报通道数错误；
-# 复杂度统计的输入通道数必须与实际模型入口保持一致，否则 FLOPs 没有可比性。
+# 传整数时保持作者原有的三通道统计；传 NCHW 时按实际模型输入统计。
 def cal_params_flops(model, size, logger):
-    # 构造 [1,3,size,size] 的随机 CUDA 输入；适用于三通道模型接口。
-    # 使用随机值只是为了触发一次与真实尺寸相同的 forward；THOP 统计的是结构和
-    # 空间尺寸，不依赖这组随机像素的医学含义。
-    input = torch.randn(1, 3, size, size).cuda()
+    # 原作者传整数 size 时保持 [1,3,size,size]；训练入口可传真实 NCHW
+    # 以统计 Synapse 灰度输入适配器。设备跟随模型，兼容 CPU 调试。
+    input_shape = (1, 3, size, size) if isinstance(size, int) else tuple(size)
+    if len(input_shape) != 4 or input_shape[0] != 1:
+        raise ValueError("size must be an integer or a batch-one NCHW shape")
+    input = torch.randn(*input_shape, device=next(model.parameters()).device)
     # THOP 执行前向钩子统计操作数和参数量。
     # profile 可能真的执行模型 forward，因此模型所在 device、输入 dtype 和模型
     # 当前模式都必须兼容；统计前最好确保没有正在进行的训练梯度累积。
