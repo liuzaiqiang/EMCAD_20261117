@@ -122,6 +122,8 @@ RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
+POINTREND_ENABLED="${POINTREND_ENABLED:-0}"
+[[ "${POINTREND_ENABLED}" == "0" || "${POINTREND_ENABLED}" == "1" ]] || { echo "[ERROR] POINTREND_ENABLED must be 0 or 1" >&2; exit 1; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 1 ;;
@@ -173,6 +175,7 @@ PARAM_NAMES=(
   PID_FILE
   NUM_WORKERS
   SMALL_TARGET_HARD_SUPERVISION
+  POINTREND_ENABLED
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -210,6 +213,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
+  --pointrend_enabled "${POINTREND_ENABLED}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \

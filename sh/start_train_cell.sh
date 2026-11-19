@@ -77,6 +77,11 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
+export POINTREND_ENABLED="${POINTREND_ENABLED:-0}"
+export TOPN_ENABLED="${TOPN_ENABLED:-0}"
+export TOPN_SIZE="${TOPN_SIZE:-10}"
+[[ "${POINTREND_ENABLED}" == "0" || "${POINTREND_ENABLED}" == "1" ]] || { echo "[ERROR] POINTREND_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${TOPN_ENABLED}" == "0" || "${TOPN_ENABLED}" == "1" ]] || { echo "[ERROR] TOPN_ENABLED must be 0 or 1" >&2; exit 2; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 2 ;;

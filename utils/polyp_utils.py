@@ -7,6 +7,7 @@ import random
 import cv2
 # NumPy 用于布尔掩膜统计、逐病例指标汇总以及有限值筛选。
 import numpy as np
+import utils.medpy_compat  # noqa: F401
 # torch/nn/F 分别提供张量、模型包装判断和二分类损失/插值等函数式接口。
 import torch
 import torch.nn as nn
@@ -94,6 +95,7 @@ def build_model(args, pretrain):
         lgag_ks=args.lgag_ks,
         # 该激活参数主要传给 MSCB；EUCB 和 LGAG 各自仍使用其构造函数默认激活。
         activation=args.activation_mscb,
+        pointrend_enabled=bool(getattr(args, 'pointrend_enabled', 0)),
         # 编码器可选 PVTv2 或仓库扩展的 ResNet；论文正式实验使用 PVTv2-B0/B2。
         encoder=args.encoder,
         # 是否加载 ImageNet 预训练编码器权重，与编码器结构选择相互独立。
