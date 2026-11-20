@@ -81,10 +81,10 @@ fi
 # 逐项检查图像、掩膜、样本清单和划分摘要；任一路径缺失都会立即指出具体缺项。
 # 反斜杠连接的是同一个 for 头部，四个路径依次赋给 REQUIRED。
 for REQUIRED in \
-  "${DATA_ROOT}/BUSI/${SPLIT}/images" \
-  "${DATA_ROOT}/BUSI/${SPLIT}/masks" \
-  "${DATA_ROOT}/BUSI/manifest.csv" \
-  "${DATA_ROOT}/BUSI/split_summary.json"
+  "${DATA_ROOT}/${SPLIT}/images" \
+  "${DATA_ROOT}/${SPLIT}/masks" \
+  "${DATA_ROOT}/manifest.csv" \
+  "${DATA_ROOT}/split_summary.json"
 do
   if [[ ! -e "${REQUIRED}" ]]; then
     echo "[ERROR] required BUSI path not found:"

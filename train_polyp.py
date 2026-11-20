@@ -591,12 +591,10 @@ def main():
             "--threshold must be between 0 and 1"
         )
 
-    # 数据集根为 data_root/dataset_name。
-    dataset_root = os.path.join(
-        # 公共根。
-        args.data_root,
-        # 具体数据集。
-        args.dataset_name,
+    # BUSI 的 data_root 已是数据集根；其他数据集仍按名称建子目录。
+    dataset_root = (
+        args.data_root if args.dataset_name == "BUSI"
+        else os.path.join(args.data_root, args.dataset_name)
     )
     # 训练划分根。
     train_root = os.path.join(

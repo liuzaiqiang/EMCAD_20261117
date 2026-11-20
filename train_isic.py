@@ -58,10 +58,10 @@ def _parse_args():
     # 先取得 train_polyp 定义的全部模型/训练参数。
     args = _original_parse_args()
 
-    # 用户未显式指定数据根时使用 ISIC 准备目录。
+    # 用户未显式指定数据根时，从项目根目录上四级定位 ISIC 准备目录。
     if not _option_was_given("--data_root"):
-        # 相对路径从通常项目根工作目录解析。
-        args.data_root = "../../../../data/isic/target"
+        # 不依赖启动命令所在工作目录；仍可通过 --data_root 手动覆盖。
+        args.data_root = str((Path(__file__).resolve().parent / "../../../../data/isic/target").resolve())
 
     # 用户未指定版本时默认训练 ISIC2018。
     if not _option_was_given("--dataset_name"):

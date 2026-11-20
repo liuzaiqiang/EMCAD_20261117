@@ -97,10 +97,10 @@ def _parse_args():
     # 解析所有通用参数。
     args = _original_parse_args()
 
-    # 未指定数据根时使用 ISIC 目录。
+    # 未指定数据根时，从项目根目录上四级定位 ISIC 准备目录。
     if not _option_was_given("--data_root"):
-        # 设置默认路径。
-        args.data_root = "../../../../data/isic/target"
+        # 不依赖启动命令所在工作目录；仍可通过 --data_root 手动覆盖。
+        args.data_root = str((Path(__file__).resolve().parent / "../../../../data/isic/target").resolve())
 
     # 把检查点转换成绝对 Path。
     checkpoint = Path(

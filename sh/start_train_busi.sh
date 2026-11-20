@@ -96,7 +96,7 @@ case "${CEPA_ENABLED}" in
   *) echo "[ERROR] CEPA_ENABLED must be 0 or 1"; exit 1 ;;
 esac
 
-# 数据、模型输出和PVT权重目录；prepared BUSI数据固定位于DATA_ROOT/BUSI。
+# 数据、模型输出和PVT权重目录；prepared BUSI数据直接位于DATA_ROOT。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/busi/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
@@ -109,12 +109,12 @@ fi
 
 # 整个for续行块列出训练/验证图像掩膜及划分元数据；循环逐项检查存在性，缺一即退出1。
 for REQUIRED in \
-  "${DATA_ROOT}/BUSI/train/images" \
-  "${DATA_ROOT}/BUSI/train/masks" \
-  "${DATA_ROOT}/BUSI/val/images" \
-  "${DATA_ROOT}/BUSI/val/masks" \
-  "${DATA_ROOT}/BUSI/manifest.csv" \
-  "${DATA_ROOT}/BUSI/split_summary.json"
+  "${DATA_ROOT}/train/images" \
+  "${DATA_ROOT}/train/masks" \
+  "${DATA_ROOT}/val/images" \
+  "${DATA_ROOT}/val/masks" \
+  "${DATA_ROOT}/manifest.csv" \
+  "${DATA_ROOT}/split_summary.json"
 do
   if [[ ! -e "${REQUIRED}" ]]; then
     echo "[ERROR] required BUSI path not found:"

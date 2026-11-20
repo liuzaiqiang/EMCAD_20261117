@@ -184,12 +184,10 @@ def _parse_args():
     # 强制关闭 train_polyp 的 0.75/1/1.25 多尺度训练，保持256固定输入。
     args.no_multi_scale = True
 
-    # 准备数据具体 BUSI 根目录。
+    # --data_root 本身就是准备好的 BUSI 根目录。
     dataset_root = (
         # data_root 绝对路径。
             Path(args.data_root).resolve()
-            # BUSI 子目录。
-            / "BUSI"
     )
 
     # 样本清单路径。

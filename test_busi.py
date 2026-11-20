@@ -383,12 +383,10 @@ def _parse_args():
         saved_threshold
     )
 
-    # 当前准备数据 BUSI 根。
+    # --data_root 本身就是准备好的 BUSI 根目录。
     dataset_root = (
         # 公共数据根绝对路径。
             Path(args.data_root).resolve()
-            # BUSI 子目录。
-            / "BUSI"
     )
 
     # 样本清单。
