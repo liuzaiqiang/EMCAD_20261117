@@ -8,6 +8,8 @@ import json
 import logging
 # os 负责路径检查、环境变量和文件操作。
 import os
+# shutil.copy2 将 BUSI/ISIC 划分元数据保存到训练目录。
+import shutil
 # sys.stdout 接入日志处理器。
 import sys
 # time 统计完整训练耗时。
@@ -755,6 +757,15 @@ def main():
         "EM": "Cell",
     }.get(args.dataset_name, "Polyp")
     run_dir = make_experiment_dir(args, output_family)
+
+    # BUSI/ISIC 的清单与训练输出写入同一个运行目录。
+    for source_attr, filename in (
+        ("split_manifest_source", "data_split_manifest.csv"),
+        ("split_summary_source", "data_split_summary.json"),
+    ):
+        source = getattr(args, source_attr, None)
+        if source is not None:
+            shutil.copy2(source, os.path.join(run_dir, filename))
 
     logging.basicConfig(
         filename=os.path.join(

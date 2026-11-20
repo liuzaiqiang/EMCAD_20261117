@@ -2,15 +2,12 @@
 import hashlib
 # json 读取 split_summary.json。
 import json
-# shutil.copy2 把固定划分元数据复制到实验目录。
-import shutil
 # sys.argv 判断用户是否显式覆盖通用训练默认值。
 import sys
 # datetime 生成默认运行时间戳。
 from datetime import datetime
-# Path 构造 BUSI 数据和输出目录。
+# Path 构造 BUSI 数据路径。
 from pathlib import Path
-from lib.experiment_paths import make_experiment_dir
 
 # BUSI 复用 train_polyp 的 EMCAD 模型、二分类损失和训练循环。
 import train_polyp as _base
@@ -399,27 +396,9 @@ def _parse_args():
         )
     )
 
-    # 统一输出层级并自动避让同一秒内的重复目录。
-    run_dir = Path(make_experiment_dir(args, "BUSI"))
-
-    # 复制实际样本清单到运行目录。
-    shutil.copy2(
-        # 来源。
-        manifest_path,
-        # 目标目录表达式第一段。
-        run_dir
-        # 目标文件名。
-        / "data_split_manifest.csv",
-    )
-    # 复制划分摘要到运行目录。
-    shutil.copy2(
-        # 来源。
-        summary_path,
-        # 目标目录。
-        run_dir
-        # 目标文件名。
-        / "data_split_summary.json",
-    )
+    # 由通用训练主流程创建唯一运行目录，并将划分元数据复制到其中。
+    args.split_manifest_source = str(manifest_path)
+    args.split_summary_source = str(summary_path)
 
     # 返回扩展参数给通用主函数。
     return args
