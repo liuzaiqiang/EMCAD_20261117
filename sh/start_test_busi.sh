@@ -13,30 +13,22 @@ cd "${PROJECT_DIR}"
 # 测试进程的标准输出和标准错误统一写入项目 logs 目录；-p 允许目录已存在。
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#205服务器
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-
-
-
-
 
 # CUDA_DEVICE 默认选择0号GPU；无缓冲输出使 nohup 日志尽快落盘，方便实时观察评估进度。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -50,6 +42,7 @@ SPLIT="${SPLIT:-test}"
 # 推理批量、数据加载进程、病例上限、确定性开关、随机种子和运行设备均支持启动前覆盖。
 # MAX_CASES=0 表示不人为截断病例数，DEVICE=auto 交由 Python 入口选择可用设备。
 INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-1}"
+
 NUM_WORKERS="${NUM_WORKERS:-0}"
 MAX_CASES="${MAX_CASES:-0}"
 DETERMINISTIC="${DETERMINISTIC:-1}"

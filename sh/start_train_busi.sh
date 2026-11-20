@@ -3,10 +3,7 @@
 set -euo pipefail
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
-
-# 获取脚本目录绝对路径并切换到项目根，统一后续相对路径语义。
-#PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证： 内容感知 + CEPA + 面积自适应}"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -16,32 +13,34 @@ LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#205服务器
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+CEPA_ENABLED="${CEPA_ENABLED:-1}"
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
-
-
 # 选择GPU并让Python输出不缓冲，减少日志延迟。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # BUSI启动器只接受固定数据集名BUSI。
@@ -53,6 +52,7 @@ IMG_SIZE="${IMG_SIZE:-256}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 VAL_BATCH_SIZE="${VAL_BATCH_SIZE:-16}"
 MAX_EPOCHS="${MAX_EPOCHS:-200}"
+
 BASE_LR="${BASE_LR:-1e-4}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-1e-4}"
 CLIP="${CLIP:-0.5}"
@@ -78,10 +78,6 @@ LGAG_KS="${LGAG_KS:-3}"
 ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 SUPERVISION="${SUPERVISION:-paper}"
 
-# CAA 与面积自适应 Tversky 使用独立开关；默认均启用。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
-CEPA_ENABLED="${CEPA_ENABLED:-1}"
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 CAA_MODE="${CAA_MODE:-caa}"
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
