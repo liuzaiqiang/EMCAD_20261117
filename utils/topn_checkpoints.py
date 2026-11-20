@@ -24,8 +24,7 @@ class TopNCheckpoints:
         self.size = size
         self.threshold_percent = threshold_percent
         self.entries = []
-        self.weights_dir = os.path.join(directory, "topn_weights")
-        os.makedirs(self.weights_dir, exist_ok=True)
+        os.makedirs(directory, exist_ok=True)
         self._manifest()
 
     def _manifest(self):
@@ -56,7 +55,7 @@ class TopNCheckpoints:
         if not qualifies:
             return False
         filename = "epoch_{:04d}_dice_{:.4f}.pth".format(epoch, dice * 100)
-        checkpoint = os.path.join(self.weights_dir, filename)
+        checkpoint = os.path.join(self.directory, filename)
         save_checkpoint(checkpoint)
         self.entries.append({"epoch": epoch, "dice": dice,
                              "hd95": hd95 if math.isfinite(hd95) else None,
