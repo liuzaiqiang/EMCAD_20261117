@@ -32,6 +32,15 @@ mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
+# CAA 与面积自适应 Tversky 使用独立开关；默认均启用。
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+CEPA_ENABLED="${CEPA_ENABLED:-1}"
+
+# prepared数据、模型输出与PVT预训练权重目录。
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/isic/target}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ISIC}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
@@ -65,6 +74,7 @@ MIN_LR="${MIN_LR:-1e-6}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
+
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 # 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
 # SAVE_EVERY="${SAVE_EVERY:-50}"
@@ -79,10 +89,7 @@ LGAG_KS="${LGAG_KS:-3}"
 ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 SUPERVISION="${SUPERVISION:-paper}"
 
-# CAA 与面积自适应 Tversky 使用独立开关；默认均启用。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
-CEPA_ENABLED="${CEPA_ENABLED:-1}"
+
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
 CAA_MODE="${CAA_MODE:-caa}"
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
@@ -101,10 +108,7 @@ case "${CEPA_ENABLED}" in
   *) echo "[ERROR] CEPA_ENABLED must be 0 or 1"; exit 1 ;;
 esac
 
-# prepared数据、模型输出与PVT预训练权重目录。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/isic/target}"
-OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ISIC}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
+
 
 # case白名单验证数据集名称；不匹配时打印原因并以退出码1结束。
 case "${DATASET_NAME}" in
