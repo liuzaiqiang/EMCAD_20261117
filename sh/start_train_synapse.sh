@@ -7,8 +7,6 @@ set -euo pipefail
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
 RUN_PURPOSE="${RUN_PURPOSE:-全套验证：小器官感知的困难区域监督。 +  显式形状先验}"
 
-
-
 SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 SPM_ENABLED="${SPM_ENABLED:-1}"
 
@@ -16,27 +14,23 @@ SPM_ENABLED="${SPM_ENABLED:-1}"
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
 SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.20}"
 
 
 #205
-CONDA_BASE="/home/elham/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 
 #209服务器
-#CONDA_BASE="/home/mlf/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
