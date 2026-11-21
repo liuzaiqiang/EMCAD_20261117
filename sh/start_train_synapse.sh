@@ -10,12 +10,12 @@ RUN_PURPOSE="${RUN_PURPOSE:-全套验证：小器官感知的困难区域监督 
 
 
 #205
-CONDA_BASE="/home/elham/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
-#CONDA_BASE="/home/mlf/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/mlf/anaconda3"
+CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
@@ -25,7 +25,7 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
 SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.00}"
 
 
 
