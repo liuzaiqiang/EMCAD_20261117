@@ -123,6 +123,8 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 PMA_ENABLED="${PMA_ENABLED:-0}"
+# Karimi 2020 HD-DT 辅助损失权重；0 完全跳过距离变换计算。
+HAUSDORFF_DT_WEIGHT="${HAUSDORFF_DT_WEIGHT:-0}"
 [[ "${PMA_ENABLED}" == "0" || "${PMA_ENABLED}" == "1" ]] || { echo "[ERROR] PMA_ENABLED must be 0 or 1" >&2; exit 1; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
@@ -172,6 +174,7 @@ PARAM_NAMES=(
   NUM_WORKERS
   SMALL_TARGET_HARD_SUPERVISION
   PMA_ENABLED
+  HAUSDORFF_DT_WEIGHT
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -210,6 +213,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
   --pma_enabled "${PMA_ENABLED}" \
+  --hausdorff_dt_weight "${HAUSDORFF_DT_WEIGHT}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \

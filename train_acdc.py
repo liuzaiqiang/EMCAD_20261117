@@ -19,6 +19,7 @@ import csv
 import json
 # logging 写训练日志。
 import logging
+import math
 # os 处理数据、输出和 checkpoint 路径。
 import os
 # sys.stdout 用于把日志同步显示到终端。
@@ -114,6 +115,8 @@ def parse_args():
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
     parser.add_argument("--pma_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--hausdorff_dt_weight", type=float, default=0.0,
+                        help="nonnegative 2D HD-DT auxiliary weight; 0 skips it")
 
     # 限制监督策略只能取三个已实现值，非法字符串会由 argparse 直接拒绝。
     parser.add_argument(
@@ -280,6 +283,8 @@ def validate(args, model, device, csv_path, epoch):
 def main():
     # 读取命令行配置。
     args = parse_args()
+    if not math.isfinite(args.hausdorff_dt_weight) or args.hausdorff_dt_weight < 0:
+        raise ValueError('--hausdorff_dt_weight must be finite and nonnegative')
     # 防御性检查：ACDC 标签约定必须始终是背景+3个结构共 4 类。
     if ACDC_NUM_CLASSES != 4:
         # 常量被意外改动时立即停止，避免用错误输出通道静默训练。
@@ -471,6 +476,9 @@ def main():
                 )
                 if args.pma_enabled:
                     loss = loss + pma_auxiliary_loss(pma_maps, labels)
+                if args.hausdorff_dt_weight > 0:
+                    from utils.hausdorff_dt_loss import hausdorff_dt_loss
+                    loss = loss + args.hausdorff_dt_weight * hausdorff_dt_loss(outputs[-1], labels)
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。

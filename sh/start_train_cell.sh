@@ -78,6 +78,8 @@ export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 export PMA_ENABLED="${PMA_ENABLED:-0}"
+# Karimi 2020 HD-DT 辅助损失权重；0 完全跳过距离变换计算。
+export HAUSDORFF_DT_WEIGHT="${HAUSDORFF_DT_WEIGHT:-0}"
 [[ "${PMA_ENABLED}" == "0" || "${PMA_ENABLED}" == "1" ]] || { echo "[ERROR] PMA_ENABLED must be 0 or 1" >&2; exit 2; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;

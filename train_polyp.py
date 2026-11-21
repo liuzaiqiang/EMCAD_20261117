@@ -7,6 +7,7 @@ import csv
 import json
 # logging 同时写文件和标准输出。
 import logging
+import math
 # os 负责路径检查、环境变量和文件操作。
 import os
 # sys.stdout 接入日志处理器。
@@ -176,6 +177,8 @@ def parse_args():
     )
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
     parser.add_argument("--pma_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--hausdorff_dt_weight", type=float, default=0.0,
+                        help="nonnegative 2D HD-DT auxiliary weight; 0 skips it")
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
 
@@ -569,6 +572,8 @@ def resized_batch(images, masks, image_size, rate):
 def main():
     # 解析参数；ISIC/BUSI包装器可替换该函数。
     args = parse_args()
+    if not math.isfinite(args.hausdorff_dt_weight) or args.hausdorff_dt_weight < 0:
+        raise ValueError('--hausdorff_dt_weight must be finite and nonnegative')
 
     # 验证间隔必须是正整数。
     if args.validate_every < 1:
@@ -973,6 +978,10 @@ def main():
                     )
                     if args.pma_enabled:
                         loss = loss + pma_auxiliary_loss(pma_maps, scaled_masks)
+                    if args.hausdorff_dt_weight > 0:
+                        from utils.hausdorff_dt_loss import hausdorff_dt_loss
+                        loss = loss + args.hausdorff_dt_weight * hausdorff_dt_loss(
+                            outputs[-1], scaled_masks)
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)

@@ -392,6 +392,9 @@ def trainer_synapse(args, model, snapshot_path):
                          small_target_hard_positive_loss(P[-1], label_batch))
             if getattr(args, 'pma_enabled', 0):
                 loss += pma_auxiliary_loss(pma_maps, label_batch)
+            if args.hausdorff_dt_weight > 0:
+                from utils.hausdorff_dt_loss import hausdorff_dt_loss
+                loss += args.hausdorff_dt_weight * hausdorff_dt_loss(P[-1], label_batch)
 
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。
             optimizer.zero_grad()
