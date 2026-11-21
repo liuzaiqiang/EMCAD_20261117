@@ -10,6 +10,7 @@
 # argparse 负责把命令行参数（例如 --batch_size 6）转换为 args 对象。
 import argparse
 import json
+import math
 # datetime 用于输出当前训练入口启动到模型创建完成时的系统时间。
 from datetime import datetime
 # logging 在本入口中虽被导入，但实际日志配置位于 trainer.py；这是保留的工程导入。
@@ -80,6 +81,8 @@ parser.add_argument('--supervision', type=str, default='mutation',
 parser.add_argument('--small_target_hard_supervision', type=int, choices=[0, 1], default=1,
                     help='1 adds size-aware hard-positive supervision to the final head')
 parser.add_argument('--spm_enabled', type=int, choices=[0, 1], default=0)
+parser.add_argument('--hausdorff_dt_weight', type=float, default=0.0,
+                    help='nonnegative two-sided 2D HD-DT auxiliary weight; 0 skips it')
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
                     help='1: online top-K checkpoints with full metrics; 0: single best.pth')
 parser.add_argument('--synapse_topk_size', type=int, default=10,
@@ -106,6 +109,8 @@ parser.add_argument('--deterministic', type=int, default=1, help='whether use de
 parser.add_argument('--seed', type=int, default=2222, help='random seed')
 # 真正解析当前进程的命令行；未显式传入的选项采用上方 default。
 args = parser.parse_args()
+if not math.isfinite(args.hausdorff_dt_weight) or args.hausdorff_dt_weight < 0:
+    parser.error('--hausdorff_dt_weight must be finite and nonnegative')
 
 # 只有直接运行 python train_synapse.py 时才进入；被其他模块 import 时不会自动训练。
 if __name__ == "__main__":

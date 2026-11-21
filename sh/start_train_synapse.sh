@@ -9,6 +9,8 @@ RUN_PURPOSE="${RUN_PURPOSE:-全套验证：小器官感知的困难区域监督�
 
 SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
 SPM_ENABLED="${SPM_ENABLED:-1}"
+# Karimi 2020 HD-DT 权重；0 完全跳过损失与距离变换计算。
+HAUSDORFF_DT_WEIGHT="${HAUSDORFF_DT_WEIGHT:-0}"
 
 
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
@@ -175,6 +177,7 @@ PARAM_NAMES=(
   NUM_WORKERS
   SMALL_TARGET_HARD_SUPERVISION
   SPM_ENABLED
+  HAUSDORFF_DT_WEIGHT
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -213,6 +216,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --deterministic "${DETERMINISTIC}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
   --spm_enabled "${SPM_ENABLED}" \
+  --hausdorff_dt_weight "${HAUSDORFF_DT_WEIGHT}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
