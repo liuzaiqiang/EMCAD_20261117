@@ -82,6 +82,12 @@ parser.add_argument('--caa_mode', type=str, default='off',
 parser.add_argument('--caa_residual_scale', type=float, default=0.1,
                     help='initial scale of the content-aware residual; must match the checkpoint')
 parser.add_argument('--use_skip_frequency_gate', type=int, choices=[0, 1], default=0)
+parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
+                    help='1: online TopN checkpoints with paired HD95; 0: best.pth only')
+parser.add_argument('--synapse_topk_size', type=int, default=6,
+                    help='maximum number of retained Synapse candidate checkpoints')
+parser.add_argument('--synapse_topk_dice_threshold', type=float, default=84.00,
+                    help='inclusive Dice percentage threshold for TopN entry')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。

@@ -395,6 +395,10 @@ class DiceLoss(nn.Module):
 #
 # 空前景分支是历史约定，不能简单按数学公式理解：当前代码对“预测有前景、真值为空”返回 Dice=1、Jaccard=1，这与通常把假阳性判为 0 的评价约定相反；这里保留原行为，只把它明确写出来，避免阅读者误以为该分支是 MedPy 自动得出的结果。
 def calculate_metric_percase(pred, gt):
+    # MedPy 0.3.0 uses numpy.bool internally; NumPy >=1.24 removed that alias.
+    # Restore the identical dtype name before any MedPy call, including HD95.
+    if "bool" not in np.__dict__:
+        np.bool = np.bool_
     # 把所有正值统一成前景 1；该操作会原地修改传入数组。
     # 二值化的目的，是让指标函数只区分“前景/背景”，而不是把不同正整数当作不同类别。调用方已经按某个 i 构造了 prediction==i，因此这里通常只是保险。
     pred[pred > 0] = 1
@@ -691,7 +695,8 @@ overlay_masks 是从外部库 segmentation_mask_overlay 导入的一个可视化
     预测可视化：将模型预测的多类别掩膜以完全相同的颜色配置叠加到同一 CT 切片上，生成预测结果的标注图像。
 通过这种方式，可以直观地对比模型预测的器官区域与真实器官区域的位置和形状差异。该函数仅用于结果的可视化检查与论文插图生成，不参与任何分割指标的计算或模型的梯度更新。
 """
-def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1):
+def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_save_path=None, case=None, z_spacing=1,
+                      full_metrics=False):
     # 去掉 batch 维、转到 CPU，并转换为 NumPy 体数据。
     # 验证只做前向和指标，不需要保留 PyTorch 图；把数据转 NumPy 后可以直接使用
     # scipy.zoom 和本文件的 NumPy 比较逻辑。这里的 squeeze(0) 依赖调用方保留 batch=1。
@@ -778,14 +783,17 @@ def val_single_volume(image, label, net, classes, patch_size=[256, 256], test_sa
             # 搬回 CPU NumPy。
             prediction = out.cpu().detach().numpy()
     # 收集前景类别 Dice。
-    # 这里不调用 calculate_metric_percase，是为了避免验证每个 epoch 都计算表面
-    # 距离指标；返回值只服务 trainer.py 的 checkpoint 选择和 TensorBoard/日志记录。
+    # 常规验证只算 Dice；进入 TopN 候选时 full_metrics=True 才调用 MedPy
+    # 计算同一病例的 Dice、HD95、Jaccard 和 ASSD。
     metric_list = []
     # 跳过背景类别 0。
     for i in range(1, classes):
         # 第 i 类单独转成 bool mask；跳过背景后，列表第 0 项对应类别 1，而不是类别 0。
         # 对第 i 类预测/真值二值掩膜计算 Dice。
-        metric_list.append(calculate_dice_percase(prediction == i, label == i))
+        if full_metrics:
+            metric_list.append(calculate_metric_percase(prediction == i, label == i))
+        else:
+            metric_list.append(calculate_dice_percase(prediction == i, label == i))
     # 返回逐类 Dice，trainer.py 再求病例及类别平均。
     return metric_list
 
