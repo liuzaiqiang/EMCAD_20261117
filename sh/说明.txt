@@ -1,0 +1,21 @@
+已新增[跨项目总队列](/D:/files/Medical_Image_Segmentation_Projects/SLDGroup_EMCAD/sh/run_project_queue.sh)和[10 套项目的清单示例](/D:/files/Medical_Image_Segmentation_Projects/SLDGroup_EMCAD/sh/project_queue.example.txt)。没有改动网络或现有训练脚本。
+
+总队列按清单顺序进入各项目文件夹，调用**该文件夹自己的** `sh/run_seed_queue.sh`；它会等该项目的所有种子训练结束，才启动下一个项目。清单每行格式为 `文件夹名|数据集|空格分隔的种子|可选DATASET_NAME`，例如：
+
+```text
+EMCAD_A|synapse|2222 3407 5678
+EMCAD_B|isic|2222 3407|ISIC2017
+```
+
+这些文件夹应与当前项目同处一个父目录，且各自已有种子队列和对应的 `start_train_*.sh`。替换示例中的文件夹名、数据集和种子后，从**当前项目根目录**运行：
+
+```bash
+cp sh/project_queue.example.txt sh/project_queue.txt
+# 编辑 sh/project_queue.txt
+bash sh/run_project_queue.sh --check sh/project_queue.txt
+PROJECT_CONTINUE_ON_ERROR=1 CONTINUE_ON_ERROR=1 nohup bash sh/run_project_queue.sh sh/project_queue.txt >project_queue_start.log 2>&1 < /dev/null &
+```
+
+最后一行就是总启动命令。两个 `CONTINUE` 开关让某个种子或项目失败后继续后续任务；失败仍会记入状态文件，最终总队列返回非零。去掉这两个开关则默认遇错停止。运行中可用 `tail -f project_queue_start.log` 查看进度；总队列的逐项目退出码另存于当前项目的 `logs/project_queue_*.tsv`，各项目的训练日志仍留在各自目录。
+
+已通过 Bash 语法检查、实际项目预检，以及临时假项目的跨目录顺序、参数隔离和失败继续测试。未启动真实训练。

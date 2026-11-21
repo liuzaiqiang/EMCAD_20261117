@@ -1,0 +1,14 @@
+# Copy this file to sh/project_queue.txt and replace each folder with a sibling directory name. 
+# All listed project directories must share the same parent.
+# Format: folder|dataset|space-separated seeds|optional DATASET_NAME
+# The fourth field is useful for ISIC2017/ISIC2018, DSB18/EM, and Polyp names.
+experiment_01|synapse|2222 3407 5678
+experiment_02|synapse|2222 3407
+experiment_03|synapse|2222
+experiment_04|synapse|2222 3407
+experiment_05|synapse|2222
+experiment_06|synapse|2222 3407
+experiment_07|synapse|2222
+experiment_08|synapse|2222 3407
+experiment_09|synapse|2222
+experiment_10|synapse|2222 3407
