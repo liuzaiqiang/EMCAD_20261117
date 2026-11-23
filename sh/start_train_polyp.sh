@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 使用Bash严格模式；任一未处理错误、未定义变量或失败管道都会终止启动，避免后台任务带错参数运行。
 set -euo pipefail
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -104,7 +105,7 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-0}"
+USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-1}"
 case "${USE_CONNECTIVITY_FEATURE_GATE}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONNECTIVITY_FEATURE_GATE must be 0 or 1" >&2; exit 2 ;;
@@ -170,7 +171,7 @@ if [[ "${INPUT_CHANNELS}" == "1" ]]; then IMAGE_MODE_ARGS+=(--grayscale); fi
 # 数据根目录应包含 <dataset>/{train,val}/{images,masks}；默认输出按 DATASET 隔离并可外部覆盖。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/polyp/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/${DATASET}}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 白名单正则只允许安全文件名字符，防止DATASET_NAME把路径拼接到意外目录；失败退出码为1。
 [[ "${DATASET_NAME}" =~ ^[A-Za-z0-9._-]+$ ]] || {
@@ -223,6 +224,7 @@ PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 # 参数快照追加到日志；终端只保留便于复制的RUN_ID和后续PID/路径信息。
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS USE_CONNECTIVITY_FEATURE_GATE USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"

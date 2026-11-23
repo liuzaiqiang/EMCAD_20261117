@@ -276,7 +276,8 @@ def _parse_args():
         # 规范保存值。
         configured = _normalized(
             # config值。
-            config.get(field, "off" if field == "caa_mode" else 0 if field == "connectivity_feature_gate" else 0.1)
+            config.get(field, {"caa_mode": "off", "caa_residual_scale": 0.1,
+                               "connectivity_feature_gate": 0}.get(field))
         )
         # 规范当前命令行解析值。
         current = _normalized(
@@ -382,12 +383,10 @@ def _parse_args():
         saved_threshold
     )
 
-    # 当前准备数据 BUSI 根。
+    # --data_root 指向 BUSI 的公共 target 目录。
     dataset_root = (
         # 公共数据根绝对路径。
-            Path(args.data_root).resolve()
-            # BUSI 子目录。
-            / "BUSI"
+            Path(args.data_root).resolve() / "BUSI"
     )
 
     # 样本清单。

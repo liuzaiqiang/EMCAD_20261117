@@ -13,6 +13,7 @@
 
 # -e 遇到未处理失败即停，-u 拒绝空未定义变量，pipefail 检查管道中每个环节的退出状态。
 set -euo pipefail
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
 
 #212服务器
@@ -65,7 +66,7 @@ export N_GPU="${N_GPU:-1}"
 
 # Cell uses the shared binary trainer and exposes its CAA switch here.
 export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-export USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-0}"
+export USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-1}"
 case "${USE_CONNECTIVITY_FEATURE_GATE}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONNECTIVITY_FEATURE_GATE must be 0 or 1" >&2; exit 2 ;;

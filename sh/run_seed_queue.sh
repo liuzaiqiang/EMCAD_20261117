@@ -78,6 +78,8 @@ exec > >(tee -a "${QUEUE_LOG}") 2>&1
 
 echo "[QUEUE] 启动器=${LAUNCHER}"
 echo "[QUEUE] seeds=$*"
+echo "[QUEUE] RUN_PURPOSE=${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+echo "[QUEUE] USE_CONTENT_AWARE_ANTIALIAS=${USE_CONTENT_AWARE_ANTIALIAS:-launcher_default} USE_CONNECTIVITY_FEATURE_GATE=${USE_CONNECTIVITY_FEATURE_GATE:-launcher_default}"
 if [[ -n "${DATASET_NAME:-}" ]]; then
   echo "[QUEUE] DATASET_NAME=${DATASET_NAME}"
 fi

@@ -4,6 +4,7 @@ import itertools
 import os
 # random 用于统一设置 Python 随机种子。
 import random
+import time
 
 # NumPy 负责体数据分批、类别掩膜和指标均值计算。
 import numpy as np
@@ -15,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 # MedPy 提供 ACDC 的 Dice、HD95、Jaccard 和 ASSD 指标。
 from medpy import metric
+from lib.benchmarking import synchronize
 
 # 复用项目统一的编码器 + EMCAD 解码器封装。
 from lib.networks import EMCADNet
@@ -70,7 +72,7 @@ def build_model(args, pretrain):
         # CAA 结构和残差初始尺度必须与训练 checkpoint 一致。
         caa_mode=args.caa_mode,
         caa_residual_scale=args.caa_residual_scale,
-        connectivity_feature_gate=bool(args.connectivity_feature_gate),
+        connectivity_feature_gate=args.connectivity_feature_gate,
     )
 
 
@@ -198,7 +200,7 @@ def load_checkpoint(model, checkpoint_path):
 
 
 # 对一个 [D,H,W] ACDC 体数据按切片批量推理并重组为三维类别图。
-def predict_volume(model, image, device, img_size, batch_size=8):
+def predict_volume(model, image, device, img_size, batch_size=8, benchmark=None):
     # 统一为 float32 NumPy，避免后续 from_numpy 使用不受支持或过高精度类型。
     image = np.asarray(image, dtype=np.float32)
     # 本函数只接受深度、高、宽三维体。
@@ -233,7 +235,16 @@ def predict_volume(model, image, device, img_size, batch_size=8):
                     align_corners=False,
                 )
             # 统一模型输出为列表并选最后的最终分割 logits。
+            if benchmark is not None:
+                if benchmark.first_forward_input is None:
+                    benchmark.first_forward_input = batch
+                synchronize(device)
+                forward_start = time.perf_counter()
             outputs = model_outputs(model, batch, mode="test")
+            if benchmark is not None:
+                synchronize(device)
+                benchmark.forward_seconds += time.perf_counter() - forward_start
+                benchmark.forward_units += int(batch.shape[0])
             base_model = model.module if hasattr(model, 'module') else model
             logits = outputs[-1]
             # 如果模型最终输出仍不是原始体数据空间尺寸，则把连续 logits 缩回原尺寸。

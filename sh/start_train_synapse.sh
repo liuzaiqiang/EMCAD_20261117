@@ -3,6 +3,7 @@
 
 # -e 遇到未处理的非零退出码即停止，-u 拒绝未定义变量，pipefail 让管道任一环节失败都算失败。
 set -euo pipefail
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
 
 #212服务器
@@ -19,12 +20,12 @@ set -euo pipefail
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #206
-CONDA_BASE="/home/elham/anaconda3"
-CONDA_ENV_PREFIX="/home/elham/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/elham/anaconda3/envs/sld_emcad"
 
 
 
@@ -67,7 +68,13 @@ esac
 # 1 表示加载编码器预训练权重，0 表示随机初始化；结构选择与权重选择是两件事。
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-./pretrained_pth/pvt/}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
+if [[ "${USE_PRETRAIN}" == "1" && "${ENCODER}" == pvt_v2_* ]]; then
+  test -f "${PRETRAINED_DIR}/${ENCODER}.pth" || {
+    echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/${ENCODER}.pth" >&2
+    exit 1
+  }
+fi
 # EMCAD 解码器的主要结构参数；这里显式传给 Python，避免以后 Python 默认值改动造成实验漂移。
 EXPANSION_FACTOR="${EXPANSION_FACTOR:-2}"
 #MSDC 的三个深度卷积核；数组展开后对应 --kernel_sizes 1 3 5。
@@ -113,7 +120,19 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 # CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-0}"
+USE_CONNECTIVITY_FEATURE_GATE="${USE_CONNECTIVITY_FEATURE_GATE:-1}"
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-7}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+case "${SYNAPSE_TOPK_ENABLED}" in
+  0|1) ;;
+  *) echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1" >&2; exit 1 ;;
+esac
+if [[ "${SYNAPSE_TOPK_ENABLED}" == "1" ]]; then
+  [[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer" >&2; exit 1;
+  }
+fi
 case "${USE_CONNECTIVITY_FEATURE_GATE}" in
   0|1) ;;
   *) echo "[ERROR] USE_CONNECTIVITY_FEATURE_GATE must be 0 or 1" >&2; exit 2 ;;
@@ -159,11 +178,15 @@ PARAM_NAMES=(
   NUM_WORKERS
   USE_CONTENT_AWARE_ANTIALIAS
   USE_CONNECTIVITY_FEATURE_GATE
+  SYNAPSE_TOPK_ENABLED
+  SYNAPSE_TOPK_SIZE
+  SYNAPSE_TOPK_DICE_THRESHOLD
   CAA_MODE
   CAA_RESIDUAL_SCALE
 )
 
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
@@ -196,6 +219,9 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --caa_mode "${CAA_MODE}" \
   --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
   --connectivity_feature_gate "${USE_CONNECTIVITY_FEATURE_GATE}" \
+  --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
+  --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
+  --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &
 
 
