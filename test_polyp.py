@@ -10,13 +10,17 @@ import math
 import os
 # sys.stdout 用作日志流处理器目标。
 import sys
+import time
 # Path 用于按扩展名扫描指定数据划分的图像 stem。
 from pathlib import Path
 
 # torch 仅用于版本/CUDA 环境记录；模型推理封装在 utils.polyp_utils 中。
 import torch
-from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, peak_memory_mb
+from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
+                              log_environment, log_json, reset_peak_memory,
+                              peak_memory_mb, synchronize)
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 
 # 数据加载器同时暴露支持扩展名集合，供划分泄漏检查复用同一文件口径。
 from utils.dataloader_polyp import (
@@ -33,6 +37,7 @@ from utils.polyp_utils import (
     evaluate_loader,
     # 兼容不同 checkpoint 字典结构并加载权重。
     load_checkpoint,
+    model_outputs,
     # 把 auto/cpu/cuda 字符串解析成 torch.device。
     resolve_device,
     # 固定 Python、NumPy、PyTorch 和 CUDA 随机源。
@@ -157,7 +162,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=SHARED_PRETRAINED_DIR,
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。
@@ -389,13 +394,8 @@ def main():
             "--threshold must be between 0 and 1"
         )
 
-    # 数据集根形如 <data_root>/<dataset_name>。
-    dataset_root = os.path.join(
-        # 已准备数据总根。
-        args.data_root,
-        # ClinicDB/Kvasir 等具体数据集名。
-        args.dataset_name,
-    )
+    # 所有二分类数据集按 data_root/dataset_name 组织。
+    dataset_root = os.path.join(args.data_root, args.dataset_name)
     # 当前评估划分根形如 <dataset_root>/test 或 val。
     split_root = os.path.join(
         # 具体数据集根。
@@ -595,6 +595,8 @@ def main():
     model.to(device).eval()
 
     # 对整个 loader 做逐图评估，并可选保存掩膜/概率图。
+    synchronize(device)
+    total_test_start = time.perf_counter()
     rows, mean_row, std_row = evaluate_loader(
         # 已加载权重的模型。
         model=model,
@@ -624,7 +626,17 @@ def main():
         description="{} {}".format(args.dataset_name, args.split),
         benchmark=benchmark,
     )
+    synchronize(device)
+    total_test_seconds = time.perf_counter() - total_test_start
+    logging.info("%s_TEST_TOTAL elapsed_seconds=%.4f evaluated_images=%d",
+                 args.dataset_name, total_test_seconds, len(rows))
+    evaluation_peak_memory = peak_memory_mb(device)
 
+    benchmark_input = benchmark.first_forward_input
+    if benchmark_input is not None:
+        benchmark.repeated_forward = benchmark_repeated_forward(
+            lambda: model_outputs(model, benchmark_input, mode="test"),
+            device, benchmark_input.shape)
     # 这里统计的是完整评估循环的峰值；它包含模型、输入、临时张量以及 CUDA 工作区。
     benchmark_result = benchmark.result(
         device=device,
@@ -635,6 +647,37 @@ def main():
         precision="float32",
     )
     benchmark_result["environment"] = benchmark_env
+    benchmark_result.update(evaluation_peak_memory)
+    benchmark_result["measurement_policy"]["memory"] = (
+        "peak torch.cuda allocated/reserved during the actual evaluation pass, before repeated forward benchmark"
+    )
+    benchmark_result["total_test_seconds"] = round(total_test_seconds, 4)
+    benchmark_result["measurement_policy"]["end_to_end"] = (
+        "per-batch evaluation after DataLoader yield, including input transfer, prediction, "
+        "metrics and requested export, divided by processed image count; excludes DataLoader wait"
+    )
+    benchmark_result["measurement_policy"]["prediction"] = (
+        "per-batch input transfer and model forward plus per-image resizing, probability "
+        "normalization and thresholding, divided by processed image count; excludes metrics, "
+        "export and DataLoader wait"
+    )
+    benchmark_result["measurement_policy"]["total_test"] = (
+        "one complete test-set pass, including DataLoader wait, prediction, metrics and requested export; "
+        "excludes model construction and checkpoint loading"
+    )
+    forward_benchmark = benchmark_result["repeated_model_forward"]
+    logging.info("%s_PREDICTION mean_ms_per_image=%s images=%d",
+                 args.dataset_name, benchmark_result["prediction_time_ms_per_sample"],
+                 benchmark_result["predicted_samples"])
+    if forward_benchmark is not None:
+        logging.info(
+            "%s_MODEL_FORWARD mean_ms=%.4f median_ms=%.4f p95_ms=%.4f "
+            "std_ms=%.4f warmup=%d repetitions=%d input_shape=%s",
+            args.dataset_name, forward_benchmark["mean_ms"],
+            forward_benchmark["median_ms"], forward_benchmark["p95_ms"],
+            forward_benchmark["std_ms"], forward_benchmark["warmup_iterations"],
+            forward_benchmark["timed_repetitions"], forward_benchmark["input_shape"],
+        )
     log_json(logging, "BENCHMARK_INFERENCE", benchmark_result)
 
     # 保存逐图 rows、宏平均 mean_row 和总体标准差 std_row。

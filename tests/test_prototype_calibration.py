@@ -51,3 +51,24 @@ def test_both_switches_off_keep_original_decoder_structure():
     assert isinstance(model.decoder.eucb1.up_dwc[0], torch.nn.Upsample)
     assert not any(key.startswith("prototype_calibration.")
                    for key in model.state_dict())
+
+
+def test_each_disabled_module_has_no_parameters_or_forward_path():
+    baseline = EMCADNet(encoder="pvt_v2_b0", pretrain=False, caa_mode="off",
+                        use_cross_scale_prototypes=False)
+    caa_only = EMCADNet(encoder="pvt_v2_b0", pretrain=False, caa_mode="caa",
+                        use_cross_scale_prototypes=False)
+    prototype_only = EMCADNet(encoder="pvt_v2_b0", pretrain=False, caa_mode="off",
+                              use_cross_scale_prototypes=True)
+
+    assert caa_only.prototype_calibration is None
+    assert prototype_only.prototype_calibration is not None
+    assert all(isinstance(getattr(prototype_only.decoder, name).up_dwc[0], torch.nn.Upsample)
+               for name in ("eucb1", "eucb2", "eucb3"))
+    baseline_keys = set(baseline.state_dict())
+    assert not any("content_gate" in key or "residual_dw" in key
+                   for key in baseline_keys)
+    assert not any(key.startswith("prototype_calibration.") for key in baseline_keys)
+    assert baseline_keys == {key for key in prototype_only.state_dict()
+                             if not key.startswith("prototype_calibration.")}
+    assert baseline_keys <= set(caa_only.state_dict())

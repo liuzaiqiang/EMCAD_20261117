@@ -30,7 +30,10 @@ import numpy as np
 import torch
 import time
 from lib.test_output_paths import prepare_test_output
-from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, synchronize
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
+from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
+                              log_environment, log_json, peak_memory_mb,
+                              reset_peak_memory, synchronize)
 # DataLoader 每次提供一个完整病例。
 from torch.utils.data import DataLoader
 # tqdm 显示病例级测试进度。
@@ -50,6 +53,7 @@ from utils.acdc_utils import (
     load_checkpoint,
     # 对三个前景类的指标再做宏平均。
     mean_metrics,
+    model_outputs,
     # 把 [D,H,W] 体数据分批送入二维网络并拼回预测体。
     predict_volume,
     # 保存原图、预测和标签三份 NIfTI。
@@ -93,7 +97,7 @@ def parse_args():
     # 出现该旗标表示用 concat 聚合多尺度特征；默认 add。
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
@@ -292,23 +296,26 @@ def main():
     # medpy 距离指标使用 (z,y,x) 间距；平面内固定 1，z 取命令行参数。
     voxelspacing = (float(args.z_spacing), 1.0, 1.0)
 
+    # 整次测试耗时包含 DataLoader 取样、预测、指标和请求的文件导出。
+    synchronize(device)
+    total_test_start = time.perf_counter()
     # 逐病例测试；case_index 从 0 开始，tqdm 显示进度。
     for case_index, sampled in enumerate(tqdm(loader, desc="ACDC test")):
         # 正数 max_cases 用于只处理前 N 例。
         if args.max_cases and case_index >= args.max_cases:
             # 达到上限后停止。
             break
+        synchronize(device)
+        end_to_end_start = time.perf_counter()
         # 去掉 batch_size=1 的外层并转 NumPy，得到 [D,H,W] float 图像。
         image = sampled["image"][0].numpy()
         # 标签同样得到 [D,H,W]，值域 0..3。
         label = sampled["label"][0].numpy()
         # 取单个病例名字符串。
         case_name = sampled["case_name"][0]
-        # 按深度把切片分批送入二维 EMCAD。
-        # 端到端时间覆盖该病例的体数据进入 predict_volume 到得到完整预测体的全过程。
-        end_to_end_start = time.perf_counter()
+        # 按深度把切片分批送入二维 EMCAD；纯模型前向由 predict_volume 单独计时。
         synchronize(device)
-        forward_start = time.perf_counter()
+        prediction_start = time.perf_counter()
         prediction = predict_volume(
             # 已加载权重并 eval 的模型。
             model,
@@ -320,14 +327,12 @@ def main():
             img_size=args.img_size,
             # 每次推理的切片数。
             batch_size=args.inference_batch_size,
+            benchmark=benchmark,
             # 输出 [D,H,W] int16 类别编号。
         )
         synchronize(device)
-        benchmark.forward_seconds += time.perf_counter() - forward_start
-        # predict_volume 按切片 batch 前向；这里用预测体深度作为实际前向单位数。
-        benchmark.forward_units += int(image.shape[0])
-        benchmark.samples += 1
-        benchmark.end_to_end_seconds += time.perf_counter() - end_to_end_start
+        benchmark.prediction_seconds += time.perf_counter() - prediction_start
+        benchmark.prediction_samples += 1
         # 对 RV/MYO/LV 分别计算 Dice、HD95、Jaccard、ASD。
         per_class = volume_metrics(
             # 预测类别体。
@@ -405,7 +410,15 @@ def main():
                 args.z_spacing,
                 # 保存调用结束。
             )
+        synchronize(device)
+        benchmark.samples += 1
+        benchmark.end_to_end_seconds += time.perf_counter() - end_to_end_start
 
+    synchronize(device)
+    total_test_seconds = time.perf_counter() - total_test_start
+    logging.info("ACDC_TEST_TOTAL elapsed_seconds=%.4f evaluated_cases=%d",
+                 total_test_seconds, len(rows))
+    evaluation_peak_memory = peak_memory_mb(device)
     # 数据为空或 max_cases 导致零例时，不允许生成 NaN 汇总。
     if not rows:
         # 显式报错。
@@ -436,6 +449,11 @@ def main():
     # 写出 CSV。
     write_csv(output_csv, rows)
 
+    benchmark_input = benchmark.first_forward_input
+    if benchmark_input is not None:
+        benchmark.repeated_forward = benchmark_repeated_forward(
+            lambda: model_outputs(model, benchmark_input, mode="test"),
+            device, benchmark_input.shape)
     # 输出结构化运行开销摘要；不参与任何指标或 checkpoint 逻辑。
     benchmark_result = benchmark.result(
         device=device,
@@ -446,6 +464,36 @@ def main():
         precision="float32",
     )
     benchmark_result["environment"] = benchmark_env
+    benchmark_result.update(evaluation_peak_memory)
+    benchmark_result["measurement_policy"]["memory"] = (
+        "peak torch.cuda allocated/reserved during the actual evaluation pass, before repeated forward benchmark"
+    )
+    benchmark_result["total_test_seconds"] = round(total_test_seconds, 4)
+    benchmark_result["measurement_policy"]["end_to_end"] = (
+        "per-case evaluation after DataLoader yield, including prediction, Dice/HD95/Jaccard/ASD "
+        "and requested export; excludes DataLoader wait and model loading"
+    )
+    benchmark_result["measurement_policy"]["prediction"] = (
+        "per-volume prediction from prepared NumPy volume through resizing, batch model calls, "
+        "mask reconstruction and CPU transfer; excludes ground-truth metrics and file export"
+    )
+    benchmark_result["measurement_policy"]["total_test"] = (
+        "one complete test-set pass, including DataLoader wait, prediction, metrics and requested export; "
+        "excludes model construction and checkpoint loading"
+    )
+    forward_benchmark = benchmark_result["repeated_model_forward"]
+    logging.info("ACDC_PREDICTION mean_ms_per_volume=%s volumes=%d",
+                 benchmark_result["prediction_time_ms_per_sample"],
+                 benchmark_result["predicted_samples"])
+    if forward_benchmark is not None:
+        logging.info(
+            "ACDC_MODEL_FORWARD mean_ms=%.4f median_ms=%.4f p95_ms=%.4f "
+            "std_ms=%.4f warmup=%d repetitions=%d input_shape=%s",
+            forward_benchmark["mean_ms"], forward_benchmark["median_ms"],
+            forward_benchmark["p95_ms"], forward_benchmark["std_ms"],
+            forward_benchmark["warmup_iterations"],
+            forward_benchmark["timed_repetitions"], forward_benchmark["input_shape"],
+        )
     log_json(logging, "BENCHMARK_INFERENCE", benchmark_result)
     # ACDC 原有入口主要写 CSV，因此额外保存独立 JSON，避免把结构化开销指标塞进指标表。
     with open(os.path.join(output_dir, "benchmark_summary.json"), "w", encoding="utf-8") as stream:

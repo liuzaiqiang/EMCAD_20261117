@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bash严格模式让路径检查、环境激活或后台命令准备失败时立即退出。
 set -euo pipefail
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
 # 固定项目根和工作目录，避免调用者所在目录影响相对路径。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,8 +30,8 @@ mkdir -p "${LOG_DIR}"
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -40,6 +41,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # 限定GPU并关闭Python标准流缓冲，便于实时观察nohup日志。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # DATASET_NAME只允许ISIC2017或ISIC2018，默认训练ISIC2018。
@@ -96,7 +98,7 @@ esac
 # prepared数据、模型输出与PVT预训练权重目录。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/isic/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ISIC}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # case白名单验证数据集名称；不匹配时打印原因并以退出码1结束。
 case "${DATASET_NAME}" in
@@ -167,6 +169,7 @@ PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 # 把关键配置追加进日志，终端单独打印RUN_ID供停止脚本使用。
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC CAA_MODE CAA_RESIDUAL_SCALE USE_CROSS_SCALE_PROTOTYPES USE_CONTENT_AWARE_ANTIALIAS RUN_ID)
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"

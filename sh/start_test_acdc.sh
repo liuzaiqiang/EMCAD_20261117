@@ -12,23 +12,18 @@ cd "${PROJECT_DIR}"
 
 # 创建集中保存评估日志的目录；目录已存在时 mkdir -p 仍返回成功。
 
+#205服务器
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
-
-
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -47,7 +42,7 @@ INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-8}"
 Z_SPACING="${Z_SPACING:-10.0}"
 MAX_CASES="${MAX_CASES:-0}"
 
-# 病例列表和数据根目录采用项目旁的固定ACDC布局；CKPT必须由调用者明确指定。
+# 病例列表和数据根目录默认位于项目目录上四级的 data/ACDC；CKPT 必须由调用者明确指定。
 LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC}"
 ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 # 默认在 ACDC 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。

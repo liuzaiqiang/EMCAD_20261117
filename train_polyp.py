@@ -8,6 +8,7 @@ import json
 import logging
 # os 负责路径检查、环境变量和文件操作。
 import os
+import shutil
 # sys.stdout 接入日志处理器。
 import sys
 # time 统计完整训练耗时。
@@ -53,6 +54,7 @@ from utils.polyp_utils import (
 )
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
 
@@ -169,7 +171,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=SHARED_PRETRAINED_DIR,
     )
     # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
     parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
@@ -751,6 +753,14 @@ def main():
         "EM": "Cell",
     }.get(args.dataset_name, "Polyp")
     run_dir = make_experiment_dir(args, output_family)
+    # BUSI/ISIC 的清单与训练输出写入同一个运行目录。
+    for source_attr, filename in (
+        ("split_manifest_source", "data_split_manifest.csv"),
+        ("split_summary_source", "data_split_summary.json"),
+    ):
+        source = getattr(args, source_attr, None)
+        if source is not None:
+            shutil.copy2(source, os.path.join(run_dir, filename))
 
     logging.basicConfig(
         filename=os.path.join(

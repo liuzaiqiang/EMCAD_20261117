@@ -13,53 +13,46 @@ cd "${PROJECT_DIR}"
 
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+#205服务器
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
-
-
-
-
-
-
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 
-# Synapse 测试必须使用与训练一致的模型配置；启动时从 best.pth 同目录读取训练配置。
+# Synapse 测试必须使用与训练一致的模型配置；默认从指定权重同目录读取配置。
 # VOLUME_PATH 和 LIST_DIR 可在调用脚本时覆盖，用于指向服务器实际存放的完整病例及划分列表。
 VOLUME_PATH="${VOLUME_PATH:-${PROJECT_DIR}/../../../../data/Synapse/test_vol_h5}"
 LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/Synapse/lists/lists_Synapse}"
 DATASET="Synapse"
 
-# 默认在Synapse对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
+# 必须明确指定要测试的权重，兼容 best.pth 和动态前 N 文件。
 CKPT="${CKPT:-}"
 
 if [[ -z "${CKPT}" || ! -f "${CKPT}" ]]; then
   echo "[ERROR] CKPT is missing or does not exist: ${CKPT}"
-  echo "[ERROR] Example: CKPT=/absolute/path/to/best.pth bash sh/start_test_synapse.sh"
+  echo "[ERROR] Example: CKPT=/absolute/path/to/epoch_176_valdice_84.0600_valhd95_11.4000.pth bash sh/start_test_synapse.sh"
   exit 1
 fi
 
 # 将 checkpoint 转为绝对路径，确保其相邻 config.json 可从任意工作目录稳定定位。
 CKPT="$(realpath "${CKPT}")"
 CKPT_DIR="$(dirname "${CKPT}")"
-# 每个训练实验目录由 train_synapse.py 同时保存 best.pth 和 config.json。
+# 每个训练实验目录由 train_synapse.py 保存候选权重和 config.json。
 TRAIN_CONFIG="${TRAIN_CONFIG:-$(dirname "${CKPT}")/config.json}"
 test -f "${TRAIN_CONFIG}" || {
   echo "[ERROR] Training config not found: ${TRAIN_CONFIG}"

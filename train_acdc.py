@@ -73,6 +73,7 @@ from utils.acdc_utils import (
 from utils.dataset_ACDC import ACDCVolumeDataset, ACDCdataset, RandomGenerator
 from lib.model_complexity import log_model_complexity
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 from lib.benchmarking import log_environment, log_json, peak_memory_mb, reset_peak_memory, synchronize
 
 
@@ -108,7 +109,7 @@ def parse_args():
     # 出现该旗标后不加载 ImageNet 编码器预训练权重。
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)

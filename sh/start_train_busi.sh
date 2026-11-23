@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 严格模式使未定义变量、命令失败和管道中间失败都能立即暴露。
 set -euo pipefail
+RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 
 # 获取脚本目录绝对路径并切换到项目根，统一后续相对路径语义。
 #PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,8 +28,8 @@ mkdir -p "${LOG_DIR}"
 # CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -39,6 +40,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 
 # 选择GPU并让Python输出不缓冲，减少日志延迟。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # BUSI启动器只接受固定数据集名BUSI。
@@ -95,7 +97,7 @@ esac
 # 数据、模型输出和PVT权重目录；prepared BUSI数据固定位于DATA_ROOT/BUSI。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/busi/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 非BUSI名称立即以退出码1停止，避免路径和数据协议不一致。
 if [[ "${DATASET_NAME}" != "BUSI" ]]; then
@@ -145,6 +147,7 @@ PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 # PARAM_NAMES=(... VALIDATE_EVERY SAVE_EVERY MAX_TRAIN_BATCHES ...)
 PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATASET_NAME IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY CLIP THRESHOLD SCHEDULER MIN_LR NUM_WORKERS DETERMINISTIC SEED VALIDATE_EVERY MAX_TRAIN_BATCHES MAX_VALID_CASES DEVICE ENCODER EXPANSION_FACTOR LGAG_KS ACTIVATION_MSCB SUPERVISION USE_CONTENT_AWARE_ANTIALIAS CAA_MODE CAA_RESIDUAL_SCALE USE_CROSS_SCALE_PROTOTYPES DATA_ROOT OUTPUT_DIR PRETRAINED_DIR TS RAND LOG_FILE RUN_ID PID_FILE)
 {
+  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
