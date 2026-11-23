@@ -21,8 +21,8 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
-# Cell 数据根默认位于脚本目录上四级（项目根目录上三级）；服务器数据位置不同可传 DATA_ROOT 覆盖。
-export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../data/cell/target}"
+# Cell 数据根默认位于脚本目录上五级（项目根目录上四级）；服务器数据位置不同可传 DATA_ROOT 覆盖。
+export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/cell/target}"
 
 # 固定日志标签和模型系列名为 Cell。
 export DATASET="Cell"

@@ -62,8 +62,8 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 
 
 # 数据根目录包含 train/valid/test；列表目录保存各划分病例名；模型输出固定写入 model_pth/ACDC。
-LIST_DIR="${PROJECT_DIR}/../../../data/ACDC/lists_ACDC"
-ROOT_PATH="${PROJECT_DIR}/../../../data/ACDC"
+LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
+ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../pretrained_pth/pvt}"
 
