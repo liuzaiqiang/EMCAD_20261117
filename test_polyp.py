@@ -61,7 +61,7 @@ def parse_args():
         # 选项名。
         "--data_root",
         # 目录下预期包含 ClinicDB、Kvasir 等数据集子目录。
-        default="../../../../data/polyp/target",
+        default="../../../data/polyp/target",
     )
     # 当前要评估的数据集子目录名。
     parser.add_argument(
@@ -156,7 +156,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="../../../../pretrained_pth/pvt/",
+        default="../../../pretrained_pth/pvt/",
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。

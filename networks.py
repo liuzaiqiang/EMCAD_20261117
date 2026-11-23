@@ -40,7 +40,7 @@ class EMCADNet(nn.Module):
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu',
                  # encoder 和 pretrain 分别控制骨干类型与是否使用预训练，二者是相互独立的选择。
-                 encoder='pvt_v2_b2', pretrain=True, pretrained_dir='../../../../pretrained_pth/pvt/'):
+                 encoder='pvt_v2_b2', pretrain=True, pretrained_dir='../../../pretrained_pth/pvt/'):
         # 初始化 nn.Module 的模块注册机制。
         super(EMCADNet, self).__init__()
 

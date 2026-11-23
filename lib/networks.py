@@ -61,7 +61,7 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='../../../../pretrained_pth/pvt/',
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir='../../../pretrained_pth/pvt/',
                  caa_mode='off', caa_residual_scale=0.1, stage_adaptive_kernels=0):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()

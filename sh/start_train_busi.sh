@@ -96,9 +96,9 @@ case "${USE_CONTENT_AWARE_ANTIALIAS}" in
 esac
 
 # 数据、模型输出和PVT权重目录；prepared BUSI数据固定位于DATA_ROOT/BUSI。
-DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/busi/target}"
+DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../data/busi/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../pretrained_pth/pvt}"
 
 # 非BUSI名称立即以退出码1停止，避免路径和数据协议不一致。
 if [[ "${DATASET_NAME}" != "BUSI" ]]; then
