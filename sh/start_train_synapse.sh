@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证：内容感知 + CEPA  + 面积自适应}"
 
 
 
@@ -19,14 +19,18 @@ RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
+
+#AI Station
+CONDA_BASE="/root/anaconda3"
+CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -41,7 +45,7 @@ CEPA_ENABLED="${CEPA_ENABLED:-1}"
 
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
 SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-7}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.20}"
 
 
 
@@ -133,7 +137,6 @@ PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
 AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
-
 CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
 
@@ -198,6 +201,7 @@ PARAM_NAMES=(
   USE_AREA_ADAPTIVE_TVERSKY
   AREA_TVERSKY_WEIGHT
   CEPA_ENABLED
+
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD

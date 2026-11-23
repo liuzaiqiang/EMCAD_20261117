@@ -19,9 +19,14 @@ mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
 
 
+#AI Station
+CONDA_BASE="/root/anaconda3"
+CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
+
+
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #并行3个月
 # CONDA_BASE="/base/mambaforge"
@@ -33,6 +38,38 @@ CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+
+
+
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
+CEPA_ENABLED="${CEPA_ENABLED:-1}"
+
+AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
+
+#它决定 EUCB 使用哪种上采样方式。
+# 值	         实际含义
+# off	          原始 EMCAD EUCB 上采样
+# aa_only	        只使用抗混叠上采样
+# content_only	只使用内容感知残差，不使用抗混叠基底
+# caa	抗混叠基底 + 内容感知残差
+CAA_MODE="${CAA_MODE:-caa}"
+
+
+
+#CAA 内容感知残差的初始缩放系数。
+# CAA 的核心计算可以简化为：output = base + scale * gate * residual
+#其中：
+# - base：抗混叠或最近邻上采样结果；
+# - gate：内容感知门控；
+# - residual：深度卷积残差；
+# - scale：残差强度。
+# 当前初始值为：
+# CAA_RESIDUAL_SCALE=0.1
+# 这表示模型开始训练时，内容感知残差以较小强度加入基础上采样路径，避免新模块一开始完全压过原始上采样结果。
+#0.1 是初始值，不是训练期间永远固定为 0.1。
+CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+
 
 
 
@@ -106,34 +143,6 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 
 
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_AREA_ADAPTIVE_TVERSKY="${USE_AREA_ADAPTIVE_TVERSKY:-1}"
-CEPA_ENABLED="${CEPA_ENABLED:-1}"
-
-AREA_TVERSKY_WEIGHT="${AREA_TVERSKY_WEIGHT:-1.0}"
-
-#它决定 EUCB 使用哪种上采样方式。
-# 值	         实际含义
-# off	          原始 EMCAD EUCB 上采样
-# aa_only	        只使用抗混叠上采样
-# content_only	只使用内容感知残差，不使用抗混叠基底
-# caa	抗混叠基底 + 内容感知残差
-CAA_MODE="${CAA_MODE:-caa}"
-
-
-
-#CAA 内容感知残差的初始缩放系数。
-# CAA 的核心计算可以简化为：output = base + scale * gate * residual
-#其中：
-# - base：抗混叠或最近邻上采样结果；
-# - gate：内容感知门控；
-# - residual：深度卷积残差；
-# - scale：残差强度。
-# 当前初始值为：
-# CAA_RESIDUAL_SCALE=0.1
-# 这表示模型开始训练时，内容感知残差以较小强度加入基础上采样路径，避免新模块一开始完全压过原始上采样结果。
-#0.1 是初始值，不是训练期间永远固定为 0.1。
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
 
 
 #这是多尺度训练总开关。

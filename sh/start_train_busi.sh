@@ -23,8 +23,15 @@ mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+
+#AI Station
+CONDA_BASE="/root/anaconda3"
+CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
+
 
 
 

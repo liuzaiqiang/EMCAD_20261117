@@ -23,6 +23,13 @@ export RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
+
+#AI Station
+CONDA_BASE="/root/anaconda3"
+CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
+
+
+
 # 根据当前启动文件位置计算项目根，使用户从项目任意目录调用时路径仍保持正确。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"

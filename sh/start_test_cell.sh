@@ -25,9 +25,13 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
+
+#AI Station
+CONDA_BASE="/root/anaconda3"
+CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
 
 # Cell 数据根默认位于项目目录上四级的 data/cell/target；服务器数据位置不同可传 DATA_ROOT 覆盖。
 export DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/cell/target}"
