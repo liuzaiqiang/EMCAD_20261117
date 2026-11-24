@@ -10,28 +10,26 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
-
-
-#210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
 #CONDA_BASE="/home/mlf/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
-
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
@@ -103,8 +101,9 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 
 
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-0}"
+
+
+
 [[ "${USE_SKIP_FREQUENCY_GATE}" =~ ^[01]$ ]] || { echo "[ERROR] USE_SKIP_FREQUENCY_GATE must be 0 or 1" >&2; exit 2; }
 
 #它决定 EUCB 使用哪种上采样方式。
@@ -167,7 +166,7 @@ if [[ "${INPUT_CHANNELS}" == "1" ]]; then IMAGE_MODE_ARGS+=(--grayscale); fi
 # 数据根目录应包含 <dataset>/{train,val}/{images,masks}；默认输出按 DATASET 隔离并可外部覆盖。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/polyp/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/${DATASET}}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 白名单正则只允许安全文件名字符，防止DATASET_NAME把路径拼接到意外目录；失败退出码为1。
 [[ "${DATASET_NAME}" =~ ^[A-Za-z0-9._-]+$ ]] || {

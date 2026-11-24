@@ -13,22 +13,21 @@ cd "${PROJECT_DIR}"
 # 测试进程的标准输出和标准错误统一写入项目 logs 目录；-p 允许目录已存在。
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
-
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -88,10 +87,10 @@ fi
 # 逐项检查图像、掩膜、样本清单和划分摘要；任一路径缺失都会立即指出具体缺项。
 # 反斜杠连接的是同一个 for 头部，四个路径依次赋给 REQUIRED。
 for REQUIRED in \
-  "${DATA_ROOT}/BUSI/${SPLIT}/images" \
-  "${DATA_ROOT}/BUSI/${SPLIT}/masks" \
-  "${DATA_ROOT}/BUSI/manifest.csv" \
-  "${DATA_ROOT}/BUSI/split_summary.json"
+  "${DATA_ROOT}/${SPLIT}/images" \
+  "${DATA_ROOT}/${SPLIT}/masks" \
+  "${DATA_ROOT}/manifest.csv" \
+  "${DATA_ROOT}/split_summary.json"
 do
   if [[ ! -e "${REQUIRED}" ]]; then
     echo "[ERROR] required BUSI path not found:"

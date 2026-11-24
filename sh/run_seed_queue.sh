@@ -25,10 +25,6 @@
 set -euo pipefail
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
-
 
 
 # 通过本调度器自身的位置解析项目根目录，因此从项目根目录或其他目录调用都可用。

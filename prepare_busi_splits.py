@@ -1268,11 +1268,11 @@ def parse_args():
         "--source_root",
         required=True,
     )
-    # Default output is data/busi/target/BUSI four levels above the project root.
+    # Default output is data/busi/target four levels above the project root.
     parser.add_argument(
         "--output_root",
         default=(
-            "../../../../data/busi/target/BUSI"
+            "../../../../data/busi/target"
         ),
     )
     # seed必须解析为整数，用于重复组的确定性伪随机排序。

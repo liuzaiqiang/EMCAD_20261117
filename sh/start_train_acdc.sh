@@ -2,21 +2,21 @@
 # Bash 严格模式：命令失败、未定义变量或管道中间失败时立即退出，避免带错误路径继续启动任务。
 set -euo pipefail
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -61,14 +61,15 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
 ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
 OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
 test -d "${ROOT_PATH}/train" || { echo "[ERROR] ROOT_PATH/train not found: ${ROOT_PATH}/train"; exit 1; }
 test -d "${ROOT_PATH}/valid" || { echo "[ERROR] ROOT_PATH/valid not found: ${ROOT_PATH}/valid"; exit 1; }
 test -f "${LIST_DIR}/train.txt" || { echo "[ERROR] train list not found: ${LIST_DIR}/train.txt"; exit 1; }
 test -f "${LIST_DIR}/valid.txt" || { echo "[ERROR] valid list not found: ${LIST_DIR}/valid.txt"; exit 1; }
-test -f "${PROJECT_DIR}/pretrained_pth/pvt/pvt_v2_b2.pth" || {
-  echo "[ERROR] pretrained model not found: ${PROJECT_DIR}/pretrained_pth/pvt/pvt_v2_b2.pth"
+test -f "${PRETRAINED_DIR}/pvt_v2_b2.pth" || {
+  echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/pvt_v2_b2.pth"
   echo "[ERROR] This Synapse-style launcher uses the pretrained EMCAD encoder."
   exit 1
 }
@@ -102,7 +103,7 @@ esac
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR USE_CONTENT_AWARE_ANTIALIAS USE_SKIP_FREQUENCY_GATE CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR USE_CONTENT_AWARE_ANTIALIAS USE_SKIP_FREQUENCY_GATE CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
@@ -117,6 +118,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
   --root_path "${ROOT_PATH}" \
   --list_dir "${LIST_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
+  --pretrained_dir "${PRETRAINED_DIR}" \
   --run_name "${RUN_ID}" \
   --encoder pvt_v2_b2 \
   --kernel_sizes 1 3 5 \

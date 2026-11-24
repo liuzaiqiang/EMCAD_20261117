@@ -30,6 +30,7 @@ import numpy as np
 import torch
 import time
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, synchronize
 # DataLoader 每次提供一个完整病例。
 from torch.utils.data import DataLoader
@@ -93,7 +94,7 @@ def parse_args():
     # 出现该旗标表示用 concat 聚合多尺度特征；默认 add。
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
-    parser.add_argument("--pretrained_dir", default="./pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
                         choices=["off", "aa_only", "content_only", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)

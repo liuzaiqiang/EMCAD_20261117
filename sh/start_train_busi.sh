@@ -13,22 +13,21 @@ LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
-
-#210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+#205
+#CONDA_BASE="/home/elham/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#CONDA_BASE="/home/mlf/anaconda3"
+#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -88,10 +87,10 @@ case "${USE_CONTENT_AWARE_ANTIALIAS}" in
   *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
 esac
 
-# 数据、模型输出和PVT权重目录；prepared BUSI数据固定位于DATA_ROOT/BUSI。
+# 数据、模型输出和PVT权重目录；prepared BUSI数据根就是DATA_ROOT。
 DATA_ROOT="${DATA_ROOT:-${PROJECT_DIR}/../../../../data/busi/target}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 非BUSI名称立即以退出码1停止，避免路径和数据协议不一致。
 if [[ "${DATASET_NAME}" != "BUSI" ]]; then
@@ -101,12 +100,12 @@ fi
 
 # 整个for续行块列出训练/验证图像掩膜及划分元数据；循环逐项检查存在性，缺一即退出1。
 for REQUIRED in \
-  "${DATA_ROOT}/BUSI/train/images" \
-  "${DATA_ROOT}/BUSI/train/masks" \
-  "${DATA_ROOT}/BUSI/val/images" \
-  "${DATA_ROOT}/BUSI/val/masks" \
-  "${DATA_ROOT}/BUSI/manifest.csv" \
-  "${DATA_ROOT}/BUSI/split_summary.json"
+  "${DATA_ROOT}/train/images" \
+  "${DATA_ROOT}/train/masks" \
+  "${DATA_ROOT}/val/images" \
+  "${DATA_ROOT}/val/masks" \
+  "${DATA_ROOT}/manifest.csv" \
+  "${DATA_ROOT}/split_summary.json"
 do
   if [[ ! -e "${REQUIRED}" ]]; then
     echo "[ERROR] required BUSI path not found:"

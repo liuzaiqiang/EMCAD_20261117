@@ -12,6 +12,7 @@
 import argparse
 from utils.checkpoint_stats import without_profiling_stats
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 # json 用来读取训练 checkpoint 同目录中的 config.json，自动复用训练时的结构和推理尺寸。
 import json
 # logging 将逐病例与逐类别指标写入文件并同步输出到终端。
@@ -90,7 +91,7 @@ parser.add_argument('--concatenation', action='store_true',
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # 构造模型时 PVT 预训练文件目录；随后完整 checkpoint 会覆盖模型参数。
-parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default=SHARED_PRETRAINED_DIR,
                     help='path to pretrained encoder dir')
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,

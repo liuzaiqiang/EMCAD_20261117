@@ -17,6 +17,7 @@ from pathlib import Path
 import torch
 from lib.benchmarking import InferenceBenchmark, log_environment, log_json, reset_peak_memory, peak_memory_mb
 from lib.test_output_paths import prepare_test_output
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 
 # 数据加载器同时暴露支持扩展名集合，供划分泄漏检查复用同一文件口径。
 from utils.dataloader_polyp import (
@@ -157,7 +158,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="./pretrained_pth/pvt/",
+        default=SHARED_PRETRAINED_DIR,
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。
@@ -391,12 +392,10 @@ def main():
             "--threshold must be between 0 and 1"
         )
 
-    # 数据集根形如 <data_root>/<dataset_name>。
-    dataset_root = os.path.join(
-        # 已准备数据总根。
-        args.data_root,
-        # ClinicDB/Kvasir 等具体数据集名。
-        args.dataset_name,
+    # BUSI 的 data_root 已是数据集根；其他数据集按名称建子目录。
+    dataset_root = (
+        args.data_root if args.dataset_name == "BUSI"
+        else os.path.join(args.data_root, args.dataset_name)
     )
     # 当前评估划分根形如 <dataset_root>/test 或 val。
     split_root = os.path.join(

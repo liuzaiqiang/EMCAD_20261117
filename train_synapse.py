@@ -30,6 +30,7 @@ import torch.backends.cudnn as cudnn
 # EMCADNet 封装“编码器 + EMCAD 解码器 + 四个分割头”；结构细节在 lib/networks.py。
 from lib.networks import EMCADNet
 from lib.experiment_paths import make_experiment_dir
+from lib.pretrained_paths import SHARED_PRETRAINED_DIR
 # trainer_synapse 承担 DataLoader、损失、反向传播、验证和 checkpoint 保存。
 from trainer import trainer_synapse
 
@@ -71,7 +72,7 @@ parser.add_argument('--concatenation', action='store_true', default=False,
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # PVT 预训练权重目录；EMCADNet 会按 encoder 名称拼接具体 .pth 文件名。
-parser.add_argument('--pretrained_dir', type=str, default='./pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default=SHARED_PRETRAINED_DIR,
                     help='path to pretrained encoder dir')
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',
