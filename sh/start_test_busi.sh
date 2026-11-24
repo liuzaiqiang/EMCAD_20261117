@@ -23,8 +23,8 @@ cd "${PROJECT_DIR}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
@@ -132,7 +132,7 @@ PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # tee -a 将本次评估的关键路径和参数追加到日志；重定向到 /dev/null 避免每项在终端重复显示。
 # MODEL_CONFIG 这一记录强调网络结构来自检查点旁的 config.json；RUN_ID 单独打印供停止脚本使用。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATA_ROOT SPLIT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV MAX_CASES RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATASET_NAME DATA_ROOT SPLIT CKPT CONFIG_FILE INFERENCE_BATCH_SIZE NUM_WORKERS DETERMINISTIC MAX_CASES DEVICE TEST_SAVE_DIR OUTPUT_CSV RUN_ID PID_FILE LOG_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done

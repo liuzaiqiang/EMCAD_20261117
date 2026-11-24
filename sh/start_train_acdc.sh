@@ -3,6 +3,8 @@
 set -euo pipefail
 
 
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
@@ -13,13 +15,14 @@ set -euo pipefail
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 
@@ -58,9 +61,9 @@ DETERMINISTIC="${DETERMINISTIC:-1}"
 
 
 # 数据根目录包含 train/valid/test；列表目录保存各划分病例名；模型输出固定写入 model_pth/ACDC。
-LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
-ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
-OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
+LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC}"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/ACDC}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ACDC}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
@@ -84,9 +87,9 @@ RUN_ID="train_${DATASET}_${TS}_gpu_${CUDA_VISIBLE_DEVICES}_SEED_${SEED}_RAND_${R
 PID_FILE="${RUN_ID}.pid"
 
 
-# CAA 使用独立开关；默认启用。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-0}"
+
+
+
 [[ "${USE_SKIP_FREQUENCY_GATE}" =~ ^[01]$ ]] || { echo "[ERROR] USE_SKIP_FREQUENCY_GATE must be 0 or 1" >&2; exit 2; }
 
 CAA_MODE="${CAA_MODE:-caa}"
@@ -103,7 +106,7 @@ esac
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR USE_CONTENT_AWARE_ANTIALIAS USE_SKIP_FREQUENCY_GATE CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR USE_CONTENT_AWARE_ANTIALIAS USE_SKIP_FREQUENCY_GATE CAA_MODE CAA_RESIDUAL_SCALE TS RAND LOG_FILE RUN_ID PID_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
@@ -114,7 +117,7 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICE
 
 # 整个反斜杠块是一条后台命令：nohup抵抗终端断开，env注入RUN_ID用于停止时核验进程身份。
 # -u和PYTHONUNBUFFERED共同减少日志缓冲；stdout追加到日志，stderr合并，stdin断开，&立即返回控制权。
-nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_acdc.py \
   --root_path "${ROOT_PATH}" \
   --list_dir "${LIST_DIR}" \
   --output_dir "${OUTPUT_DIR}" \

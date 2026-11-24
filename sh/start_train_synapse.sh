@@ -16,12 +16,13 @@ set -euo pipefail
 
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
@@ -45,15 +46,15 @@ export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
-NUM_WORKERS=8
+NUM_WORKERS="${NUM_WORKERS:-8}"
 
 SEED="${SEED:-2222}"
-MAX_EPOCHS=300
+MAX_EPOCHS="${MAX_EPOCHS:-300}"
 DATASET="Synapse"
-IMG_SIZE=224
-BATCH_SIZE=16
-SUPERVISION="mutation"
-BASE_LR=1e-4
+IMG_SIZE="${IMG_SIZE:-224}"
+BATCH_SIZE="${BATCH_SIZE:-16}"
+SUPERVISION="${SUPERVISION:-mutation}"
+BASE_LR="${BASE_LR:-1e-4}"
 
 # 编码器是特征提取网络的结构名称；默认 PVTv2-B2 与 train_synapse.py 原有默认值一致。
 # 可在启动队列前写 ENCODER=pvt_v2_b0 或 ENCODER=resnet34 来切换整个队列的结构。
@@ -68,6 +69,9 @@ esac
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/Synapse/train_npz}"
+VOLUME_PATH="${VOLUME_PATH:-${PROJECT_DIR}/../../../../data/Synapse/test_vol_h5}"
+LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/Synapse/lists/lists_Synapse}"
 # EMCAD 解码器的主要结构参数；这里显式传给 Python，避免以后 Python 默认值改动造成实验漂移。
 EXPANSION_FACTOR="${EXPANSION_FACTOR:-2}"
 #MSDC 的三个深度卷积核；数组展开后对应 --kernel_sizes 1 3 5。
@@ -137,6 +141,7 @@ esac
 PARAM_NAMES=(
   CONDA_BASE
   CONDA_ENV_PREFIX
+  PYTHON_BIN
   PROJECT_DIR
   LOG_DIR
   CUDA_VISIBLE_DEVICES
@@ -150,6 +155,9 @@ PARAM_NAMES=(
   ENCODER
   USE_PRETRAIN
   PRETRAINED_DIR
+  ROOT_PATH
+  VOLUME_PATH
+  LIST_DIR
   EXPANSION_FACTOR
   KERNEL_SIZES_DISPLAY
   LGAG_KS
@@ -187,8 +195,11 @@ PARAM_NAMES=(
 # 启动命令块：nohup使进程忽略终端挂断信号；env把RUN_ID写入子进程环境，停止脚本会读取它防止PID复用误杀。  >> 追加标准输出，2>&1把标准错误并入同一日志，< /dev/null断开标准输入
 # 参数列表和日志重定向必须属于同一条 shell 命令；最后一个参数行用反斜杠续接重定向行，
 # 这样 $! 才会记录真正运行 Python 训练的后台进程，且 stdout/stderr 会进入本次训练日志。
-nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_synapse.py \
   --dataset "${DATASET}" \
+  --root_path "${ROOT_PATH}" \
+  --volume_path "${VOLUME_PATH}" \
+  --list_dir "${LIST_DIR}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \
   --max_epochs "${MAX_EPOCHS}" \
@@ -216,5 +227,5 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
 
 PID=$!
 echo "[INFO] PID=${PID}"
-#PID 文件在项目根目录
+# PID 文件保存在项目 logs 目录，与 stop_train_synapse.sh 的查找位置一致。
 echo "${PID}" > "${PID_FILE}"

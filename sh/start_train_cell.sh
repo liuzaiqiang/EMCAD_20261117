@@ -15,6 +15,10 @@
 set -euo pipefail
 
 
+# Cell uses the shared binary trainer and exposes its CAA switch here.
+export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
+
 
 
 #205
@@ -26,8 +30,8 @@ set -euo pipefail
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
@@ -74,9 +78,9 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 # 以免严格模式 set -u 因变量未定义而在创建训练进程前退出；多卡时可在命令前覆盖。
 export N_GPU="${N_GPU:-1}"
 
-# Cell uses the shared binary trainer and exposes its CAA switch here.
-export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-export USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-0}"
+
+
+
 case "${USE_SKIP_FREQUENCY_GATE}" in
   0|1) ;;
   *) echo "[ERROR] USE_SKIP_FREQUENCY_GATE must be 0 or 1" >&2; exit 2 ;;

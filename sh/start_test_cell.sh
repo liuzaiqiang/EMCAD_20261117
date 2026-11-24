@@ -26,8 +26,8 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 

@@ -23,8 +23,8 @@ cd "${PROJECT_DIR}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
@@ -48,7 +48,7 @@ MAX_CASES="${MAX_CASES:-0}"
 
 # 病例列表和数据根目录采用项目旁的固定ACDC布局；CKPT必须由调用者明确指定。
 LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC}"
-ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/ACDC}"
 # 默认在 ACDC 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
 CKPT="${CKPT:-}"
 

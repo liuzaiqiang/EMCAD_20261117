@@ -22,8 +22,8 @@ cd "${PROJECT_DIR}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
@@ -116,7 +116,7 @@ LOG_FILE="${RUN_DIR}/test.log"
 PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 把实际解析后的路径写入日志；网络设置由检查点配置文件管理。
-PARAM_NAMES=(PROJECT_DIR DATASET_NAME SPLIT DATA_ROOT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR CUDA_VISIBLE_DEVICES DATASET DATASET_NAME SPLIT DATA_ROOT CKPT CONFIG_FILE INFERENCE_BATCH_SIZE NUM_WORKERS THRESHOLD DETERMINISTIC MAX_CASES DEVICE TEST_SAVE_DIR OUTPUT_CSV RUN_ID PID_FILE LOG_FILE)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done

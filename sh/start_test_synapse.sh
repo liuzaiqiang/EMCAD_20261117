@@ -24,19 +24,15 @@ cd "${PROJECT_DIR}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
-
-
-
-
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -87,6 +83,7 @@ PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 PARAM_NAMES=(
   CONDA_BASE
   CONDA_ENV_PREFIX
+  PYTHON_BIN
   PROJECT_DIR
   LOG_DIR
   CUDA_VISIBLE_DEVICES
@@ -114,7 +111,7 @@ PARAM_NAMES=(
 # 整个反斜杠块是一条测试命令：nohup抵抗终端断开，env写入RUN_ID供停止时核验进程身份。
 # 测试模型参数和输入尺寸从 TRAIN_CONFIG 自动恢复；本启动器只传 checkpoint 与测试数据位置。
 # stdout/stderr 写入同一测试日志，stdin 断开，末尾 & 让启动器立即返回。
-nohup env RUN_ID="${RUN_ID}" python -u test_synapse.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u test_synapse.py \
   --dataset "${DATASET}" \
   --checkpoint "${CKPT}" \
   --train_config "${TRAIN_CONFIG}" \
