@@ -1,12 +1,3 @@
-"""Connectivity and edge guided feature attention for EMCAD skip fusion.
-
-Adapted from the dual-path CEPA concept in Wu et al., MCEPANet, Biomedical
-Physics & Engineering Express 12 (2026) 045020, DOI: 10.1088/2057-1976/ae7c06.
-The exact authors' implementation and full equations were unavailable at
-implementation time. This module is an explicit EMCAD adaptation, not a
-claim of exact reproduction. It uses only image features at inference.
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
