@@ -99,7 +99,7 @@ def parse_args():
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
     parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
-                        choices=["off", "aa_only", "content_only", "caa"])
+                        choices=["off", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
 

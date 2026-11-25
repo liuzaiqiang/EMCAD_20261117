@@ -6,12 +6,10 @@ import torch.nn.functional as F
 
 def area_adaptive_tversky_loss(logits, target, alpha=0.4, beta=0.6,
                                max_class_weight=3.0, eps=1e-6):
-    """One foreground-area-weighted objective for binary and multiclass masks.
+    """Anchored area weighting for present foreground classes only.
 
-    A unit is one (image, foreground class) pair. All present units in the
-    batch share the same weighting and reduction, regardless of class count.
-    The one-logit and multi-logit cases only differ when decoding probabilities
-    and labels into the common [B, K, H, W] foreground representation.
+    Each image/foreground-class pair is a unit. We divide by the number of
+    present units, not the sum of weights, so weighting survives batch size 1.
     """
     if logits.ndim != 4 or target.ndim != 3 or target.shape != logits.shape[:1] + logits.shape[2:]:
         raise ValueError("Expected logits [B,C,H,W] and target [B,H,W]")
@@ -29,15 +27,15 @@ def area_adaptive_tversky_loss(logits, target, alpha=0.4, beta=0.6,
     dims = (2, 3)
     area = labels.sum(dim=dims)
     present = area > 0
-    if not present.any():
-        return logits.sum() * 0.0
-
     tp = (probabilities * labels).sum(dim=dims)
     fp = (probabilities * (1 - labels)).sum(dim=dims)
     fn = ((1 - probabilities) * labels).sum(dim=dims)
     score = (tp + eps) / (tp + alpha * fp + beta * fn + eps)
 
-    inverse_area = area.clamp_min(1).rsqrt()
-    relative_weight = inverse_area / inverse_area[present].mean().clamp_min(eps)
-    weights = relative_weight.clamp(max=max_class_weight) * present
-    return ((1 - score) * weights).sum() / weights.sum().clamp_min(eps)
+    fraction = area / float(labels.shape[-2] * labels.shape[-1])
+    # Fixed full-image anchor: small present regions get larger weight even
+    # when a batch contains only one positive image and one foreground class.
+    weights = 1.0 + (max_class_weight - 1.0) * (1.0 - fraction.sqrt())
+    # Keep the inherited empty-foreground policy of this auxiliary loss:
+    # absent classes receive no extra term. The original task loss is separate.
+    return ((1 - score) * weights * present).sum() / present.sum().clamp_min(1)

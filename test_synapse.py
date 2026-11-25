@@ -105,7 +105,7 @@ parser.add_argument('--checkpoint', type=str, required=True,
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
 parser.add_argument('--caa_mode', type=str, default='off',
-                    choices=['off', 'aa_only', 'content_only', 'caa'])
+                    choices=['off', 'caa'])
 parser.add_argument('--caa_residual_scale', type=float, default=0.1)
 parser.add_argument('--cepa_enabled', type=int, choices=[0, 1], default=0)
 

@@ -543,32 +543,24 @@ def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], 
 #   eucb1: 128@28x28 ->  64@56x56
 # --------------------------------------------------------------------------------------------------
 class ContentAwareAntiAliasUpsample(nn.Module):
-    """抗混叠基底与内容门控残差的可消融上采样。"""
+    """Use EMCAD's preceding SAB response to constrain upsampled detail."""
     def __init__(self, channels, mode='caa', residual_scale=0.1):
         super(ContentAwareAntiAliasUpsample, self).__init__()
-        valid_modes = {'aa_only', 'content_only', 'caa'}
-        if mode not in valid_modes:
+        if mode != 'caa':
             raise ValueError('Unknown content-aware upsampling mode: {}'.format(mode))
         if float(residual_scale) < 0.0:
             raise ValueError('Caa residual scale must be non-negative')
         self.channels = int(channels)
-        self.mode = mode
-        self.residual_scale = (None if mode == 'aa_only' else
-                               nn.Parameter(torch.tensor(float(residual_scale))))
-
-        if self.mode == 'aa_only':
-            self.content_gate = None
-            self.residual_dw = None
-        else:
-            hidden = max(8, self.channels // 4)
-            self.content_gate = nn.Sequential(
-                nn.Conv2d(self.channels, hidden, kernel_size=1, bias=True),
-                act_layer('relu', inplace=True),
-                nn.Conv2d(hidden, 1, kernel_size=1, bias=True),
-            )
-            self.residual_dw = nn.Conv2d(
-                self.channels, self.channels, kernel_size=3, padding=1,
-                groups=self.channels, bias=False)
+        self.residual_scale = nn.Parameter(torch.tensor(float(residual_scale)))
+        hidden = max(8, self.channels // 4)
+        self.content_gate = nn.Sequential(
+            nn.Conv2d(self.channels * 2 + 1, hidden, kernel_size=1, bias=True),
+            act_layer('relu', inplace=True),
+            nn.Conv2d(hidden, 1, kernel_size=1, bias=True),
+        )
+        self.residual_dw = nn.Conv2d(
+            self.channels, self.channels, kernel_size=3, padding=1,
+            groups=self.channels, bias=False)
         self.init_weights('normal')
 
         kernel = torch.tensor(
@@ -576,25 +568,25 @@ class ContentAwareAntiAliasUpsample(nn.Module):
             dtype=torch.float32) / 16.0
         self.register_buffer('anti_alias_kernel', kernel.view(1, 1, 3, 3))
 
-    def forward(self, x):
-        if self.mode == 'content_only':
-            base = torch.nn.functional.interpolate(x, scale_factor=2, mode='nearest')
-        else:
-            kernel = self.anti_alias_kernel.to(dtype=x.dtype, device=x.device)
-            kernel = kernel.expand(self.channels, 1, 3, 3)
-            pad_mode = 'reflect' if min(x.shape[-2:]) > 1 else 'replicate'
-            filtered = torch.nn.functional.pad(x, (1, 1, 1, 1), mode=pad_mode)
-            filtered = torch.nn.functional.conv2d(filtered, kernel, groups=self.channels)
-            base = torch.nn.functional.interpolate(
-                filtered, scale_factor=2, mode='bilinear', align_corners=False)
-
-        if self.mode == 'aa_only':
-            return base
-
-        gate = torch.sigmoid(self.content_gate(base))
-        residual = self.residual_dw(base)
+    def forward(self, x, support):
+        if support is None or support.shape != (x.shape[0], 1, x.shape[2], x.shape[3]):
+            raise ValueError('SAB support must have shape [B,1,H,W] at EUCB input resolution')
+        kernel = self.anti_alias_kernel.to(dtype=x.dtype, device=x.device)
+        kernel = kernel.expand(self.channels, 1, 3, 3)
+        pad_mode = 'reflect' if min(x.shape[-2:]) > 1 else 'replicate'
+        filtered = torch.nn.functional.pad(x, (1, 1, 1, 1), mode=pad_mode)
+        filtered = torch.nn.functional.conv2d(filtered, kernel, groups=self.channels)
+        base = torch.nn.functional.interpolate(
+            filtered, scale_factor=2, mode='bilinear', align_corners=False)
+        direct = torch.nn.functional.interpolate(
+            x, scale_factor=2, mode='bilinear', align_corners=False)
+        detail = direct - base
+        support_up = torch.nn.functional.interpolate(
+            support, size=base.shape[-2:], mode='bilinear', align_corners=False)
+        gate = torch.sigmoid(self.content_gate(torch.cat((base, detail.abs(), support_up), dim=1)))
+        residual = detail + self.residual_dw(base)
         scale = torch.clamp(self.residual_scale, min=0.0, max=1.0)
-        return base + scale * gate * residual
+        return base + scale * gate * support_up * residual
 
     def init_weights(self, scheme=''):
         named_apply(partial(_init_weights, scheme=scheme), self)
@@ -649,10 +641,16 @@ class EUCB(nn.Module):
         named_apply(partial(_init_weights, scheme=scheme), self)
 
     # 输入 (B,C_in,H,W)，输出 (B,C_out,2H,2W)。
-    def forward(self, x):
-        # 该 forward 不接收 skip；它只处理解码主路。skip 的筛选和融合由后面的 LGAG/EMCAD 完成。
+    def forward(self, x, support=None):
+        # This block receives the preceding SAB map when CAA is enabled;
+        # encoder skip selection and fusion still happen in LGAG/EMCAD.
         # 上采样、深度卷积、BN、激活，形状变为 (B,C_in,2H,2W)。
-        x = self.up_dwc(x)
+        if self.caa_mode == 'off':
+            x = self.up_dwc(x)
+        else:
+            x = self.up_dwc[0](x, support)
+            for layer in list(self.up_dwc.children())[1:]:
+                x = layer(x)
         # 当前 groups=C_in 时每组只有一个通道，这次 shuffle 在现实现中等价于恒等重排。
         # 因而不要把本行误解为当前 EUCB 的主要跨通道融合来源；跨通道学习实际发生在下一行 self.pwc。
         x = channel_shuffle(x, self.in_channels)
@@ -1034,7 +1032,8 @@ class EMCAD(nn.Module):
         d4 = self.cab4(x) * x
         # SAB 权重乘回 d4 是论文式(8)的完整空间注意力，形状仍为 (B,C4,H/32,W/32)。
         # self.sab(d4) 是 (B,1,H4,W4)，广播到全部 C4 通道；CAB 后接 SAB 表示先选通道、再选位置。
-        d4 = self.sab(d4) * d4
+        support4 = self.sab(d4)
+        d4 = support4 * d4
         # MSCB 完成多尺度深度卷积细化；CAB -> SAB -> MSCB 合起来对应论文式(3)的 MSCAM。
         # MSCB 内部有残差，因此即使注意力压低某些响应，主分支仍能在训练中学习必要的局部修正。
         d4 = self.mscb4(d4)
@@ -1042,7 +1041,7 @@ class EMCAD(nn.Module):
         # EUCB3
         # d4 二倍上采样并把 C4 投影为 C3；PVTv2-B2 为 512 -> 320。
         # 此时得到的 d3 是“尚未融合 skip 的解码候选特征”，下一步将它作为 LGAG 的 gating 信号。
-        d3 = self.eucb3(d4)
+        d3 = self.eucb3(d4, support4)
 
         # LGAG3
         # skips[0] 是编码器 x3；LGAG 输出被门控的 x3，通道和分辨率不变。
@@ -1061,14 +1060,15 @@ class EMCAD(nn.Module):
         # 注意力在 skip 融合之后执行，因此其权重同时根据“上采样语义 + 编码细节”的合成特征生成。
         d3 = self.cab3(d3) * d3
         # 第三级空间注意力。
-        d3 = self.sab(d3) * d3
+        support3 = self.sab(d3)
+        d3 = support3 * d3
         # 第三级多尺度卷积细化；输出形状保持不变。
         d3 = self.mscb3(d3)
 
         # EUCB2
         # 再次二倍上采样并执行 C3 -> C2；PVTv2-B2 为 320 -> 128。
         # 该操作把 d3 从输入 1/16 尺度恢复到 1/8 尺度。
-        d2 = self.eucb2(d3)
+        d2 = self.eucb2(d3, support3)
 
         # LGAG2
         # 门控编码器 x2，输出保持 skips[1] 的 C2 通道。
@@ -1086,14 +1086,15 @@ class EMCAD(nn.Module):
         # 第二级通道注意力。
         d2 = self.cab2(d2) * d2
         # 第二级空间注意力。
-        d2 = self.sab(d2) * d2
+        support2 = self.sab(d2)
+        d2 = support2 * d2
         # 第二级多尺度卷积细化。
         d2 = self.mscb2(d2)
 
         # EUCB1
         # 最后一次二倍上采样并执行 C2 -> C1；PVTv2-B2 为 128 -> 64。
         # d1 是本解码器空间分辨率最高的内部特征，但还不是类别概率或二值掩膜。
-        d1 = self.eucb1(d2)
+        d1 = self.eucb1(d2, support2)
 
         # LGAG1
         # 门控最高分辨率编码器特征 x1。

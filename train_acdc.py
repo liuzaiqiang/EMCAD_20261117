@@ -112,7 +112,7 @@ def parse_args():
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=SHARED_PRETRAINED_DIR)
     parser.add_argument("--caa_mode", default="off",
-                        choices=["off", "aa_only", "content_only", "caa"])
+                        choices=["off", "caa"])
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
     parser.add_argument("--use_area_adaptive_tversky", type=int, choices=[0, 1], default=0)

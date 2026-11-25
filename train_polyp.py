@@ -176,7 +176,7 @@ def parse_args():
         default=SHARED_PRETRAINED_DIR,
     )
     # CAA 仅改变 EUCB 上采样；off 模式保留基础模型路径。
-    parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
+    parser.add_argument("--caa_mode", choices=["off", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
     parser.add_argument("--use_area_adaptive_tversky", type=int, choices=[0, 1], default=0)

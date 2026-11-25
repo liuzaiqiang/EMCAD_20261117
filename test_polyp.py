@@ -166,7 +166,7 @@ def parse_args():
     )
 
     # 与训练一致的 CAA 结构参数；缺省值会在 main 中由 checkpoint 配置覆盖。
-    parser.add_argument("--caa_mode", choices=["off", "aa_only", "content_only", "caa"], default="off")
+    parser.add_argument("--caa_mode", choices=["off", "caa"], default="off")
     parser.add_argument("--caa_residual_scale", type=float, default=0.1)
     parser.add_argument("--cepa_enabled", type=int, choices=[0, 1], default=0)
 
