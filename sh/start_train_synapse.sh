@@ -19,8 +19,8 @@ RUN_PURPOSE="${RUN_PURPOSE:-全套验证（第二套改造）：内容感知 + C
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 
 #212服务器
@@ -33,8 +33,8 @@ CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 #CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
 
 #autoDL
-#CONDA_BASE="/root/miniconda3"
-#CONDA_ENV_PREFIX="/root/miniconda3/envs/sld_emcad"
+CONDA_BASE="/root/miniconda3"
+CONDA_ENV_PREFIX="/root/miniconda3/envs/sld_emcad"
 
 
 
