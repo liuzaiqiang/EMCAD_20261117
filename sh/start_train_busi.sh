@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-全套验证： 内容感知 + CEPA + 面积自适应}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证（第二套改造）：内容感知 + CEPA  + 面积自适应}"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -12,8 +12,7 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
-
-#205服务器
+#205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
@@ -23,16 +22,18 @@ mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
+
+#212服务器
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
 #AI Station
-CONDA_BASE="/root/anaconda3"
-CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
-
-
+#CONDA_BASE="/root/anaconda3"
+#CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
 
 
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
