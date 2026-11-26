@@ -24,8 +24,14 @@ USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
 
 
 #210服务器
-CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
-CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
+#CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
+
+#autodl
+#CONDA_BASE="/root/miniconda3"
+#CONDA_ENV_PREFIX="/root/miniconda3/envs/sld_emcad"
+
+
 
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"

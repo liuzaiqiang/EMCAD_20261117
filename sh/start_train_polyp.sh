@@ -24,6 +24,11 @@ CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
 CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
+#autodl
+#CONDA_BASE="/root/miniconda3"
+#CONDA_ENV_PREFIX="/root/miniconda3/envs/sld_emcad"
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
