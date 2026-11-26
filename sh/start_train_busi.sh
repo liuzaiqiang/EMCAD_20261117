@@ -12,7 +12,9 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
-#205服务器
+
+
+#205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
@@ -22,8 +24,13 @@ mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+#212服务器
+#CONDA_BASE="/home/zym/anaconda3"
+#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
 #AI Station
@@ -31,6 +38,9 @@ CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 #CONDA_ENV_PREFIX="/root/anaconda3/envs/sld_emcad"
 
 
+#autoDL
+CONDA_BASE="/root/miniconda3"
+CONDA_ENV_PREFIX="/root/miniconda3/envs/sld_emcad"
 
 
 USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
