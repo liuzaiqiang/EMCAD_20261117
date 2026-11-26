@@ -5,18 +5,22 @@ import torch.nn.functional as F
 
 
 def area_adaptive_tversky_loss(logits, target, alpha=0.4, beta=0.6,
-                               max_class_weight=3.0, eps=1e-6):
+                               max_class_weight=3.0, eps=1e-6, *, area_anchor_strength=0.05):
     """One foreground-area-weighted objective for binary and multiclass masks.
 
     A unit is one (image, foreground class) pair. All present units in the
     batch share the same weighting and reduction, regardless of class count.
     The one-logit and multi-logit cases only differ when decoding probabilities
     and labels into the common [B, K, H, W] foreground representation.
+    The optional image-area correction adjusts relative weights gently while
+    retaining the original normalization by total weight.
     """
     if logits.ndim != 4 or target.ndim != 3 or target.shape != logits.shape[:1] + logits.shape[2:]:
         raise ValueError("Expected logits [B,C,H,W] and target [B,H,W]")
     if not 0 < alpha < 1 or not 0 < beta < 1 or max_class_weight < 1:
         raise ValueError("Invalid Tversky parameters")
+    if not 0.0 <= area_anchor_strength <= 0.05:
+        raise ValueError("area_anchor_strength must be in [0, 0.05]")
 
     if logits.shape[1] == 1:
         probabilities = torch.sigmoid(logits.float())
@@ -40,4 +44,13 @@ def area_adaptive_tversky_loss(logits, target, alpha=0.4, beta=0.6,
     inverse_area = area.clamp_min(1).rsqrt()
     relative_weight = inverse_area / inverse_area[present].mean().clamp_min(eps)
     weights = relative_weight.clamp(max=max_class_weight) * present
-    return ((1 - score) * weights).sum() / weights.sum().clamp_min(eps)
+    original = ((1 - score) * weights).sum() / weights.sum().clamp_min(eps)
+    if area_anchor_strength == 0:
+        return original
+
+    fraction = area / (labels.shape[-2] * labels.shape[-1])
+    anchor = 1.0 + area_anchor_strength * (1.0 - fraction.sqrt())
+    anchored_weights = weights * anchor
+    anchored = ((1 - score) * anchored_weights).sum() / anchored_weights.sum().clamp_min(eps)
+    # A single foreground item has no relative weights to adjust.
+    return torch.where(present.sum() > 1, anchored, original)

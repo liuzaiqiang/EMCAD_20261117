@@ -544,6 +544,8 @@ def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], 
 # --------------------------------------------------------------------------------------------------
 class ContentAwareAntiAliasUpsample(nn.Module):
     """抗混叠基底与内容门控残差的可消融上采样。"""
+    _version = 2
+
     def __init__(self, channels, mode='caa', residual_scale=0.1):
         super(ContentAwareAntiAliasUpsample, self).__init__()
         valid_modes = {'aa_only', 'content_only', 'caa'}
@@ -555,6 +557,7 @@ class ContentAwareAntiAliasUpsample(nn.Module):
         self.mode = mode
         self.residual_scale = (None if mode == 'aa_only' else
                                nn.Parameter(torch.tensor(float(residual_scale))))
+        self.detail_gain = nn.Parameter(torch.zeros(())) if mode == 'caa' else None
 
         if self.mode == 'aa_only':
             self.content_gate = None
@@ -593,8 +596,24 @@ class ContentAwareAntiAliasUpsample(nn.Module):
 
         gate = torch.sigmoid(self.content_gate(base))
         residual = self.residual_dw(base)
+        if self.detail_gain is not None:
+            # Reuse the detail removed by the same prefilter. The original
+            # content gate still controls the whole correction.
+            detail = torch.nn.functional.interpolate(
+                x - filtered, scale_factor=2, mode='bilinear', align_corners=False)
+            gain = (0.1 * self.detail_gain.tanh()).to(residual.dtype)
+            residual = residual + gain * detail.to(residual.dtype)
         scale = torch.clamp(self.residual_scale, min=0.0, max=1.0)
         return base + scale * gate * residual
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        key = prefix + 'detail_gain'
+        if (self.detail_gain is not None and local_metadata.get('version', 1) < 2
+                and key not in state_dict):
+            state_dict[key] = torch.zeros_like(self.detail_gain)
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                      missing_keys, unexpected_keys, error_msgs)
 
     def init_weights(self, scheme=''):
         named_apply(partial(_init_weights, scheme=scheme), self)
