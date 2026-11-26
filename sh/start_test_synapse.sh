@@ -12,7 +12,7 @@ cd "${PROJECT_DIR}"
 # 创建测试日志目录；所有后台stdout/stderr会追加到该目录中的本次日志。
 
 
-
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
 
 
 #205
@@ -35,7 +35,7 @@ conda activate "${CONDA_ENV_PREFIX}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
 
 # Synapse 测试必须使用与训练一致的模型配置；启动时从 best.pth 同目录读取训练配置。
 # VOLUME_PATH 和 LIST_DIR 可在调用脚本时覆盖，用于指向服务器实际存放的完整病例及划分列表。

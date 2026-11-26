@@ -4,6 +4,14 @@
 # -e 遇到未处理的非零退出码即停止，-u 拒绝未定义变量，pipefail 让管道任一环节失败都算失败。
 set -euo pipefail
 
+# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
+
+USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
+
+
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
@@ -25,13 +33,11 @@ conda activate "${CONDA_ENV_PREFIX}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
-USE_SKIP_FREQUENCY_GATE="${USE_SKIP_FREQUENCY_GATE:-1}"
 
 # 候选轮次先过 Dice 门槛，再计算完整 HD95；权重保存在同一运行目录。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
 SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.10}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.00}"
 
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,8 +47,7 @@ cd "${PROJECT_DIR}"
 LOG_DIR="${PROJECT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
-# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
@@ -172,6 +177,7 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
+
   USE_CONTENT_AWARE_ANTIALIAS
   USE_SKIP_FREQUENCY_GATE
 
