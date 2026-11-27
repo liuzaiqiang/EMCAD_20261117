@@ -543,6 +543,8 @@ def MSCBLayer(in_channels, out_channels, n=1, stride=1, kernel_sizes=[1, 3, 5], 
 # --------------------------------------------------------------------------------------------------
 class ContentAwareAntiAliasUpsample(nn.Module):
     """抗混叠基底与内容门控残差的可消融上采样。"""
+    _version = 2
+
     def __init__(self, channels, mode='caa', residual_scale=0.1):
         super(ContentAwareAntiAliasUpsample, self).__init__()
         valid_modes = {'aa_only', 'content_only', 'caa'}
@@ -554,6 +556,7 @@ class ContentAwareAntiAliasUpsample(nn.Module):
         self.mode = mode
         self.residual_scale = (None if mode == 'aa_only' else
                                nn.Parameter(torch.tensor(float(residual_scale))))
+        self.gate_context_gain = nn.Parameter(torch.zeros(())) if mode == 'caa' else None
 
         if self.mode == 'aa_only':
             self.content_gate = None
@@ -590,10 +593,29 @@ class ContentAwareAntiAliasUpsample(nn.Module):
         if self.mode == 'aa_only':
             return base
 
-        gate = torch.sigmoid(self.content_gate(base))
+        gate_logits = self.content_gate(base)
+        if self.gate_context_gain is not None:
+            # Share a small amount of gate context across nearby fine-grid
+            # positions without injecting the high frequencies removed by K.
+            logits = gate_logits.float()
+            neighborhood = torch.nn.functional.avg_pool2d(
+                logits, 3, stride=1, padding=1, count_include_pad=False)
+            context = (neighborhood - logits).tanh()
+            gain = 0.1 * self.gate_context_gain.tanh()
+            gate_logits = gate_logits + (gain * context).to(gate_logits.dtype)
+        gate = torch.sigmoid(gate_logits)
         residual = self.residual_dw(base)
         scale = torch.clamp(self.residual_scale, min=0.0, max=1.0)
         return base + scale * gate * residual
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        key = prefix + 'gate_context_gain'
+        if (self.gate_context_gain is not None and local_metadata.get('version', 1) < 2
+                and key not in state_dict):
+            state_dict[key] = torch.zeros_like(self.gate_context_gain)
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                      missing_keys, unexpected_keys, error_msgs)
 
     def init_weights(self, scheme=''):
         named_apply(partial(_init_weights, scheme=scheme), self)
