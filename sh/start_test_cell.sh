@@ -30,7 +30,9 @@ CONDA_BASE="${CONDA_BASE:-/home/lzq/lzqEnvs/miniconda3}"
 CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad}"
 
 
-
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
 
 
 # Default Cell data root is four levels above the project; DATA_ROOT can override it.
