@@ -42,6 +42,11 @@ def log_model_complexity(model, input_shape, prefix="model", output_path=None):
         # 把逐层统计刷屏，只把汇总结果写入训练日志。
         with torch.no_grad():
             macs, _ = profile(target, inputs=(dummy_input,), verbose=False)
+        if hasattr(target, "research_pair"):
+            from lib.research_261129 import functional_flops_estimate
+            extra = functional_flops_estimate(target)
+            records.append("{}_research_functional_flops_estimate={}".format(prefix, extra))
+            logging.info("%s_research_functional_flops_estimate=%d (approximate, separate from THOP; not complete)", prefix, extra)
         logging.info("%s_macs=%.0f", prefix, macs)
         logging.info("%s_flops=%.0f (2 * MACs)", prefix, 2.0 * macs)
         records.extend([
