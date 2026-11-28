@@ -568,6 +568,8 @@ def resized_batch(images, masks, image_size, rate):
 def main():
     # 解析参数；ISIC/BUSI包装器可替换该函数。
     args = parse_args()
+    from lib.research_261129 import capture_training_flags
+    capture_training_flags(args)
 
     # 验证间隔必须是正整数。
     if args.validate_every < 1:
@@ -959,11 +961,8 @@ def main():
                 with autocast(
                         enabled=scaler.is_enabled()
                 ):
-                    outputs = model_outputs(
-                        model,
-                        scaled_images,
-                        mode="train",
-                    )
+                    from lib.research_261129 import train_forward, add_auxiliary_loss
+                    outputs, research_aux = train_forward(model, scaled_images)
 
                     loss = supervised_structure_loss(
                         outputs,
@@ -971,6 +970,7 @@ def main():
                         args.supervision,
                     )
 
+                loss = add_auxiliary_loss(loss, research_aux, scaled_masks)
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
 
