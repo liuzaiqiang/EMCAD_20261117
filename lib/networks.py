@@ -63,7 +63,7 @@ class EMCADNet(nn.Module):
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
                  activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR,
-                 pointrend_enabled=False):
+                 local_support_refinement=False):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -217,19 +217,20 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
-        if pointrend_enabled:
-            from lib.point_rend import PointRendRefiner
-            self.point_rend = PointRendRefiner(channels[3], num_classes)
+        if local_support_refinement:
+            from lib.local_support_refinement import LocalSupportRefiner
+            self.local_support_refiner = LocalSupportRefiner(channels[3], num_classes)
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
     # 若传入 C=2、C=4 等其他通道数，本方法不会自动转换，随后骨干第一层通常会因期望 3 通道而报错。
     # 输出：长度为 4 的 Python 列表，每个元素都是 [B,K,H,W] 形状的 logits；列表末尾 p1 分辨率恢复路径最短。
-    # mode：当前只造成一次条件分支，但两个分支返回内容完全一致；它不会自动调用 eval()，也不控制梯度开关。
+    # mode 控制局部细化路径；模型状态和梯度由调用方设置。
     # 调用 model.eval()、torch.no_grad() 以及选择最终预测头，仍由测试脚本负责。
     # -------------------------------------------------------------------------
-    # 输入 x 约定为 (B,C,H,W)；mode 当前不改变返回值，训练策略由外部 trainer 决定。
+    # train_point 额外返回窗口内的 logits 和采样坐标。
     def forward(self, x, mode='test'):
+        image = x
         # 只在 C=1 时使用可学习适配器；已经是 RGB/C=3 时直接送入编码器。
         if x.size()[1] == 1:
             # (B,1,H,W) -> (B,3,H,W)，空间尺寸保持不变。
@@ -271,13 +272,14 @@ class EMCADNet(nn.Module):
         p2 = F.interpolate(p2, scale_factor=8, mode='bilinear')
         # p1 固定放大 4 倍；四个结果现在均为 (B,K,H,W)。
         p1 = F.interpolate(p1, scale_factor=4, mode='bilinear')
-        if hasattr(self, 'point_rend'):
+        if hasattr(self, 'local_support_refiner'):
+            image = image.expand(-1, 3, -1, -1)
             if mode == 'train_point':
-                point_logits, point_coords = self.point_rend.train_points(
-                    coarse_point_logits, dec_outs[3], x)
+                point_logits, point_coords = self.local_support_refiner.train_points(
+                    coarse_point_logits, dec_outs[3], image)
                 return [p4, p3, p2, p1], point_logits, point_coords
             if mode == 'test':
-                p1 = self.point_rend.refine(coarse_point_logits, dec_outs[3], x)
+                p1 = self.local_support_refiner.refine(coarse_point_logits, dec_outs[3], image, p1)
 
         # 论文第5页 Sec.3.3 把最后解码阶段称为 p4；本代码按反方向编号，外部推理实际取返回列表 P[-1]，即这里的 p1。
         if mode == 'test':

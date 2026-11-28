@@ -261,7 +261,7 @@ def parse_args():
     )
     # DSB18 多实例标签并为单通道前景时设为1。
     parser.add_argument("--merge_instance_masks", type=int, choices=[0, 1], default=0)
-    parser.add_argument("--pointrend_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--local_support_refinement", type=int, choices=[0, 1], default=0)
 
     # 返回 Namespace；后续 build_model/get_loader 直接读取其中字段。
     return parser.parse_args()
@@ -288,7 +288,7 @@ def restore_checkpoint_model_options(args):
         "img_size": "--img_size",
         "grayscale": "--grayscale",
         "merge_instance_masks": "--merge_instance_masks",
-        "pointrend_enabled": "--pointrend_enabled",
+        "local_support_refinement": "--local_support_refinement",
     }
     for field, option in options.items():
         if field not in config:

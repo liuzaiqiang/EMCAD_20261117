@@ -39,6 +39,11 @@ conda activate "${CONDA_ENV_PREFIX}"
 
 
 
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
 
 
 

@@ -64,7 +64,7 @@ def build_model(args, pretrain):
         lgag_ks=args.lgag_ks,
         # MSCB 使用的激活函数名称。
         activation=args.activation_mscb,
-        pointrend_enabled=bool(getattr(args, 'pointrend_enabled', 0)),
+        local_support_refinement=bool(getattr(args, 'local_support_refinement', 0)),
         # 选择 PVTv2 或 ResNet 编码器。
         encoder=args.encoder,
         # 控制是否加载编码器预训练权重，与编码器结构选择相互独立。

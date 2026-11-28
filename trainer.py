@@ -323,7 +323,7 @@ def trainer_synapse(args, model, snapshot_path):
             # 训练模式前向：EMCADNet 返回由粗到细的四个全分辨率 logits，均为 [B,9,224,224]。
             # 论文第 3.2/3.3 节把它们记作多阶段分割输出；这里变量名P表示 prediction list。
             # 注意，mode='train' 只是你这个 EMCAD forward() 的参数，不能替代 PyTorch 的 model.train()。真正决定 BatchNorm、Dropout 是否处于训练状态的是模型的 training 属性。
-            if args.pointrend_enabled:
+            if args.local_support_refinement:
                 P, point_logits, point_coords = model(image_batch, mode='train_point')
             else:
                 P = model(image_batch, mode='train')
@@ -389,8 +389,8 @@ def trainer_synapse(args, model, snapshot_path):
                 group_count = sum(bool(group) for group in ss)
                 loss += (HARD_POSITIVE_WEIGHT * group_count *
                          small_target_hard_positive_loss(P[-1], label_batch))
-            if args.pointrend_enabled:
-                from lib.point_rend import point_loss
+            if args.local_support_refinement:
+                from lib.local_support_refinement import point_loss
                 loss += point_loss(point_logits, point_coords, label_batch)
 
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。

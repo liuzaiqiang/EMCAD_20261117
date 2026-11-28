@@ -39,6 +39,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 # Project-specific imports
 # EMCADNet 封装编码器、解码器与四个二分类输出头。
 from lib.networks import EMCADNet
+from lib.local_support_refinement import point_loss
 # get_loader 配对图像/掩膜，并按 train/test 模式返回不同批结构。
 from utils.dataloader_polyp import get_loader as get_loader
 # clip_gradient 做逐参数梯度截断；adjust_lr 是旧阶梯衰减；AvgMeter 记录 loss；cal_params_flops 统计复杂度。
@@ -240,7 +241,10 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
             # 并不会自动恢复原始 opt.img_size；这里只说明真实执行顺序，不改逻辑。
 
             # 前向得到四级 logits 列表。
-            P = model(images)
+            if opt.local_support_refinement:
+                P, point_logits, point_coords = model(images, mode='train_point')
+            else:
+                P = model(images, mode='train')
             # 兼容单输出模型，但下面固定访问 P[0]..P[3]，因此实际仍要求至少 4 个输出。
             if not isinstance(P, list):
                 # 单 Tensor 包装成列表。
@@ -261,6 +265,8 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
             # 总损失为四个单头损失加一个聚合头损失；没有除以 5。
             loss = weights[0] * loss_p1 + weights[1] * loss_p2 + weights[2] * loss_p3 + weights[3] * loss_p4 + weights[
                 4] * loss_p1234
+            if opt.local_support_refinement:
+                loss = loss + point_loss(point_logits, point_coords, gts)
 
             # 对共享编码器、EMCAD 解码器和四个分割头反向传播。
             loss.backward()
@@ -375,6 +381,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_batchsize', type=int, default=8)
     # 网络输入尺寸 352。
     parser.add_argument('--img_size', type=int, default=352)
+    parser.add_argument('--local_support_refinement', type=int, choices=[0, 1], default=0)
     # 梯度值截断阈值。
     parser.add_argument('--clip', type=float, default=0.5)
     # adjust_lr 阶梯衰减倍率。
@@ -432,6 +439,8 @@ if __name__ == '__main__':
             f"e{opt.epoch}_aug{opt.augmentation}_run{run}_t{timestamp}")
         # 清理列表字符串中的方括号和逗号空格。
         run_id = run_id.replace('[', '').replace(']', '').replace(', ', '_')
+        if opt.local_support_refinement:
+            run_id += '_local_support1'
         # 本 run 权重目录。
         opt.train_save = f'./model_pth/{run_id}/'
 
@@ -452,7 +461,7 @@ if __name__ == '__main__':
         model = EMCADNet(num_classes=1, kernel_sizes=opt.kernel_sizes, expansion_factor=opt.expansion_factor,
                          dw_parallel=not opt.no_dw_parallel, add=not opt.concatenation, lgag_ks=opt.lgag_ks,
                          activation=opt.activation_mscb, encoder=opt.encoder, pretrain=not opt.no_pretrain,
-                         pretrained_dir=opt.pretrained_dir)
+                         pretrained_dir=opt.pretrained_dir, local_support_refinement=opt.local_support_refinement)
 
         # 设备变量表面支持 CPU 回退。
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

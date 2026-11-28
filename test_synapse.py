@@ -141,7 +141,7 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'pointrend_enabled',
+        'pretrained_dir', 'supervision', 'local_support_refinement',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -379,7 +379,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir,
-                     pointrend_enabled=bool(getattr(args, 'pointrend_enabled', 0)))
+                     local_support_refinement=bool(getattr(args, 'local_support_refinement', 0)))
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

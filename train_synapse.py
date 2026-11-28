@@ -79,7 +79,7 @@ parser.add_argument('--supervision', type=str, default='mutation',
                     help='loss supervision: mutation, deep_supervision or last_layer')
 parser.add_argument('--small_target_hard_supervision', type=int, choices=[0, 1], default=1,
                     help='1 adds size-aware hard-positive supervision to the final head')
-parser.add_argument('--pointrend_enabled', type=int, choices=[0, 1], default=0)
+parser.add_argument('--local_support_refinement', type=int, choices=[0, 1], default=0)
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=1,
                     help='1: online top-K checkpoints with full metrics; 0: single best.pth')
 parser.add_argument('--synapse_topk_size', type=int, default=10,
@@ -228,7 +228,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     pointrend_enabled=bool(args.pointrend_enabled))
+                     local_support_refinement=bool(args.local_support_refinement))
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。
     model.cuda()
