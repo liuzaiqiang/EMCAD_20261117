@@ -5,6 +5,27 @@
 set -euo pipefail
 
 
+##1. 跳连引导守恒式上采样
+#10 字定义：守住均值再重分配细节
+#50 字描述：用编码器跳连确定细节方向，在每个二乘二单元内重分配局部解码细节，保持插值均值，并限制输出在粗网格邻域值域内。
+
+
+#2. 梯度一致性跨尺度校正
+#10 字定义：按局部梯度校正尺度差
+#50 字描述：以原有分支求和为基础，比较相邻核尺度响应差与本级输入的局部梯度，在各位置只对有方向证据的细节施加有界修正。
+
+# PHASE_UPSAMPLING=0 uses baseline EUCB, 1 enables phase upsampling.
+PHASE_UPSAMPLING="${PHASE_UPSAMPLING:-1}"
+STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-1}"
+
+
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.10}"
+
+
+
+
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
@@ -14,8 +35,13 @@ set -euo pipefail
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+#autoDL
+CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
 
 
 
@@ -37,15 +63,8 @@ NUM_WORKERS=8
 
 SEED="${SEED:-2222}"
 
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.80}"
 
 
-
-# CAA 开关：0 使用基础 EUCB 上采样；1 使用原有内容感知抗混叠实现。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-0}"
-STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-1}"
 
 
 
@@ -127,17 +146,16 @@ case "${STAGE_ADAPTIVE_KERNELS}" in
   0|1) ;;
   *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 1 ;;
 esac
-if [[ "${STAGE_ADAPTIVE_KERNELS}" == "1" && "${CONCATENATION}" == "1" ]]; then
-  echo "[ERROR] STAGE_ADAPTIVE_KERNELS=1 requires CONCATENATION=0" >&2
+if [[ "${STAGE_ADAPTIVE_KERNELS}" != "0" && "${CONCATENATION}" == "1" ]]; then
+  echo "[ERROR] Enabled stage fusion requires CONCATENATION=0" >&2
   exit 1
 fi
 
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+PHASE_RESIDUAL_SCALE="${PHASE_RESIDUAL_SCALE:-0.1}"
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
+case "${PHASE_UPSAMPLING}" in
+  0|1) ;;
+  *) echo "[ERROR] PHASE_UPSAMPLING must be 0 or 1"; exit 1 ;;
 esac
 
 PARAM_NAMES=(
@@ -170,9 +188,8 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
-  USE_CONTENT_AWARE_ANTIALIAS
-  CAA_MODE
-  CAA_RESIDUAL_SCALE
+  PHASE_UPSAMPLING
+  PHASE_RESIDUAL_SCALE
   STAGE_ADAPTIVE_KERNELS
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
@@ -209,8 +226,8 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --phase_upsampling "${PHASE_UPSAMPLING}" \
+  --phase_residual_scale "${PHASE_RESIDUAL_SCALE}" \
   --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \

@@ -67,9 +67,8 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # 本地 PVT 权重目录。
         pretrained_dir=args.pretrained_dir,
-        # CAA 结构和残差初始尺度必须与训练 checkpoint 一致。
-        caa_mode=args.caa_mode,
-        caa_residual_scale=args.caa_residual_scale,
+        phase_upsampling=args.phase_upsampling,
+        phase_residual_scale=args.phase_residual_scale,
         stage_adaptive_kernels=args.stage_adaptive_kernels,
     )
 

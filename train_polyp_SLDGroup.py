@@ -374,6 +374,9 @@ if __name__ == '__main__':
     parser.add_argument('--test_batchsize', type=int, default=8)
     # 网络输入尺寸 352。
     parser.add_argument('--img_size', type=int, default=352)
+    parser.add_argument('--phase_upsampling', type=int, choices=[0, 1], default=0)
+    parser.add_argument('--phase_residual_scale', type=float, default=0.1)
+    parser.add_argument('--stage_adaptive_kernels', type=int, choices=[0, 1], default=0)
     # 梯度值截断阈值。
     parser.add_argument('--clip', type=float, default=0.5)
     # adjust_lr 阶梯衰减倍率。
@@ -431,6 +434,8 @@ if __name__ == '__main__':
             f"e{opt.epoch}_aug{opt.augmentation}_run{run}_t{timestamp}")
         # 清理列表字符串中的方括号和逗号空格。
         run_id = run_id.replace('[', '').replace(']', '').replace(', ', '_')
+        if opt.phase_upsampling or opt.stage_adaptive_kernels:
+            run_id += f'_phase{opt.phase_upsampling}_stage{opt.stage_adaptive_kernels}'
         # 本 run 权重目录。
         opt.train_save = f'./model_pth/{run_id}/'
 
@@ -451,7 +456,8 @@ if __name__ == '__main__':
         model = EMCADNet(num_classes=1, kernel_sizes=opt.kernel_sizes, expansion_factor=opt.expansion_factor,
                          dw_parallel=not opt.no_dw_parallel, add=not opt.concatenation, lgag_ks=opt.lgag_ks,
                          activation=opt.activation_mscb, encoder=opt.encoder, pretrain=not opt.no_pretrain,
-                         pretrained_dir=opt.pretrained_dir)
+                         pretrained_dir=opt.pretrained_dir, phase_upsampling=opt.phase_upsampling,
+                         phase_residual_scale=opt.phase_residual_scale, stage_adaptive_kernels=opt.stage_adaptive_kernels)
 
         # 设备变量表面支持 CPU 回退。
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

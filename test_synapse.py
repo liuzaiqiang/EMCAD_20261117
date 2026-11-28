@@ -17,6 +17,7 @@ import json
 import logging
 # os 负责 checkpoint、日志和预测目录的拼接/创建。
 import os
+from pathlib import Path
 # random 用于固定 Python 随机数状态；纯推理通常不应含随机增强。
 import random
 # sys.stdout 被添加为 logging 的流处理器。
@@ -100,9 +101,8 @@ parser.add_argument('--checkpoint', type=str, default='',
 # 当显式传入训练配置文件时，按其中记录的模型参数创建网络，避免测试结构与 checkpoint 不匹配。
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
-parser.add_argument('--caa_mode', type=str, default='off',
-                    choices=['off', 'aa_only', 'content_only', 'caa'])
-parser.add_argument('--caa_residual_scale', type=float, default=0.1)
+parser.add_argument('--phase_upsampling', type=int, choices=[0, 1], default=0)
+parser.add_argument('--phase_residual_scale', type=float, default=0.1)
 parser.add_argument('--stage_adaptive_kernels', type=int, choices=[0, 1], default=0)
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
@@ -121,7 +121,7 @@ parser.add_argument('--img_size', type=int, default=224, help='input patch size 
 parser.add_argument('--is_savenii', action="store_true", default=True, help='whether to save results during inference')
 
 # 预测保存根目录的初始值；主函数后面会在 is_savenii 分支中重新赋值。
-parser.add_argument('--test_save_dir', type=str, default='predictions', help='saving prediction as nii!')
+parser.add_argument('--test_save_dir', type=str, default=None, help='directory for test logs and predictions')
 # 1 选择确定性cuDNN设置，0 优先 benchmark 性能。
 parser.add_argument('--deterministic', type=int, default=1, help='whether use deterministic training')
 # 固定 Python、NumPy、PyTorch 和 CUDA 随机状态。
@@ -141,7 +141,7 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'caa_mode', 'caa_residual_scale',
+        'pretrained_dir', 'supervision', 'phase_upsampling', 'phase_residual_scale',
         'stage_adaptive_kernels',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     args.exp = args.encoder + '_EMCAD_kernel_sizes_' + str(args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(args.lgag_ks) + '_ef' + str(
         args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(
         run) + '_' + dataset_name + str(args.img_size)
-    args.exp += '_caa_{}_rs{}'.format(args.caa_mode, args.caa_residual_scale)
+    args.exp += '_phase_up_{}_rs{}'.format(args.phase_upsampling, args.phase_residual_scale)
 
     """
     # 重建内层 checkpoint 目录。
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         "model_pth", args.dataset, f"encoder_{args.encoder}", f"img_size_{args.img_size}",
         f"seed{args.seed}", f"batch_size_{args.batch_size}", f"lr_{args.base_lr}",
         f"maxEpochs_{args.max_epochs}")
-    snapshot_path += '_caa_{}_rs{}'.format(args.caa_mode, args.caa_residual_scale)
+    snapshot_path += '_phase_up_{}_rs{}'.format(args.phase_upsampling, args.phase_residual_scale)
 
 
 
@@ -375,7 +375,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     phase_upsampling=args.phase_upsampling, phase_residual_scale=args.phase_residual_scale,
                      stage_adaptive_kernels=args.stage_adaptive_kernels)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
@@ -393,35 +393,18 @@ if __name__ == "__main__":
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
     model.load_state_dict(state_dict, strict=True)
-    # 以正斜杠切分路径得到内层目录名；在纯 Windows 反斜杠路径上此写法需要留意。
-    snapshot_name = snapshot_path.split('/')[-1]
-
-    # 测试日志按实验标识放入 test_log/test_log_<exp>。
-    log_folder = 'test_log/test_log_' + args.exp
-    # 递归创建日志目录，存在时不报错。
-    os.makedirs(log_folder, exist_ok=True)
-    # 文件名取 snapshot_name；配置时间格式与训练日志一致。
-    logging.basicConfig(filename=log_folder + '/' + snapshot_name + ".txt", level=logging.INFO,
+    output_dir = (Path(args.test_save_dir) if args.test_save_dir else
+                  Path(snapshot).resolve().parent / 'test_results' / str(time.time_ns()))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    args.test_save_dir = str(output_dir)
+    logging.basicConfig(filename=output_dir / 'test.log', level=logging.INFO,
                         format='[%(asctime)s.%(msecs)03d] %(message)s', datefmt='%H:%M:%S')
     # 同时把日志输出到控制台。
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     # 记录完整测试参数。
     logging.info(str(args))
-    # 记录 checkpoint 目录短名。
-    logging.info(snapshot_name)
-
-    # 当前 is_savenii 因 default=True 实际总会进入该分支。
-    if args.is_savenii:
-        # 把保存根目录改为 checkpoint 目录下的 predictions。
-        args.test_save_dir = os.path.join(snapshot_path, "predictions")
-        # 再按实验标识和 snapshot_name+'2' 建立更深的输出目录；末尾 2 是现有命名约定。
-        test_save_path = os.path.join(args.test_save_dir, args.exp, snapshot_name + '2')
-        # 创建输出目录；test_single_volume 会在其中写 PNG 和 NIfTI 文件。
-        os.makedirs(test_save_path, exist_ok=True)
-    # 理论上的不保存分支；以当前参数定义无法通过命令行触发。
-    else:
-        # None 表示不提供保存路径，但 utils 中的逐切片叠加图代码也依赖路径，需注意当前实现耦合。
-        test_save_path = None
+    logging.info('checkpoint=%s', Path(snapshot).resolve())
+    test_save_path = str(output_dir) if args.is_savenii else None
     # 启动整测试集推理；返回的状态字符串未被接收，最终结果查看日志与输出文件。
     # 记录环境并把 benchmark 对象挂到 args，保持原 inference 调用接口不变。
     args.benchmark = InferenceBenchmark()

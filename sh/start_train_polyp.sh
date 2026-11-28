@@ -17,8 +17,8 @@ mkdir -p "${LOG_DIR}"
 
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 #并行3个月
 # CONDA_BASE="/base/mambaforge"
@@ -27,6 +27,13 @@ CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 #209服务器
 #CONDA_BASE="/home/mlf/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
+
+#autoDL
+CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
@@ -107,35 +114,14 @@ SUPERVISION="${SUPERVISION:-paper}"
 
 
 
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+PHASE_UPSAMPLING="${PHASE_UPSAMPLING:-1}"
 STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
 case "${STAGE_ADAPTIVE_KERNELS}" in
   0|1) ;;
   *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 1 ;;
 esac
 
-#它决定 EUCB 使用哪种上采样方式。
-# 值	         实际含义
-# off	          原始 EMCAD EUCB 上采样
-# aa_only	        只使用抗混叠上采样
-# content_only	只使用内容感知残差，不使用抗混叠基底
-# caa	抗混叠基底 + 内容感知残差
-CAA_MODE="${CAA_MODE:-caa}"
-
-
-
-#CAA 内容感知残差的初始缩放系数。
-# CAA 的核心计算可以简化为：output = base + scale * gate * residual
-#其中：
-# - base：抗混叠或最近邻上采样结果；
-# - gate：内容感知门控；
-# - residual：深度卷积残差；
-# - scale：残差强度。
-# 当前初始值为：
-# CAA_RESIDUAL_SCALE=0.1
-# 这表示模型开始训练时，内容感知残差以较小强度加入基础上采样路径，避免新模块一开始完全压过原始上采样结果。
-#0.1 是初始值，不是训练期间永远固定为 0.1。
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+PHASE_RESIDUAL_SCALE="${PHASE_RESIDUAL_SCALE:-0.1}"
 
 
 #这是多尺度训练总开关。
@@ -149,10 +135,9 @@ INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 MERGE_INSTANCE_MASKS="${MERGE_INSTANCE_MASKS:-0}"
 
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
+case "${PHASE_UPSAMPLING}" in
+  0|1) ;;
+  *) echo "[ERROR] PHASE_UPSAMPLING must be 0 or 1"; exit 1 ;;
 esac
 case "${USE_MULTI_SCALE_TRAINING}" in
   0|1) ;;
@@ -225,7 +210,7 @@ RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${
 PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 参数快照追加到日志；终端只保留便于复制的RUN_ID和后续PID/路径信息。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED TOPN_ENABLED TOPN_SIZE CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS STAGE_ADAPTIVE_KERNELS USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED TOPN_ENABLED TOPN_SIZE PHASE_RESIDUAL_SCALE PHASE_UPSAMPLING STAGE_ADAPTIVE_KERNELS USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
@@ -247,8 +232,8 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
   --supervision "${SUPERVISION}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --phase_upsampling "${PHASE_UPSAMPLING}" \
+  --phase_residual_scale "${PHASE_RESIDUAL_SCALE}" \
   --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
   --merge_instance_masks "${MERGE_INSTANCE_MASKS}" \
   --pretrained_dir "${PRETRAINED_DIR}" \

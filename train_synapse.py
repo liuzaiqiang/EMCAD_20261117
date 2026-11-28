@@ -79,13 +79,11 @@ parser.add_argument('--supervision', type=str, default='mutation',
 parser.add_argument('--synapse_topk_enabled', type=int, choices=[0, 1], default=0)
 parser.add_argument('--synapse_topk_size', type=int, default=10)
 parser.add_argument('--synapse_topk_dice_threshold', type=float, default=83.90)
-parser.add_argument('--caa_mode', type=str, default='off',
-                    choices=['off', 'aa_only', 'content_only', 'caa'],
-                    help='content-aware anti-aliasing upsampling mode for the three EUCB blocks')
-parser.add_argument('--caa_residual_scale', type=float, default=0.1,
-                    help='initial scale of the content-aware residual; must match the checkpoint')
+parser.add_argument('--phase_upsampling', type=int, choices=[0, 1], default=0)
+parser.add_argument('--phase_residual_scale', type=float, default=0.1,
+                    help='initial gain for the phase upsampling residual')
 parser.add_argument('--stage_adaptive_kernels', type=int, choices=[0, 1], default=0,
-                    help='1 enables per-stage input-adaptive MSDC kernel competition; 0 keeps original sum')
+                    help='1 enables gradient-aligned scale fusion')
 # 此参数在当前 trainer.py 中不控制循环终止，只参与实验目录命名；实际迭代数由 epoch 数决定。
 parser.add_argument('--max_iterations', type=int, default=50000, help='maximum epoch number to train')
 # 实际外层训练轮数；论文 Synapse 设置为 300 epoch。
@@ -229,7 +227,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=not args.no_pretrain, pretrained_dir=args.pretrained_dir,
-                     caa_mode=args.caa_mode, caa_residual_scale=args.caa_residual_scale,
+                     phase_upsampling=args.phase_upsampling, phase_residual_scale=args.phase_residual_scale,
                      stage_adaptive_kernels=args.stage_adaptive_kernels)
 
     # 把模型参数移动到默认 CUDA 设备；本入口没有 CPU 回退，因此无 CUDA 时会直接报错。

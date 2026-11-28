@@ -20,6 +20,13 @@ set -euo pipefail
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
+
+#autoDL
+CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
 # 根据当前启动文件位置计算项目根，使用户从项目任意目录调用时路径仍保持正确。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -65,16 +72,15 @@ export N_GPU="${N_GPU:-1}"
 export TOPN_ENABLED="${TOPN_ENABLED:-1}"
 export TOPN_SIZE="${TOPN_SIZE:-10}"
 
-# Cell uses the shared binary trainer and exposes its CAA switch here.
-export USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+export PHASE_UPSAMPLING="${PHASE_UPSAMPLING:-1}"
 export STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
 case "${STAGE_ADAPTIVE_KERNELS}" in
   0|1) ;;
   *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 2 ;;
 esac
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
+case "${PHASE_UPSAMPLING}" in
   0|1) ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1" >&2; exit 2 ;;
+  *) echo "[ERROR] PHASE_UPSAMPLING must be 0 or 1" >&2; exit 2 ;;
 esac
 
 # 在访问数据前检查通道数和掩膜合并开关，避免把非法值传入训练入口。

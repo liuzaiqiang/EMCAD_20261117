@@ -248,6 +248,9 @@ if __name__ == '__main__':
     parser.add_argument('--split', type=str, default='test')
     # 模型输入正方形尺寸，论文二分类常用 352。
     parser.add_argument('--img_size', type=int, default=352)
+    parser.add_argument('--phase_upsampling', type=int, choices=[0, 1], default=0)
+    parser.add_argument('--phase_residual_scale', type=float, default=0.1)
+    parser.add_argument('--stage_adaptive_kernels', type=int, choices=[0, 1], default=0)
     # 推理批大小。
     parser.add_argument('--test_batchsize', type=int, default=1)
     # 是否按彩色图读取；该参数未声明 type/action，命令行显式传值会成为字符串。
@@ -289,13 +292,16 @@ if __name__ == '__main__':
         # 编码器名称。
         encoder=opt.encoder,
         # 推理直接加载完整 checkpoint，不预先加载 ImageNet 权重。
-        pretrain=False  # Always False for inference
+        pretrain=False,
+        phase_upsampling=opt.phase_upsampling,
+        phase_residual_scale=opt.phase_residual_scale,
+        stage_adaptive_kernels=opt.stage_adaptive_kernels,
         # 构造后立即移到默认 CUDA；没有 CPU 回退。
     ).cuda()
 
     # 加载权重：无 map_location；strict=False 会忽略不匹配/缺失键，可能掩盖结构配置错误。
     state_dict = without_profiling_stats(torch.load(model_path), model.state_dict().keys())
-    model.load_state_dict(state_dict, strict=False)
+    model.load_state_dict(state_dict, strict=True)
     # 明确切换 eval；test() 内还会再次调用。
     model.eval()
 

@@ -6,6 +6,7 @@
 """
 
 from datetime import datetime
+import os
 from pathlib import Path
 import re
 
@@ -52,7 +53,7 @@ def make_experiment_dir(args, family, output_root=None):
         ("kernels", _value(args, "kernel_sizes")),
         ("lgag_ks", _value(args, "lgag_ks")),
         ("act", _value(args, "activation_mscb")),
-        ("caa", _value(args, "caa_mode")),
+        ("phase_up", _value(args, "phase_upsampling")),
         ("stage_kernels", _value(args, "stage_adaptive_kernels", 0)),
         ("seed", _value(args, "seed")),
     ]
@@ -64,6 +65,9 @@ def make_experiment_dir(args, family, output_root=None):
     # 秒级时间戳满足可读性；冲突时追加编号，避免覆盖同一秒内启动的实验。
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base = root.joinpath(str(family), *parameter_parts, timestamp)
+    # Leave room for log and checkpoint filenames on Windows installations with MAX_PATH.
+    if os.name == 'nt' and len(str(base.absolute())) > 180:
+        base = root.joinpath(str(family), parameter_parts[0], timestamp)
     candidate = base
     suffix = 1
     while candidate.exists():

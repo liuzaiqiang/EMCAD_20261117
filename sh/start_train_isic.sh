@@ -32,6 +32,13 @@ mkdir -p "${LOG_DIR}"
 CONDA_BASE="/home/mlf/anaconda3"
 CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+
+#autoDL
+CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
@@ -80,20 +87,17 @@ LGAG_KS="${LGAG_KS:-3}"
 ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 SUPERVISION="${SUPERVISION:-paper}"
 
-# CAA 使用独立开关；默认启用。
-USE_CONTENT_AWARE_ANTIALIAS="${USE_CONTENT_AWARE_ANTIALIAS:-1}"
+PHASE_UPSAMPLING="${PHASE_UPSAMPLING:-1}"
 STAGE_ADAPTIVE_KERNELS="${STAGE_ADAPTIVE_KERNELS:-0}"
 case "${STAGE_ADAPTIVE_KERNELS}" in
   0|1) ;;
   *) echo "[ERROR] STAGE_ADAPTIVE_KERNELS must be 0 or 1" >&2; exit 1 ;;
 esac
-CAA_MODE="${CAA_MODE:-caa}"
-CAA_RESIDUAL_SCALE="${CAA_RESIDUAL_SCALE:-0.1}"
+PHASE_RESIDUAL_SCALE="${PHASE_RESIDUAL_SCALE:-0.1}"
 
-case "${USE_CONTENT_AWARE_ANTIALIAS}" in
-  0) CAA_MODE="off" ;;
-  1) CAA_MODE="caa" ;;
-  *) echo "[ERROR] USE_CONTENT_AWARE_ANTIALIAS must be 0 or 1"; exit 1 ;;
+case "${PHASE_UPSAMPLING}" in
+  0|1) ;;
+  *) echo "[ERROR] PHASE_UPSAMPLING must be 0 or 1"; exit 1 ;;
 esac
 
 # prepared数据、模型输出与PVT预训练权重目录。
@@ -168,7 +172,7 @@ RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${
 PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 把关键配置追加进日志，终端单独打印RUN_ID供停止脚本使用。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED TOPN_ENABLED TOPN_SIZE DETERMINISTIC CAA_MODE CAA_RESIDUAL_SCALE USE_CONTENT_AWARE_ANTIALIAS STAGE_ADAPTIVE_KERNELS RUN_ID)
+PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED TOPN_ENABLED TOPN_SIZE DETERMINISTIC PHASE_RESIDUAL_SCALE PHASE_UPSAMPLING STAGE_ADAPTIVE_KERNELS RUN_ID)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
@@ -183,7 +187,6 @@ echo "[INFO] BATCH_SIZE=${BATCH_SIZE} VAL_BATCH_SIZE=${VAL_BATCH_SIZE}" | tee -a
 echo "[INFO] MAX_EPOCHS=${MAX_EPOCHS} BASE_LR=${BASE_LR} WEIGHT_DECAY=${WEIGHT_DECAY}" | tee -a "${LOG_FILE}" > /dev/null
 echo "[INFO] SUPERVISION=${SUPERVISION} NUM_WORKERS=${NUM_WORKERS}" | tee -a "${LOG_FILE}" > /dev/null
 echo "[INFO] SEED=${SEED} DETERMINISTIC=${DETERMINISTIC}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] CAA_MODE=${CAA_MODE} CAA_RESIDUAL_SCALE=${CAA_RESIDUAL_SCALE}" | tee -a "${LOG_FILE}" > /dev/null
 echo "[INFO] RUN_ID=${RUN_ID}" | tee -a "${LOG_FILE}" > /dev/null
 echo "[INFO] RUN_ID=${RUN_ID}"
 
@@ -203,8 +206,8 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
   --supervision "${SUPERVISION}" \
-  --caa_mode "${CAA_MODE}" \
-  --caa_residual_scale "${CAA_RESIDUAL_SCALE}" \
+  --phase_upsampling "${PHASE_UPSAMPLING}" \
+  --phase_residual_scale "${PHASE_RESIDUAL_SCALE}" \
   --stage_adaptive_kernels "${STAGE_ADAPTIVE_KERNELS}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
   --img_size "${IMG_SIZE}" \
