@@ -278,6 +278,8 @@ def validate(args, model, device, csv_path, epoch):
 def main():
     # 读取命令行配置。
     args = parse_args()
+    from lib.research_261129 import capture_training_flags
+    capture_training_flags(args)
     # 防御性检查：ACDC 标签约定必须始终是背景+3个结构共 4 类。
     if ACDC_NUM_CLASSES != 4:
         # 常量被意外改动时立即停止，避免用错误输出通道静默训练。
@@ -447,7 +449,8 @@ def main():
             # 进入自动混合精度上下文；scaler 未启用时等同普通前向。
             with autocast(enabled=scaler.is_enabled()):
                 # EMCAD 训练前向并统一转成 list；典型 4 个输出均为 [B,4,224,224] logits。
-                outputs = model_outputs(model, images, mode="train")
+                from lib.research_261129 import train_forward, add_auxiliary_loss
+                outputs, research_aux = train_forward(model, images)
                 # 按监督策略组合输出，每组计算 0.3*CE+0.7*Dice，再把所有组相加。
                 loss = supervised_loss(
                     # 四级 logits 列表。
@@ -463,6 +466,7 @@ def main():
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
+            loss = add_auxiliary_loss(loss, research_aux, labels)
             scaler.scale(loss).backward()
             # 若本步梯度有效，scaler.step 内部反缩放并调用 optimizer.step；溢出时可跳过更新。
             scaler.step(optimizer)
