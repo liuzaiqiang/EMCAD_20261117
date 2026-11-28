@@ -1,9 +1,6 @@
 """Shared default directory for PVT encoder weights, relative to the project root."""
 
-from pathlib import Path
+from lib.project_paths import SHARED_ROOT
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_PVT_DIR = str(
-    PROJECT_ROOT.joinpath("..", "..", "..", "..", "pretrained_pth", "pvt").resolve()
-)
+DEFAULT_PVT_DIR = str(SHARED_ROOT / "pretrained_pth" / "pvt")

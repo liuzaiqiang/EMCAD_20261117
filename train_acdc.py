@@ -1,3 +1,4 @@
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.pretrained_paths import DEFAULT_PVT_DIR
 # ============================== 初学者阅读总览 ==============================
 # 本文件是 ACDC 心脏分割的独立训练入口，训练样本是二维切片，验证样本按病例重组成三维体。
@@ -82,13 +83,14 @@ def parse_args():
     # description 会显示在 python train_ACDC.py --help 的标题中。
     parser = argparse.ArgumentParser(description="Train EMCAD on ACDC")
     # ACDC 根目录，预期含 train/、valid/ 等子目录。
-    parser.add_argument("--root_path", default="../../../../data/ACDC")
+    parser.add_argument("--root_path", default=str(DEFAULT_DATA_DIR / 'ACDC'))
     # 列表目录，至少需要 train.txt 和 valid.txt。
-    parser.add_argument("--list_dir", default="../../../../data/ACDC/lists_ACDC")
+    parser.add_argument("--list_dir", default=str(DEFAULT_DATA_DIR / 'ACDC/lists_ACDC'))
     # 所有 ACDC 实验目录的根位置。
     parser.add_argument("--output_dir", default="./model_pth/ACDC")
     # 单次实验名；None 时主函数用时间戳自动生成。
     parser.add_argument("--run_name", default=None)
+    parser.add_argument("--run_dir", help="directory reserved by the training launcher")
     # 可选初始化 checkpoint；只加载模型参数，不恢复优化器/epoch。
     parser.add_argument("--checkpoint", default=None)
 

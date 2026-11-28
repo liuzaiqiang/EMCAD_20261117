@@ -6,6 +6,7 @@
 """
 
 from datetime import datetime
+import os
 from pathlib import Path
 import re
 
@@ -34,7 +35,15 @@ def make_experiment_dir(args, family, output_root=None):
     ``output_root`` 未传时使用 args.output_dir。若旧入口的 output_dir 已经
     以 family 命名（例如 ``model_pth/ACDC``），这里自动提升到其父目录，
     避免生成 ``ACDC/ACDC`` 的重复层级。
+    启动脚本通过 ``args.run_dir`` 传入预先创建的目录，日志、PID 和训练产物共用该目录。
     """
+    reserved_dir = getattr(args, "run_dir", None)
+    if reserved_dir is not None:
+        directory = Path(reserved_dir).expanduser().resolve()
+        if not directory.is_dir():
+            raise FileNotFoundError("Reserved experiment directory does not exist: {}".format(directory))
+        return str(directory)
+
     root = Path(output_root or _value(args, "output_dir", "./model_pth")).expanduser()
     if root.name.lower() == str(family).lower():
         root = root.parent
@@ -62,10 +71,32 @@ def make_experiment_dir(args, family, output_root=None):
     # 秒级时间戳满足可读性；冲突时追加编号，避免覆盖同一秒内启动的实验。
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base = root.joinpath(str(family), *parameter_parts, timestamp)
+    # Windows tools may still apply MAX_PATH to checkpoint, PID and TensorBoard files.
+    if os.name == "nt" and len(str(base.resolve())) + 96 >= 260:
+        base = root / str(family) / timestamp
     candidate = base
     suffix = 1
-    while candidate.exists():
-        candidate = Path(str(base) + "_{:02d}".format(suffix))
-        suffix += 1
-    candidate.mkdir(parents=True, exist_ok=False)
-    return str(candidate.resolve())
+    while True:
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            candidate = Path(str(base) + "_{:02d}".format(suffix))
+            suffix += 1
+        else:
+            return str(candidate.resolve())
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="Reserve an experiment directory for a training launcher")
+    for name, value_type in (
+        ("output_dir", str), ("family", str), ("dataset_name", str), ("encoder", str),
+        ("img_size", int), ("batch_size", int), ("max_epochs", int), ("supervision", str),
+        ("base_lr", float), ("expansion_factor", int), ("lgag_ks", int),
+        ("activation_mscb", str), ("seed", int),
+    ):
+        parser.add_argument(name, type=value_type)
+    parser.add_argument("kernel_sizes", type=int, nargs="+")
+    args = parser.parse_args()
+    print(Path(make_experiment_dir(args, args.family)).as_posix())

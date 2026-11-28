@@ -11,7 +11,8 @@ from utils.synapse_candidate_selection import (
 
 
 def main():
-    for enabled, size in ((2, 7), (1, 0), (0, 0)):
+    validate_topk_config(0, 0, float("nan"))
+    for enabled, size in ((2, 7), (True, 7), (1, 0)):
         try:
             validate_topk_config(enabled, size, 83.9)
         except ValueError:

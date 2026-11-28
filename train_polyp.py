@@ -1,3 +1,4 @@
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.pretrained_paths import DEFAULT_PVT_DIR
 # argparse 定义 Polyp/BUSI/ISIC 共用训练命令行接口。
 import argparse
@@ -9,6 +10,7 @@ import json
 import logging
 # os 负责路径检查、环境变量和文件操作。
 import os
+import shutil
 # sys.stdout 接入日志处理器。
 import sys
 # time 统计完整训练耗时。
@@ -70,7 +72,7 @@ def parse_args():
         # 选项名。
         "--data_root",
         # 默认路径。
-        default="../../../../data/polyp/target",
+        default=str(DEFAULT_DATA_DIR / 'polyp/target'),
     )
     # 当前训练的具体数据集子目录。
     parser.add_argument(
@@ -93,6 +95,7 @@ def parse_args():
         # 自动命名。
         default=None,
     )
+    parser.add_argument("--run_dir", help="directory reserved by the training launcher")
     # 可选断点检查点路径。
     parser.add_argument(
         # 选项名。
@@ -748,6 +751,11 @@ def main():
         "EM": "Cell",
     }.get(args.dataset_name, "Polyp")
     run_dir = make_experiment_dir(args, output_family)
+    if hasattr(args, "split_metadata"):
+        manifest_path, summary_path = args.split_metadata
+        shutil.copy2(manifest_path, os.path.join(run_dir, "data_split_manifest.csv"))
+        shutil.copy2(summary_path, os.path.join(run_dir, "data_split_summary.json"))
+        del args.split_metadata
 
     logging.basicConfig(
         filename=os.path.join(

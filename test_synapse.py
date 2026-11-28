@@ -46,6 +46,7 @@ from utils.utils import test_single_volume
 
 # EMCADNet 必须用与训练 checkpoint 一致的结构参数重新实例化。
 from lib.networks import EMCADNet
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.pretrained_paths import DEFAULT_PVT_DIR
 
 # 创建命令行解析器。
@@ -53,7 +54,7 @@ parser = argparse.ArgumentParser()
 
 # 完整体测试目录；默认名带 _new，与训练入口默认 volume_path 不同，需人工确认划分一致。
 parser.add_argument('--volume_path', type=str,
-                    default='../../../../data/Synapse/test_vol_h5', help='root dir for validation volume data')
+                    default=str(DEFAULT_DATA_DIR / 'Synapse/test_vol_h5'), help='root dir for validation volume data')
 # 数据集键用于查询后面的 dataset_config；当前只支持 Synapse。
 parser.add_argument('--dataset', type=str,
                     default='Synapse', help='experiment_name')
@@ -62,7 +63,7 @@ parser.add_argument('--num_classes', type=int,
                     default=9, help='output channel of network')
 # 列表目录应包含 test_vol.txt，每行对应一个 H5 病例名。
 parser.add_argument('--list_dir', type=str,
-                    default='../../../../data/Synapse/lists/lists_Synapse', help='list dir')
+                    default=str(DEFAULT_DATA_DIR / 'Synapse/lists/lists_Synapse'), help='list dir')
 
 # network related parameters
 # 编码器必须与训练时一致，否则 state_dict 的参数名/形状通常无法严格加载。
@@ -305,75 +306,6 @@ if __name__ == "__main__":
     args.list_dir = dataset_config[dataset_name]['list_dir']
     # 动态增加 z_spacing 属性。
     args.z_spacing = dataset_config[dataset_name]['z_spacing']
-    # 输出 no_pretrain布尔值，帮助核对checkpoint路径是否应带 _pretrain。
-    print("no_pretrain布尔值，帮助核对checkpoint路径是否应带 _pretrain", args.no_pretrain)
-
-    # 将聚合方式转换成训练目录名中使用的文本片段。
-    if args.concatenation:
-        # concat 对应 EMCADNet(add=False)。
-        aggregation = 'concat'
-    # 默认 add 对应 EMCADNet(add=True)。
-    else:
-        # 保存字符串只为重建路径。
-        aggregation = 'add'
-
-    # 将深度卷积执行模式转换成目录名片段。
-    if args.no_dw_parallel:
-        # series 对应 EMCADNet(dw_parallel=False)。
-        dw_mode = 'series'
-    # 默认parallel对应论文采用的并行多尺度分支。
-    else:
-        # 保存目录名片段。
-        dw_mode = 'parallel'
-
-    # 固定运行编号必须与 train_synapse.py 中 run=1 一致。
-    """
-    在当前项目中，run = 1 主要用于构建实验标识字符串和 checkpoint 目录路径，其核心作用是区分和索引不同的实验运行记录。
-    具体来说，它参与了以下两处关键路径的构建：
-        实验标识 args.exp 的构建：在代码中，run 被直接拼接到 args.exp 字符串的末尾（体现为 Run1）。这个标识字符串随后被用于创建测试日志目录名（如 test_log/test_log_...Run1_Synapse224）以及预测结果的保存子目录。通过改变 run 的值，可以确保不同次运行的日志和预测结果不会相互覆盖。
-        历史 checkpoint 路径的重建：虽然当前代码中长路径的 snapshot_path 构建逻辑被注释掉了，但在原始设计里，run 同样被用于拼接训练产出的 checkpoint 目录名（如 model_pth/.../...Run1）。测试脚本必须使用与训练脚本一致的 run 值，才能正确回溯并加载对应的模型权重。
-    由于当前代码中 run 被硬编码为 1，它实际上表示这是该组超参数下的第 1 次运行。如果研究者希望用完全相同的超参数进行多次独立训练（例如改变随机种子进行多次实验以计算均值和方差），就需要手动将 run 递增为 2、3 等，从而将不同次实验的产出隔离到不同的 Run 目录中。
-    """
-    run = 1
-
-    # 用与训练入口相同的规则重建实验标识；任一结构参数不一致都会指向错误目录。
-    args.exp = args.encoder + '_EMCAD_kernel_sizes_' + str(args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(args.lgag_ks) + '_ef' + str(
-        args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(
-        run) + '_' + dataset_name + str(args.img_size)
-
-    """
-    # 重建内层 checkpoint 目录。
-    snapshot_path = "model_pth/{}/{}".format(args.exp, args.encoder + '_EMCAD_kernel_sizes_' + str(
-        args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(args.lgag_ks) + '_ef' + str(
-        args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(
-        run))
-    # 清理 kernel_sizes 列表字符串，规则必须与训练入口一致。
-    snapshot_path = snapshot_path.replace('[', '').replace(']', '').replace(', ', '_')
-
-    # 训练时使用预训练编码器的目录带 _pretrain。
-    snapshot_path = snapshot_path + '_pretrain' if not args.no_pretrain else snapshot_path
-    # 非默认 max_iterations 追加类似 30k 的字符串；此值不表示本脚本实际执行迭代。
-    snapshot_path = snapshot_path + '_' + str(args.max_iterations)[
-        0:2] + 'k' if args.max_iterations != 50000 else snapshot_path
-    # 非默认 epoch 数追加目录后缀。
-    snapshot_path = snapshot_path + '_epo' + str(args.max_epochs) if args.max_epochs != 300 else snapshot_path
-    # batch size 只为匹配训练目录名。
-    snapshot_path = snapshot_path + '_bs' + str(args.batch_size)
-    # 非默认学习率只为匹配训练目录名。
-    snapshot_path = snapshot_path + '_lr' + str(args.base_lr) if args.base_lr != 0.0001 else snapshot_path
-    # 追加输入尺寸。
-    snapshot_path = snapshot_path + '_' + str(args.img_size)
-    # 当前默认 seed=2222，因此追加 _s2222。
-    snapshot_path = snapshot_path + '_s' + str(args.seed) if args.seed != 1234 else snapshot_path
-    """
-
-    snapshot_path = os.path.join(
-        "model_pth", args.dataset, f"encoder_{args.encoder}", f"img_size_{args.img_size}",
-        f"seed{args.seed}", f"batch_size_{args.batch_size}", f"lr_{args.base_lr}",
-        f"maxEpochs_{args.max_epochs}")
-
-
-
     # 按与 checkpoint 一致的结构构造空模型；num_classes=9 决定四个分割头通道数。
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
@@ -381,9 +313,6 @@ if __name__ == "__main__":
                      encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
-
-    # 下方是历史 checkpoint 路径示例，整行已注释，不参与运行。
-    # snapshot_path = 'model_pth/'+args.encoder+'_EMCAD_wi_normal_dw_parallel_add_Conv2D_cec_cdc1x1_dwc_cs_ef2_k_sizes_1_3_5_ag3g_relu6_up3_relu_to1_3ch_relu_loss2p4_w1_out1_nlrd_mutation_True_cds_False_cds_decoder_FalseRun'+str(run)+'_Synapse224/'+args.encoder+'_EMCAD_wi_normal_dw_parallel_add_Conv2D_cec_cdc1x1_dwc_cs_ef2_k_sizes_1_3_5_ag3g_relu6_up3_relu_to1_3ch_relu_loss2p4_w1_out1_nlrd_mutation_True_cds_False_cds_decoder_FalseRun'+str(run)+'_50k_epo300_bs6_lr0.0001_224_s2222'
 
     # 只加载显式指定的候选权重，不从文件名猜测其他权重。
     snapshot = args.checkpoint
@@ -395,6 +324,8 @@ if __name__ == "__main__":
         raise FileNotFoundError('Synapse checkpoint not found: {}'.format(snapshot))
     # torch.load 读取 state_dict，load_state_dict 默认 strict=True；没有 map_location，要求当前 CUDA 环境兼容。
     state_dict = without_profiling_stats(torch.load(snapshot), model.state_dict().keys())
+    if state_dict and all(key.startswith("module.") for key in state_dict):
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, "module.")
     model.load_state_dict(state_dict, strict=True)
     # 用实际加载的文件名标识该次测试，多个候选权重不会混淆。
     snapshot_name = os.path.basename(snapshot)

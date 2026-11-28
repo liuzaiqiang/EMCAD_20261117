@@ -14,17 +14,24 @@ set -euo pipefail
 # 从本文件位置推导项目根，使相对数据和脚本路径不受启动目录影响。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#210服务器
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+
+
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
 
 
 # Cell 数据根默认位于项目目录上四级的 data/cell/target；服务器数据位置不同可传 DATA_ROOT 覆盖。

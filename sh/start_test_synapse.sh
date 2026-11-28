@@ -10,37 +10,29 @@ cd "${PROJECT_DIR}"
 
 
 # 创建测试日志目录；所有后台stdout/stderr会追加到该目录中的本次日志。
-
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
-
-
-
-
+export PYTHONNOUSERSITE=1
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -83,27 +75,18 @@ RUN_DIR="${CKPT_DIR}/test_results/${RUN_ID}"
 LOG_DIR="${RUN_DIR}"
 mkdir -p "${CKPT_DIR}/test_results"
 mkdir "${RUN_DIR}"
-LOG_FILE="${RUN_DIR}/test.log"
+TEST_SAVE_DIR="${RUN_DIR}/outputs"
+LOG_FILE="${RUN_DIR}/launcher.log"
 
 
 PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 PARAM_NAMES=(
-  CONDA_BASE
-  CONDA_ENV_PREFIX
-  PROJECT_DIR
-  LOG_DIR
-  CUDA_VISIBLE_DEVICES
-  CKPT
-  TRAIN_CONFIG
-  VOLUME_PATH
-  LIST_DIR
-  DATASET
-  TS
-  RAND
-  LOG_FILE
-  RUN_ID
-  PID_FILE
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE LOG_DIR CKPT TRAIN_CONFIG
+  VOLUME_PATH LIST_DIR CKPT_DIR TEST_SAVE_DIR
 )
 
 {
@@ -118,11 +101,11 @@ PARAM_NAMES=(
 # 整个反斜杠块是一条测试命令：nohup抵抗终端断开，env写入RUN_ID供停止时核验进程身份。
 # 测试模型参数和输入尺寸从 TRAIN_CONFIG 自动恢复；本启动器只传 checkpoint 与测试数据位置。
 # stdout/stderr 写入同一测试日志，stdin 断开，末尾 & 让启动器立即返回。
-nohup env RUN_ID="${RUN_ID}" python -u test_synapse.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u test_synapse.py \
   --dataset "${DATASET}" \
   --checkpoint "${CKPT}" \
   --train_config "${TRAIN_CONFIG}" \
-  --test_save_dir "${RUN_DIR}/outputs" \
+  --test_save_dir "${TEST_SAVE_DIR}" \
   --volume_path "${VOLUME_PATH}" \
   --list_dir "${LIST_DIR}" \
   >> "${LOG_FILE}" 2>&1 < /dev/null &

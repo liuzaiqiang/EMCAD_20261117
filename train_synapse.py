@@ -29,23 +29,27 @@ import torch.backends.cudnn as cudnn
 
 # EMCADNet 封装“编码器 + EMCAD 解码器 + 四个分割头”；结构细节在 lib/networks.py。
 from lib.networks import EMCADNet
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.pretrained_paths import DEFAULT_PVT_DIR
 from lib.experiment_paths import make_experiment_dir
 # trainer_synapse 承担 DataLoader、损失、反向传播、验证和 checkpoint 保存。
 from trainer import trainer_synapse
+from utils.synapse_candidate_selection import validate_topk_config
 
 # 创建参数解析器；下方所有 add_argument 都把一个可配置项注册到该解析器。
 parser = argparse.ArgumentParser()
 
 # 训练数据根目录：每个 Synapse 二维切片通常对应一个 .npz 文件。
-parser.add_argument('--root_path', type=str, default='../../../../data/Synapse/train_npz', help='root dir for data')
+parser.add_argument('--output_dir', default='./model_pth')
+parser.add_argument('--run_dir', help='directory reserved by the training launcher')
+parser.add_argument('--root_path', type=str, default=str(DEFAULT_DATA_DIR / 'Synapse/train_npz'), help='root dir for data')
 # 完整体数据目录：验证/测试按病例读取 .npy.h5，   而不是逐切片 .npz。
-parser.add_argument('--volume_path', type=str, default='../../../../data/Synapse/test_vol_h5',
+parser.add_argument('--volume_path', type=str, default=str(DEFAULT_DATA_DIR / 'Synapse/test_vol_h5'),
                     help='root dir for validation volume data')
 # 数据集键名稍后用于查询 dataset_config 和 trainer 映射表；当前只注册 Synapse。
 parser.add_argument('--dataset', type=str, default='Synapse', help='experiment_name')
 # 划分列表目录应包含 train.txt、test_vol.txt 等文本清单。
-parser.add_argument('--list_dir', type=str, default='../../../../data/Synapse/lists/lists_Synapse', help='list dir')
+parser.add_argument('--list_dir', type=str, default=str(DEFAULT_DATA_DIR / 'Synapse/lists/lists_Synapse'), help='list dir')
 # 多分类输出通道数；9=背景(0)+8个器官(1..8)，须与标签编号一致。
 parser.add_argument('--num_classes', type=int, default=9, help='output channel of network')
 # network related parameters
@@ -159,63 +163,11 @@ if __name__ == "__main__":
     # 回填划分列表目录。
     args.list_dir = dataset_config[dataset_name]['list_dir']
 
-    # 把布尔开关转换为便于阅读的实验名片段；该字符串不改变模型计算。
-    if args.concatenation:
-        # concatenate 模式在目录名中记为 concat。
-        aggregation = 'concat'
-    # 默认逐元素相加模式。
-    else:
-        # add 与传给 EMCADNet 的 add=True 对应。
-        aggregation = 'add'
-
-    # 同样把深度卷积分支执行方式编码进实验目录名。
-    if args.no_dw_parallel:
-        # 关闭 parallel 后记作 series。
-        dw_mode = 'series'
-    # 默认使用论文消融支持的并行多尺度深度卷积。
-    else:
-        # parallel 表示多个尺度分支并行提取上下文。
-        dw_mode = 'parallel'
-
-    """
-    # 手工运行编号；若要真正区分多次运行，需要修改它或通过外部目录管理。
-    run = 1
-    # 拼出包含主干、卷积核、聚合方式、门控核、扩张倍数、激活和监督策略的实验标识。
-    args.exp = (args.encoder + '_EMCAD_kernel_sizes_' + str(args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(args.lgag_ks) + '_ef' +
-                str(args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(run) + '_' + dataset_name + str(args.img_size))
-    # 构造权重保存目录；外层目录含 args.exp，内层再次记录主要结构超参数。
-    snapshot_path = "model_pth/{}/{}".format(args.exp, args.encoder + '_EMCAD_kernel_sizes_' + str(args.kernel_sizes) + '_dw_' + dw_mode + '_' + aggregation + '_lgag_ks_' + str(
-        args.lgag_ks) + '_ef' + str(args.expansion_factor) + '_act_mscb_' + args.activation_mscb + '_loss_' + args.supervision + '_output_final_layer_Run' + str(run))
-    # 把 Python 列表字符串中的括号和逗号空格清理掉，避免目录名出现 [1, 3, 5]。
-    snapshot_path = snapshot_path.replace(
-        '[', '').replace(']', '').replace(', ', '_')
-    # 预训练开启时追加 _pretrain；关闭时保持原目录名不变。
-    snapshot_path = snapshot_path + '_pretrain' if not args.no_pretrain else snapshot_path
-    # 非默认 max_iterations 只改变目录后缀；取字符串前两位形成类似 30k 的标签。
-    snapshot_path = snapshot_path + '_' + \
-        str(args.max_iterations)[
-            0:2] + 'k' if args.max_iterations != 50000 else snapshot_path
-    # 非默认 epoch 数追加到目录名，便于区分实验。
-    snapshot_path = snapshot_path + '_epo' + str(args.max_epochs) if args.max_epochs != 300 else snapshot_path
-    # batch size 总是写入目录名。
-    snapshot_path = snapshot_path + '_bs' + str(args.batch_size)
-    # 非默认学习率才追加，默认 1e-4 不重复写。
-    snapshot_path = snapshot_path + '_lr' + str(args.base_lr) if args.base_lr != 0.0001 else snapshot_path
-    # 输入尺寸总是写入目录名。
-    snapshot_path = snapshot_path + '_' + str(args.img_size)
-    # 只有种子不等于 1234 时才追加；当前默认 2222 因而会出现 _s2222。
-    snapshot_path = snapshot_path + '_s' + str(args.seed) if args.seed != 1234 else snapshot_path
-
-    # 首次运行该配置时创建目录；已存在时复用，其中旧文件可能被本训练流程覆盖。
-    # if not os.path.exists(snapshot_path):
-        # 递归建立外层和内层目录。
-    # os.makedirs(snapshot_path)
-    """
-
-    # snapshot_path = os.path.join("model_pth",  f"{args.Dataset}", f"encoder_{args.encoder}",  f"img_size_{args.img_size}", f"seed{args.seed}", f"batch_size_{args.batch_size}", f"lr_{args.base_lr}", f"maxEpochs_{args.max_epochs}")
-
-    # 统一输出层级并自动避让同一秒内的重复目录；不改变模型或训练流程。
-    snapshot_path = make_experiment_dir(args, "Synapse", output_root="./model_pth")
+    validate_topk_config(args.synapse_topk_enabled, args.synapse_topk_size,
+                         args.synapse_topk_dice_threshold)
+    if not 1 <= args.n_gpu <= torch.cuda.device_count():
+        raise ValueError("--n_gpu must be between 1 and the number of visible CUDA devices")
+    snapshot_path = make_experiment_dir(args, "Synapse")
     with open(os.path.join(snapshot_path, "config.json"), "w", encoding="utf-8") as stream:
         json.dump(vars(args), stream, ensure_ascii=False, indent=2)
 

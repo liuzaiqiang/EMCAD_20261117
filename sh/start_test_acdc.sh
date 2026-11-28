@@ -11,31 +11,27 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 # 创建集中保存评估日志的目录；目录已存在时 mkdir -p 仍返回成功。
-
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+export PYTHONNOUSERSITE=1
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
@@ -50,10 +46,11 @@ NUM_WORKERS="${NUM_WORKERS:-0}"
 INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-8}"
 Z_SPACING="${Z_SPACING:-10.0}"
 MAX_CASES="${MAX_CASES:-0}"
+DEVICE="${DEVICE:-auto}"
 
 # 病例列表和数据根目录默认位于项目目录上四级的 data/ACDC；CKPT 必须由调用者明确指定。
-LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC}"
-ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/ACDC}"
+LIST_DIR="${LIST_DIR:-${ROOT_PATH}/lists_ACDC}"
 # 默认在 ACDC 对应的训练输出目录中查找 best.pth；CKPT 非空时优先使用调用者明确指定的路径。
 CKPT="${CKPT:-}"
 
@@ -87,7 +84,14 @@ LOG_FILE="${RUN_DIR}/test.log"
 PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # 将测试专属数据路径、推理批量和运行标识写入日志；模型配置由配置文件统一记录。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET NUM_WORKERS INFERENCE_BATCH_SIZE Z_SPACING MAX_CASES LIST_DIR ROOT_PATH CKPT CKPT_DIR CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV TS RAND LOG_FILE RUN_ID PID_FILE)
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE LOG_DIR NUM_WORKERS INFERENCE_BATCH_SIZE
+  Z_SPACING MAX_CASES LIST_DIR ROOT_PATH CKPT
+  CKPT_DIR CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV DEVICE
+)
 echo "[INFO] RUN_ID=${RUN_ID}"
 
 {
@@ -111,7 +115,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u test_acdc.py \
   --num_workers "${NUM_WORKERS}" \
   --z_spacing "${Z_SPACING}" \
   --max_cases "${MAX_CASES}" \
-  --device auto \
+  --device "${DEVICE}" \
   --save_nii \
   --save_npz \
   >> "${LOG_FILE}" 2>&1 < /dev/null &

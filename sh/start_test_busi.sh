@@ -11,35 +11,28 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}"
 
 # 测试进程的标准输出和标准错误统一写入项目 logs 目录；-p 允许目录已存在。
-
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+export PYTHONNOUSERSITE=1
 PYTHON_BIN="${PYTHON_BIN:-python}"
-
-
-
 
 
 # CUDA_DEVICE 默认选择0号GPU；无缓冲输出使 nohup 日志尽快落盘，方便实时观察评估进度。
@@ -137,22 +130,21 @@ PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
 
 # tee -a 将本次评估的关键路径和参数追加到日志；重定向到 /dev/null 避免每项在终端重复显示。
 # MODEL_CONFIG 这一记录强调网络结构来自检查点旁的 config.json；RUN_ID 单独打印供停止脚本使用。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATA_ROOT SPLIT CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV MAX_CASES RUN_ID)
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE LOG_DIR DATA_ROOT SPLIT
+  CKPT CONFIG_FILE TEST_SAVE_DIR OUTPUT_CSV MAX_CASES
+  CKPT_DIR DATASET_NAME INFERENCE_BATCH_SIZE NUM_WORKERS DETERMINISTIC
+  DEVICE
+)
 {
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to test----------------------------------"
 } | tee -a "${LOG_FILE}"
 : <<'REMOVED_LOG_LINES'
-echo "[INFO] DATA_ROOT=${DATA_ROOT}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] SPLIT=${SPLIT}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] CKPT=${CKPT}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] CONFIG_FILE=${CONFIG_FILE}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] TEST_SAVE_DIR=${TEST_SAVE_DIR}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] OUTPUT_CSV=${OUTPUT_CSV}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] MODEL_CONFIG=loaded_from_checkpoint_config" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] MAX_CASES=${MAX_CASES}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}" | tee -a "${LOG_FILE}" > /dev/null
 
 echo "[INFO] RUN_ID=${RUN_ID}"
 REMOVED_LOG_LINES

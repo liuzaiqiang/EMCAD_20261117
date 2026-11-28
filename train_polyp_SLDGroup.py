@@ -1,6 +1,7 @@
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.pretrained_paths import DEFAULT_PVT_DIR
 # ============================== 初学者阅读总览 ==============================
-# 这是较早的 SLDGroup 风格息肉训练脚本，一次启动连续做 5 个 run。
+# 这是较早的 SLDGroup 风格息肉训练脚本，每次启动执行一次训练。
 # 训练链：RGB 图像/二值 mask -> 0.75/1/1.25 多尺度 -> EMCAD 四个 1 通道 logits ->
 # 四个单头 structure loss + 四头 logits 求和的 structure loss -> 反向传播 -> AdamW。
 # structure loss=边界加权 BCE + 边界加权 IoU；二分类背景由 1-sigmoid(logit) 隐含表示。
@@ -324,7 +325,7 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
         torch.save(without_profiling_stats(model.state_dict()), os.path.join(save_path, f"{model_name}-best.pth"))
 
 
-# 仅直接运行脚本时启动五次训练。
+# 仅直接运行脚本时启动训练。
 if __name__ == '__main__':
     # Initial defaults
     # 数据集名在解析器创建前硬编码；train_path/test_path 默认值据此立即生成。
@@ -386,124 +387,117 @@ if __name__ == '__main__':
     # 是否做 loader 数据增强；同样无 type/action。
     parser.add_argument('--augmentation', default=True)
     # 训练划分根目录，默认由上方硬编码 dataset_name 生成。
-    parser.add_argument('--train_path', type=str, default=f'../../../../data/polyp/target/{dataset_name}/train/')
+    parser.add_argument('--train_path', type=str, default=str(DEFAULT_DATA_DIR / f'polyp/target/{dataset_name}/train'))
     # 数据集根目录，test() 再追加 val/test。
-    parser.add_argument('--test_path', type=str, default=f'../../../../data/polyp/target/{dataset_name}/')
-    # 单 run 权重目录会在循环中覆盖此初始空字符串。
+    parser.add_argument('--test_path', type=str, default=str(DEFAULT_DATA_DIR / f'polyp/target/{dataset_name}'))
+    # 留空时根据本次实验标识生成目录。
     parser.add_argument('--train_save', type=str, default='')
     # 解析全部参数。
     opt = parser.parse_args()
 
-    # 固定连续执行 5 个 run，用不同初始化/时间戳形成独立实验。
-    for run in [1, 2, 3, 4, 5]:
-        # 保存 val/test 每轮 Dice 序列。
-        dict_plot = {'val': [], 'test': []}
-        # 当前 run 最好验证 Dice。
-        best = 0.0
-        # 最好验证时点对应的测试 Dice。
-        test_dice_at_best_val = 0.0
-        # 仅累计训练阶段秒数。
-        total_train_time = 0
+    # 保存 val/test 每轮 Dice 序列。
+    dict_plot = {'val': [], 'test': []}
+    # 当前 run 最好验证 Dice。
+    best = 0.0
+    # 最好验证时点对应的测试 Dice。
+    test_dice_at_best_val = 0.0
+    # 仅累计训练阶段秒数。
+    total_train_time = 0
 
-        # 目录名片段：concat 或 add。
-        if opt.concatenation:
-            # 拼接模式。
-            aggregation = 'concat'
-        # 默认相加模式。
-        else:
-            # 记录 add。
-            aggregation = 'add'
+    # 目录名片段：concat 或 add。
+    if opt.concatenation:
+        # 拼接模式。
+        aggregation = 'concat'
+    # 默认相加模式。
+    else:
+        # 记录 add。
+        aggregation = 'add'
 
-        # 目录名片段：series 或 parallel。
-        if opt.no_dw_parallel:
-            # 串行深度卷积。
-            dw_mode = 'series'
-        # 默认并行。
-        else:
-            # 记录 parallel。
-            dw_mode = 'parallel'
+    # 目录名片段：series 或 parallel。
+    if opt.no_dw_parallel:
+        # 串行深度卷积。
+        dw_mode = 'series'
+    # 默认并行。
+    else:
+        # 记录 parallel。
+        dw_mode = 'parallel'
 
-        # 当前时分秒用于降低 5 个 run 的重名概率。
-        timestamp = time.strftime('%H%M%S')
-        # run_id 编入数据集、结构、batch、学习率、epoch、增强、run 序号和时间。
-        run_id = (
-            f"{dataset_name}_{opt.encoder}_EMCAD_kernel_sizes_{opt.kernel_sizes}_dw_{dw_mode}_{aggregation}_lgag_ks_{opt.lgag_ks}_ef{opt.expansion_factor}_act_mscb_{opt.activation_mscb}_bs{opt.batchsize}_cas_lr{opt.lr}_"
-            # 第二段续接 epoch 等信息。
-            f"e{opt.epoch}_aug{opt.augmentation}_run{run}_t{timestamp}")
-        # 清理列表字符串中的方括号和逗号空格。
-        run_id = run_id.replace('[', '').replace(']', '').replace(', ', '_')
-        # 本 run 权重目录。
-        opt.train_save = f'./model_pth/{run_id}/'
+    # 时间戳用于区分独立启动的实验。
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+    # run_id 编入数据集、结构、batch、学习率、epoch、增强、run 序号和时间。
+    run_id = (
+        f"{dataset_name}_{opt.encoder}_EMCAD_kernel_sizes_{opt.kernel_sizes}_dw_{dw_mode}_{aggregation}_lgag_ks_{opt.lgag_ks}_ef{opt.expansion_factor}_act_mscb_{opt.activation_mscb}_bs{opt.batchsize}_cas_lr{opt.lr}_"
+        # 第二段续接 epoch 等信息。
+        f"e{opt.epoch}_aug{opt.augmentation}_t{timestamp}")
+    # 清理列表字符串中的方括号和逗号空格。
+    run_id = run_id.replace('[', '').replace(']', '').replace(', ', '_')
+    if os.name == "nt":
+        # 测试入口会在目录名和权重文件名中重复使用 run_id。
+        run_id = f'{dataset_name}_{opt.encoder}_{timestamp}'
+    opt.train_save = opt.train_save or f'./model_pth/{run_id}/'
+    os.makedirs(opt.train_save, exist_ok=True)
+    logging.basicConfig(filename=os.path.join(opt.train_save, "train.log"),
+                        level=logging.INFO, format='[%(asctime)s] %(message)s')
 
-        # 创建日志根目录。
-        os.makedirs('logs', exist_ok=True)
-        # 创建权重目录。
-        os.makedirs(opt.train_save, exist_ok=True)
+    # Build model
+    # 历史模型构造示例，已注释，不执行。
+    # model = EMCADNet(dw_parallel=dw_parallel, expansion_factor=expansion_factor, add=add, kernel_sizes=kernel_sizes, att_ks=att_ks, activation=activation, encoder=encoder, pretrain=pretrain, head=head, bbox=False, cds=False) # head='SAH'
+    # 创建 1 通道二分类 EMCAD；四个头都输出前景 logits。
+    model = EMCADNet(num_classes=1, kernel_sizes=opt.kernel_sizes, expansion_factor=opt.expansion_factor,
+                     dw_parallel=not opt.no_dw_parallel, add=not opt.concatenation, lgag_ks=opt.lgag_ks,
+                     activation=opt.activation_mscb, encoder=opt.encoder, pretrain=not opt.no_pretrain,
+                     pretrained_dir=opt.pretrained_dir)
 
-        # force=True 使五个 run 每次重新配置 logging 到各自文件。
-        logging.basicConfig(filename=f'logs/train_log_{run_id}.log', level=logging.INFO,
-                            # 日志格式带完整时间。
-                            format='[%(asctime)s] %(message)s', force=True)
+    # 设备变量表面支持 CPU 回退。
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # 三引号包围的是未执行的字符串常量，内部 DataParallel 示例不会运行。
+    '''if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)'''
 
-        # Build model
-        # 历史模型构造示例，已注释，不执行。
-        # model = EMCADNet(dw_parallel=dw_parallel, expansion_factor=expansion_factor, add=add, kernel_sizes=kernel_sizes, att_ks=att_ks, activation=activation, encoder=encoder, pretrain=pretrain, head=head, bbox=False, cds=False) # head='SAH'
-        # 创建 1 通道二分类 EMCAD；四个头都输出前景 logits。
-        model = EMCADNet(num_classes=1, kernel_sizes=opt.kernel_sizes, expansion_factor=opt.expansion_factor,
-                         dw_parallel=not opt.no_dw_parallel, add=not opt.concatenation, lgag_ks=opt.lgag_ks,
-                         activation=opt.activation_mscb, encoder=opt.encoder, pretrain=not opt.no_pretrain,
-                         pretrained_dir=opt.pretrained_dir)
+    # 将模型移到 device；但 train()/test() 内使用 .cuda()，完整脚本实际仍要求 CUDA。
+    model.to(device)
 
-        # 设备变量表面支持 CPU 回退。
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # 三引号包围的是未执行的字符串常量，内部 DataParallel 示例不会运行。
-        '''if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            model = nn.DataParallel(model)'''
+    # 打印主干与解码器名称。
+    print(f"Encoder: {opt.encoder} | Decoder: EMCAD")
+    # 统计参数量/FLOPs并通过 logging 记录；该辅助函数可能执行一次虚拟前向。
+    cal_params_flops(model, opt.img_size, logging)
+    # 创建 AdamW，位置参数 opt.lr 作为学习率，weight_decay=1e-4。
+    optimizer = torch.optim.AdamW(model.parameters(), opt.lr, weight_decay=1e-4)
+    # 余弦调度在 opt.epoch 轮内从当前学习率逐步降至 1e-6。
+    scheduler = CosineAnnealingLR(optimizer, T_max=opt.epoch, eta_min=1e-6)
 
-        # 将模型移到 device；但 train()/test() 内使用 .cuda()，完整脚本实际仍要求 CUDA。
-        model.to(device)
+    # 创建训练 DataLoader。
+    train_loader = get_loader(
+        # 训练图像和掩膜目录。
+        image_root=f'{opt.train_path}/images/', gt_root=f'{opt.train_path}/masks/',
+        # batch 大小和网络输入尺寸。
+        batchsize=opt.batchsize, trainsize=opt.img_size,
+        # 打乱、增强、训练模式和彩色读取选项。
+        shuffle=True, augmentation=opt.augmentation, split='train', color_image=opt.color_image
+        # loader 构造结束。
+    )
 
-        # 打印主干与解码器名称。
-        print(f"Encoder: {opt.encoder} | Decoder: EMCAD")
-        # 统计参数量/FLOPs并通过 logging 记录；该辅助函数可能执行一次虚拟前向。
-        cal_params_flops(model, opt.img_size, logging)
-        # 创建 AdamW，位置参数 opt.lr 作为学习率，weight_decay=1e-4。
-        optimizer = torch.optim.AdamW(model.parameters(), opt.lr, weight_decay=1e-4)
-        # 余弦调度在 opt.epoch 轮内从当前学习率逐步降至 1e-6。
-        scheduler = CosineAnnealingLR(optimizer, T_max=opt.epoch, eta_min=1e-6)
+    # epoch 从 1 到 opt.epoch，便于日志直接显示人类轮次。
+    for epoch in range(1, opt.epoch + 1):
+        # 旧阶梯调度先运行；默认 decay_epoch=300、epoch<=200 时因子始终 1，通常不改变学习率。
+        # 若改小 decay_epoch，它会与下面 CosineAnnealingLR 叠加，学习率不再是单一余弦曲线。
+        adjust_lr(optimizer, opt.lr, epoch, opt.decay_rate, opt.decay_epoch)
+        # 训练一轮、评估 val/test、保存 last/best。
+        train(train_loader, model, optimizer, epoch, opt, run_id)
+        # epoch 末推进余弦调度器。
+        scheduler.step()
+    # FINAL SUMMARY
 
-        # 创建训练 DataLoader。
-        train_loader = get_loader(
-            # 训练图像和掩膜目录。
-            image_root=f'{opt.train_path}/images/', gt_root=f'{opt.train_path}/masks/',
-            # batch 大小和网络输入尺寸。
-            batchsize=opt.batchsize, trainsize=opt.img_size,
-            # 打乱、增强、训练模式和彩色读取选项。
-            shuffle=True, augmentation=opt.augmentation, split='train', color_image=opt.color_image
-            # loader 构造结束。
-        )
-
-        # epoch 从 1 到 opt.epoch，便于日志直接显示人类轮次。
-        for epoch in range(1, opt.epoch + 1):
-            # 旧阶梯调度先运行；默认 decay_epoch=300、epoch<=200 时因子始终 1，通常不改变学习率。
-            # 若改小 decay_epoch，它会与下面 CosineAnnealingLR 叠加，学习率不再是单一余弦曲线。
-            adjust_lr(optimizer, opt.lr, epoch, opt.decay_rate, opt.decay_epoch)
-            # 训练一轮、评估 val/test、保存 last/best。
-            train(train_loader, model, optimizer, epoch, opt, run_id)
-            # epoch 末推进余弦调度器。
-            scheduler.step()
-        # FINAL SUMMARY
-
-        # 组装本 run 最终摘要文本。
-        summary = (f"\n{'=' * 40}\nFINAL RESULTS: {run_id}\n"
-                   # 最好验证 Dice。
-                   f"Best Val Dice: {best:.4f}\n"
-                   # 对应 epoch 的 test Dice。
-                   f"Test Dice at Best Val: {test_dice_at_best_val:.4f}\n"
-                   # 只含训练循环、不含验证测试的累计耗时。
-                   f"Total Train Time: {total_train_time:.2f}s\n{'=' * 40}")
-        # 打印摘要。
-        print(summary)
-        # 写入当前 run 日志。
-        logging.info(summary)
+    # 组装本 run 最终摘要文本。
+    summary = (f"\n{'=' * 40}\nFINAL RESULTS: {run_id}\n"
+               # 最好验证 Dice。
+               f"Best Val Dice: {best:.4f}\n"
+               # 对应 epoch 的 test Dice。
+               f"Test Dice at Best Val: {test_dice_at_best_val:.4f}\n"
+               # 只含训练循环、不含验证测试的累计耗时。
+               f"Total Train Time: {total_train_time:.2f}s\n{'=' * 40}")
+    # 打印摘要。
+    print(summary)
+    # 写入当前 run 日志。
+    logging.info(summary)

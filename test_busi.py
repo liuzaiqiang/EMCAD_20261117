@@ -12,6 +12,7 @@ from lib.test_output_paths import checkpoint_output_dir
 
 # BUSI 复用 test_polyp 的模型、推理、二分类指标和结果保存流程。
 import test_polyp as _base
+from lib.project_paths import DEFAULT_DATA_DIR
 # BUSI 加载器额外检查 manifest 和类别分布。
 from utils.dataloader_busi import (
     # 准备数据允许的扩展名。
@@ -171,7 +172,7 @@ def _parse_args():
         # 设置默认路径。
         args.data_root = (
             # 准备数据根。
-            "../../../../data/busi/target"
+            str(DEFAULT_DATA_DIR / 'busi/target')
         )
 
     # 检查点转绝对 Path。

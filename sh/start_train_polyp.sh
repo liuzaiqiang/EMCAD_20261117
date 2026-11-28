@@ -10,44 +10,39 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
-
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
-
-#206
-#CONDA_BASE="/home/elham/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 #210服务器
-CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 
-#209服务器
-#CONDA_BASE="/home/mlf/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
+export PYTHONNOUSERSITE=1
 
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
-
 #通过 CUDA_DEVICE 指定暴露的物理显卡，未指定时默认使用0号卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 
 export PYTHONUNBUFFERED=1
 
@@ -80,15 +75,19 @@ WEIGHT_DECAY="${WEIGHT_DECAY:-1e-4}"
 # 在医学图像分割里，比如多数据集训练、难样本较多、loss 权重较大时，CLIP=0.5可以避免某一批难样本把参数更新幅度拉得过大。
 #总计：CLIP=0.5 通常决定的是：反向传播后，模型梯度允许的最大更新幅度上限。它主要用来稳定训练、防止梯度爆炸；值越小更新越保守，值越大更新越激进。
 CLIP="${CLIP:-0.5}"
+SCHEDULER=constant
 
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCALE_RATES=(0.75 1.0 1.25)
+SCALE_RATES_DISPLAY="${SCALE_RATES[*]}"
+KERNEL_SIZES=(1 3 5)
+KERNEL_SIZES_DISPLAY="${KERNEL_SIZES[*]}"
 
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
 #每隔多少个 epoch 做一次验证。1 表示每个 epoch 都验证，并用于更新 best.pth
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 # 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
-# SAVE_EVERY="${SAVE_EVERY:-0}"
 #每个 epoch 最多训练多少个 batch。0 表示不限制；大于 0 通常用于快速调试或冒烟测试。
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
 #每次验证最多评估多少个病例。0 表示使用完整验证集；大于 0 会截断验证集，不适合正式实验。
@@ -108,13 +107,8 @@ ACTIVATION_MSCB="${ACTIVATION_MSCB:-relu6}"
 SUPERVISION="${SUPERVISION:-paper}"
 
 
-
-
-
-
 #这是多尺度训练总开关。
 USE_MULTI_SCALE_TRAINING="${USE_MULTI_SCALE_TRAINING:-1}"
-
 
 
 #####################################################################
@@ -181,22 +175,34 @@ if [[ "${ENCODER}" == pvt_v2_* ]]; then
   }
 fi
 
-# 创建模型输出根目录，具体运行目录由Python根据dataset_name和run_name继续组织。
-mkdir -p "${OUTPUT_DIR}"
 
 # 时间戳和12位随机十六进制共同保证并发运行标识不重复。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-# LOG_FILE编码主要超参数；RUN_ID还承担“日志/PID/输出目录/进程环境”之间的关联键。
-LOG_FILE="${LOG_DIR}/train_${DATASET}_${DATASET_NAME}__imgSize${IMG_SIZE}_batchSize${BATCH_SIZE}_lr${BASE_LR}_epo${MAX_EPOCHS}_${TS}.log"
 RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 参数快照追加到日志；终端只保留便于复制的RUN_ID和后续PID/路径信息。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY NUM_WORKERS SEED USE_MULTI_SCALE_TRAINING INPUT_CHANNELS MERGE_INSTANCE_MASKS RUN_ID)
+RUN_DIR="$("${PYTHON_BIN}" -m lib.experiment_paths \
+  "${OUTPUT_DIR}" "${DATASET}" "${DATASET_NAME}" "${ENCODER}" "${IMG_SIZE}" \
+  "${BATCH_SIZE}" "${MAX_EPOCHS}" "${SUPERVISION}" "${BASE_LR}" "${EXPANSION_FACTOR}" \
+  "${LGAG_KS}" "${ACTIVATION_MSCB}" "${SEED}" "${KERNEL_SIZES[@]}")"
+LOG_FILE="${RUN_DIR}/launcher.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
+
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE DATASET_NAME DATA_ROOT OUTPUT_DIR
+  IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR
+  WEIGHT_DECAY NUM_WORKERS SEED USE_MULTI_SCALE_TRAINING INPUT_CHANNELS
+  MERGE_INSTANCE_MASKS SCHEDULER N_GPU RUN_PURPOSE KERNEL_SIZES_DISPLAY
+  SCALE_RATES_DISPLAY ENCODER EXPANSION_FACTOR LGAG_KS ACTIVATION_MSCB
+  SUPERVISION PRETRAINED_DIR CLIP DETERMINISTIC VALIDATE_EVERY
+  MAX_TRAIN_BATCHES MAX_VALID_CASES DEVICE
+)
 {
-  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"
@@ -205,14 +211,14 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DAT
 
 # 单个多行命令块：nohup忽略挂断，env注入RUN_ID供stop脚本从/proc校验，python -u关闭解释器输出缓冲。
 # 参数固定使用[1,3,5]并行尺度、constant调度和0.75/1/1.25多尺度训练；末尾重定向日志、断开stdin并放入后台。
-# 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
   --output_dir "${OUTPUT_DIR}" \
+  --run_dir "${RUN_DIR}" \
   --run_name "${RUN_ID}" \
   --encoder "${ENCODER}" \
-  --kernel_sizes 1 3 5 \
+  --kernel_sizes "${KERNEL_SIZES[@]}" \
   --expansion_factor "${EXPANSION_FACTOR}" \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
@@ -226,10 +232,11 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_polyp.py \
   --base_lr "${BASE_LR}" \
   --weight_decay "${WEIGHT_DECAY}" \
   --clip "${CLIP}" \
-  --scheduler constant \
-  --scale_rates 0.75 1.0 1.25 \
+  --scheduler "${SCHEDULER}" \
+  --scale_rates "${SCALE_RATES[@]}" \
   "${MULTI_SCALE_ARGS[@]}" \
   "${IMAGE_MODE_ARGS[@]}" \
+  --n_gpu "${N_GPU}" \
   --num_workers "${NUM_WORKERS}" \
   --seed "${SEED}" \
   --deterministic "${DETERMINISTIC}" \
@@ -246,4 +253,4 @@ echo "[INFO] PID=${PID}"
 echo "${PID}" > "${PID_FILE}"
 echo "[INFO] PID_FILE=${PID_FILE}"
 echo "[INFO] LOG_FILE=${LOG_FILE}"
-echo "[INFO] RUN_OUTPUT=${OUTPUT_DIR}/${DATASET_NAME}/${RUN_ID}"
+echo "[INFO] RUN_OUTPUT=${RUN_DIR}"

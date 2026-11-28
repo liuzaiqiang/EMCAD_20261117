@@ -8,52 +8,60 @@ set -euo pipefail
 RUN_PURPOSE="${RUN_PURPOSE:-未填写本次实验目的}"
 
 
+# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
+export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
+
+# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
+SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
+SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.10}"
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
+export PYTHONNOUSERSITE=1
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 
 cd "${PROJECT_DIR}"
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
 
-# 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
-export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+
 # 单卡队列默认 n_gpu=1；确定性模式沿用 train_synapse.py 原来的默认值 1。
 N_GPU="${N_GPU:-1}"
 #windows环境下运行时，设置为0（0 表示由主进程加载数据，最稳定）;linux环境下运行时，设置为8。
-NUM_WORKERS=8
+NUM_WORKERS="${NUM_WORKERS:-8}"
 
 SEED="${SEED:-2222}"
-MAX_EPOCHS=300
+MAX_EPOCHS="${MAX_EPOCHS:-300}"
 DATASET="Synapse"
+NUM_CLASSES="${NUM_CLASSES:-9}"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/Synapse/train_npz}"
+VOLUME_PATH="${VOLUME_PATH:-${PROJECT_DIR}/../../../../data/Synapse/test_vol_h5}"
+LIST_DIR="${LIST_DIR:-${PROJECT_DIR}/../../../../data/Synapse/lists/lists_Synapse}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth}"
 IMG_SIZE=224
 BATCH_SIZE=16
 SUPERVISION="mutation"
@@ -115,65 +123,50 @@ case "${CONCATENATION}" in
 esac
 
 
+for path in "${ROOT_PATH}" "${VOLUME_PATH}" "${LIST_DIR}"; do
+  test -d "${path}" || { echo "[ERROR] Synapse data directory not found: ${path}" >&2; exit 1; }
+done
+for split in train test_vol; do
+  test -s "${LIST_DIR}/${split}.txt" || { echo "[ERROR] missing or empty list: ${LIST_DIR}/${split}.txt" >&2; exit 1; }
+done
+
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 TS="$(date +%F_%H%M%S)"
-LOG_FILE="${LOG_DIR}/train_${DATASET}_encoder_${ENCODER}_imgSize_${IMG_SIZE}_supervision_${SUPERVISION}_bs_${BATCH_SIZE}_seed_${SEED}_lr_${BASE_LR}_maxepo_${MAX_EPOCHS}_ts_${TS}_RAND_${RAND}.log"
-RUN_ID="$(basename "${LOG_FILE}" .log)"
-PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
+RUN_ID="train_${DATASET}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
 
 
 
-# Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
-SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
-SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-10}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-83.90}"
+
 
 case "${SYNAPSE_TOPK_ENABLED}" in
   0|1) ;;
   *) echo "[ERROR] SYNAPSE_TOPK_ENABLED must be 0 or 1"; exit 1 ;;
 esac
-[[ "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
+[[ "${SYNAPSE_TOPK_ENABLED}" == 0 || "${SYNAPSE_TOPK_SIZE}" =~ ^[1-9][0-9]*$ ]] || {
   echo "[ERROR] SYNAPSE_TOPK_SIZE must be a positive integer"; exit 1;
 }
 
 
+RUN_DIR="$("${PYTHON_BIN}" -m lib.experiment_paths \
+  "${OUTPUT_DIR}" "${DATASET}" "${DATASET}" "${ENCODER}" "${IMG_SIZE}" \
+  "${BATCH_SIZE}" "${MAX_EPOCHS}" "${SUPERVISION}" "${BASE_LR}" "${EXPANSION_FACTOR}" \
+  "${LGAG_KS}" "${ACTIVATION_MSCB}" "${SEED}" "${KERNEL_SIZES[@]}")"
+LOG_FILE="${RUN_DIR}/launcher.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
+
 PARAM_NAMES=(
-  CONDA_BASE
-  CONDA_ENV_PREFIX
-  PROJECT_DIR
-  LOG_DIR
-  CUDA_VISIBLE_DEVICES
-  SEED
-  MAX_EPOCHS
-  DATASET
-  IMG_SIZE
-  BATCH_SIZE
-  SUPERVISION
-  BASE_LR
-  ENCODER
-  USE_PRETRAIN
-  PRETRAINED_DIR
-  EXPANSION_FACTOR
-  KERNEL_SIZES_DISPLAY
-  LGAG_KS
-  ACTIVATION_MSCB
-  N_GPU
-  DETERMINISTIC
-  NO_DW_PARALLEL
-  CONCATENATION
-  TS
-  RAND
-  LOG_FILE
-  RUN_ID
-  PID_FILE
-  NUM_WORKERS
-  SYNAPSE_TOPK_ENABLED
-  SYNAPSE_TOPK_SIZE
-  SYNAPSE_TOPK_DICE_THRESHOLD
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE SEED MAX_EPOCHS IMG_SIZE
+  BATCH_SIZE SUPERVISION BASE_LR ENCODER USE_PRETRAIN
+  PRETRAINED_DIR EXPANSION_FACTOR KERNEL_SIZES_DISPLAY LGAG_KS ACTIVATION_MSCB
+  N_GPU DETERMINISTIC NO_DW_PARALLEL CONCATENATION NUM_WORKERS
+  SYNAPSE_TOPK_ENABLED SYNAPSE_TOPK_SIZE SYNAPSE_TOPK_DICE_THRESHOLD RUN_PURPOSE NUM_CLASSES
+  ROOT_PATH VOLUME_PATH LIST_DIR OUTPUT_DIR
 )
 
 {
-  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
@@ -185,8 +178,14 @@ PARAM_NAMES=(
 # 启动命令块：nohup使进程忽略终端挂断信号；env把RUN_ID写入子进程环境，停止脚本会读取它防止PID复用误杀。  >> 追加标准输出，2>&1把标准错误并入同一日志，< /dev/null断开标准输入
 # 参数列表和日志重定向必须属于同一条 shell 命令；最后一个参数行用反斜杠续接重定向行，
 # 这样 $! 才会记录真正运行 Python 训练的后台进程，且 stdout/stderr 会进入本次训练日志。
-nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_synapse.py \
   --dataset "${DATASET}" \
+  --num_classes "${NUM_CLASSES}" \
+  --root_path "${ROOT_PATH}" \
+  --volume_path "${VOLUME_PATH}" \
+  --list_dir "${LIST_DIR}" \
+  --output_dir "${OUTPUT_DIR}" \
+  --run_dir "${RUN_DIR}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \
   --max_epochs "${MAX_EPOCHS}" \
@@ -211,5 +210,5 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
 
 PID=$!
 echo "[INFO] PID=${PID}"
-#PID 文件在项目根目录
 echo "${PID}" > "${PID_FILE}"
+echo "[INFO] RUN_OUTPUT=${RUN_DIR}"

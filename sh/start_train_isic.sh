@@ -13,47 +13,41 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
 
-# 训练stdout/stderr统一写入项目logs目录。
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
+
 
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-
-
-#206
-#CONDA_BASE="/home/elham/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
 #CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
 #CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+export PYTHONNOUSERSITE=1
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 # 限定GPU并关闭Python标准流缓冲，便于实时观察nohup日志。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # DATASET_NAME只允许ISIC2017或ISIC2018，默认训练ISIC2018。
@@ -74,11 +68,14 @@ MIN_LR="${MIN_LR:-1e-6}"
 
 # 数据加载、可复现性、保存/验证频率和调试上限；0上限表示由Python处理为不限制。
 NUM_WORKERS="${NUM_WORKERS:-8}"
+SCALE_RATES=(0.75 1.0 1.25)
+SCALE_RATES_DISPLAY="${SCALE_RATES[*]}"
+KERNEL_SIZES=(1 3 5)
+KERNEL_SIZES_DISPLAY="${KERNEL_SIZES[*]}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 # 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
-# SAVE_EVERY="${SAVE_EVERY:-50}"
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
 MAX_VALID_CASES="${MAX_VALID_CASES:-0}"
 DEVICE="${DEVICE:-cuda}"
@@ -151,49 +148,50 @@ if [[ "${ENCODER}" == pvt_v2_* ]]; then
 fi
 
 # 输出根目录由shell创建，Python再建立本次RUN_ID子目录。
-mkdir -p "${OUTPUT_DIR}"
 
 # 秒级时间戳和随机后缀生成唯一RUN_ID。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-# 日志、PID文件和训练输出通过同一RUN_ID关联；PID文件明确放在项目根目录。
-LOG_FILE="${LOG_DIR}/train_${DATASET}_${DATASET_NAME}__imgSize${IMG_SIZE}_batchSize${BATCH_SIZE}_lr${BASE_LR}_epo${MAX_EPOCHS}_${TS}.log"
+# 日志、PID 文件和训练产物位于同一个实验目录。
 RUN_ID="train_${DATASET}_${DATASET_NAME}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 把关键配置追加进日志，终端单独打印RUN_ID供停止脚本使用。
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR DATASET_NAME DATA_ROOT OUTPUT_DIR IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC RUN_ID)
+RUN_DIR="$("${PYTHON_BIN}" -m lib.experiment_paths \
+  "${OUTPUT_DIR}" "${DATASET}" "${DATASET_NAME}" "${ENCODER}" "${IMG_SIZE}" \
+  "${BATCH_SIZE}" "${MAX_EPOCHS}" "${SUPERVISION}" "${BASE_LR}" "${EXPANSION_FACTOR}" \
+  "${LGAG_KS}" "${ACTIVATION_MSCB}" "${SEED}" "${KERNEL_SIZES[@]}")"
+LOG_FILE="${RUN_DIR}/launcher.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
+
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE DATASET_NAME DATA_ROOT OUTPUT_DIR
+  IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR
+  WEIGHT_DECAY SUPERVISION NUM_WORKERS SEED DETERMINISTIC
+  RUN_PURPOSE KERNEL_SIZES_DISPLAY SCALE_RATES_DISPLAY ENCODER EXPANSION_FACTOR
+  LGAG_KS ACTIVATION_MSCB PRETRAINED_DIR CLIP SCHEDULER
+  MIN_LR N_GPU VALIDATE_EVERY THRESHOLD MAX_TRAIN_BATCHES
+  MAX_VALID_CASES DEVICE
+)
 {
-  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do printf '[INFO] %-24s=%s\n' "$name" "${!name}"; done
   echo "---------------------------ready to train---------------------------------"
 } | tee -a "${LOG_FILE}"
-: <<'REMOVED_LOG_LINES'
-echo "[INFO] DATASET_NAME=${DATASET_NAME}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] DATA_ROOT=${DATA_ROOT}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] OUTPUT_DIR=${OUTPUT_DIR}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] IMG_SIZE=${IMG_SIZE}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] BATCH_SIZE=${BATCH_SIZE} VAL_BATCH_SIZE=${VAL_BATCH_SIZE}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] MAX_EPOCHS=${MAX_EPOCHS} BASE_LR=${BASE_LR} WEIGHT_DECAY=${WEIGHT_DECAY}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] SUPERVISION=${SUPERVISION} NUM_WORKERS=${NUM_WORKERS}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] SEED=${SEED} DETERMINISTIC=${DETERMINISTIC}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}"
-
-REMOVED_LOG_LINES
 
 # 整个续行块是一条命令：nohup+后台运行，RUN_ID注入进程环境，stdout/stderr追加到同一日志，stdin接/dev/null。
 # 固定传递[1,3,5]卷积核和0.75/1/1.25多尺度；调度器、阈值及其余变量显式传给train_isic.py。
-# 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
   --output_dir "${OUTPUT_DIR}" \
+  --run_dir "${RUN_DIR}" \
   --run_name "${RUN_ID}" \
   --encoder "${ENCODER}" \
-  --kernel_sizes 1 3 5 \
+  --kernel_sizes "${KERNEL_SIZES[@]}" \
   --expansion_factor "${EXPANSION_FACTOR}" \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
@@ -208,7 +206,7 @@ nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_isic.py \
   --clip "${CLIP}" \
   --scheduler "${SCHEDULER}" \
   --min_lr "${MIN_LR}" \
-  --scale_rates 0.75 1.0 1.25 \
+  --scale_rates "${SCALE_RATES[@]}" \
   --num_workers "${NUM_WORKERS}" \
   --n_gpu "${N_GPU}" \
   --seed "${SEED}" \
@@ -227,4 +225,4 @@ echo "[INFO] PID=${PID}"
 echo "${PID}" > "${PID_FILE}"
 echo "[INFO] PID_FILE=${PID_FILE}"
 echo "[INFO] LOG_FILE=${LOG_FILE}"
-echo "[INFO] RUN_OUTPUT=${OUTPUT_DIR}/${DATASET_NAME}/${RUN_ID}"
+echo "[INFO] RUN_OUTPUT=${RUN_DIR}"

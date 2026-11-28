@@ -31,6 +31,7 @@ import torch
 import time
 from lib.test_output_paths import prepare_test_output
 from lib.pretrained_paths import DEFAULT_PVT_DIR
+from lib.project_paths import DEFAULT_DATA_DIR
 from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
                               log_environment, log_json, peak_memory_mb,
                               reset_peak_memory, synchronize)
@@ -74,9 +75,9 @@ def parse_args():
     # 必填模型权重路径；通常使用训练验证集选择出的 best.pth。
     parser.add_argument("--checkpoint", required=True)
     # ACDC 根目录，测试时要求存在 test/。
-    parser.add_argument("--root_path", default="../../../../data/ACDC")
+    parser.add_argument("--root_path", default=str(DEFAULT_DATA_DIR / 'ACDC'))
     # 划分清单目录，测试时要求 test.txt。
-    parser.add_argument("--list_dir", default="../../../../data/ACDC/lists_ACDC")
+    parser.add_argument("--list_dir", default=str(DEFAULT_DATA_DIR / 'ACDC/lists_ACDC'))
     # 预测/日志目录；None 时放在 checkpoint 同级 predictions/。
     parser.add_argument("--output_dir", default=None)
     # 指标 CSV 路径；None 时放在 checkpoint 同级 test_metrics.csv。

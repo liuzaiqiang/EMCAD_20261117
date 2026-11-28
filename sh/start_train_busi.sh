@@ -12,47 +12,40 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 
 cd "${PROJECT_DIR}"
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
+
 
 
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
-
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
-
-#206
-#CONDA_BASE="/home/elham/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
-
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
+export PYTHONNOUSERSITE=1
 PYTHON_BIN="${PYTHON_BIN:-python}"
-
-
 
 
 # 选择GPU并让Python输出不缓冲，减少日志延迟。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
+N_GPU="${N_GPU:-1}"
 export PYTHONUNBUFFERED=1
 
 # BUSI启动器只接受固定数据集名BUSI。
@@ -73,11 +66,12 @@ MIN_LR="${MIN_LR:-1e-6}"
 
 # DataLoader、随机性、验证/保存周期、调试上限和设备选择。
 NUM_WORKERS="${NUM_WORKERS:-8}"
+KERNEL_SIZES=(1 3 5)
+KERNEL_SIZES_DISPLAY="${KERNEL_SIZES[*]}"
 DETERMINISTIC="${DETERMINISTIC:-1}"
 SEED="${SEED:-2222}"
 VALIDATE_EVERY="${VALIDATE_EVERY:-1}"
 # 中间 epoch_N.pth 保存已停用；保留原配置便于审核。
-# SAVE_EVERY="${SAVE_EVERY:-50}"
 MAX_TRAIN_BATCHES="${MAX_TRAIN_BATCHES:-0}"
 MAX_VALID_CASES="${MAX_VALID_CASES:-0}"
 DEVICE="${DEVICE:-cuda}"
@@ -127,7 +121,6 @@ if [[ "${ENCODER}" == pvt_v2_* ]]; then
 fi
 
 # 确保模型输出根目录存在。
-mkdir -p "${OUTPUT_DIR}"
 
 # 时间戳和系统随机后缀共同生成不会轻易冲突的RUN_ID。
 TS="$(date +%F_%H%M%S)"
@@ -135,46 +128,46 @@ RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 # RUN_ID关联日志、PID、Python输出目录和/proc中的进程环境标识。
 RUN_ID="train_${DATASET}_${TS}_gpu${CUDA_VISIBLE_DEVICES}_SEED${SEED}_RAND${RAND}"
-LOG_FILE="${LOG_DIR}/${RUN_ID}__imgSize${IMG_SIZE}_batchSize${BATCH_SIZE}_lr${BASE_LR}_epo${MAX_EPOCHS}.log"
-PID_FILE="${PROJECT_DIR}/${RUN_ID}.pid"
 
 # 把实际启动配置记录到日志；BUSI多尺度禁用状态也显式写入。
-# 原参数列表中的 SAVE_EVERY 已随中间 checkpoint 保存一并停用：
-# PARAM_NAMES=(... VALIDATE_EVERY SAVE_EVERY MAX_TRAIN_BATCHES ...)
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES DATASET DATASET_NAME IMG_SIZE BATCH_SIZE VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY CLIP THRESHOLD SCHEDULER MIN_LR NUM_WORKERS DETERMINISTIC SEED VALIDATE_EVERY MAX_TRAIN_BATCHES MAX_VALID_CASES DEVICE ENCODER EXPANSION_FACTOR LGAG_KS ACTIVATION_MSCB SUPERVISION DATA_ROOT OUTPUT_DIR PRETRAINED_DIR TS RAND LOG_FILE RUN_ID PID_FILE)
+RUN_DIR="$("${PYTHON_BIN}" -m lib.experiment_paths \
+  "${OUTPUT_DIR}" "${DATASET}" "${DATASET_NAME}" "${ENCODER}" "${IMG_SIZE}" \
+  "${BATCH_SIZE}" "${MAX_EPOCHS}" "${SUPERVISION}" "${BASE_LR}" "${EXPANSION_FACTOR}" \
+  "${LGAG_KS}" "${ACTIVATION_MSCB}" "${SEED}" "${KERNEL_SIZES[@]}")"
+LOG_FILE="${RUN_DIR}/launcher.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
+
+MULTI_SCALE=disabled_for_BUSI
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE DATASET_NAME IMG_SIZE BATCH_SIZE
+  VAL_BATCH_SIZE MAX_EPOCHS BASE_LR WEIGHT_DECAY CLIP
+  THRESHOLD SCHEDULER MIN_LR NUM_WORKERS DETERMINISTIC
+  SEED VALIDATE_EVERY MAX_TRAIN_BATCHES MAX_VALID_CASES DEVICE
+  ENCODER EXPANSION_FACTOR LGAG_KS ACTIVATION_MSCB SUPERVISION
+  DATA_ROOT OUTPUT_DIR PRETRAINED_DIR RUN_PURPOSE KERNEL_SIZES_DISPLAY
+  N_GPU MULTI_SCALE
+)
 {
-  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
   done
   echo "---------------------------ready to train---------------------------------"
 } | tee -a "${LOG_FILE}"
- : <<'REMOVED_LOG_LINES'
-echo "[INFO] DATA_ROOT=${DATA_ROOT}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] OUTPUT_DIR=${OUTPUT_DIR}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] IMG_SIZE=${IMG_SIZE}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] BATCH_SIZE=${BATCH_SIZE} VAL_BATCH_SIZE=${VAL_BATCH_SIZE}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] MAX_EPOCHS=${MAX_EPOCHS} BASE_LR=${BASE_LR}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] WEIGHT_DECAY=${WEIGHT_DECAY} CLIP=${CLIP}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] SUPERVISION=${SUPERVISION}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] MULTI_SCALE=disabled_for_BUSI" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] NUM_WORKERS=${NUM_WORKERS} SEED=${SEED}" | tee -a "${LOG_FILE}" > /dev/null
-echo "[INFO] RUN_ID=${RUN_ID}" | tee -a "${LOG_FILE}" > /dev/null
-
-echo "[INFO] RUN_ID=${RUN_ID}"
-REMOVED_LOG_LINES
 
 # 单个多行后台命令：nohup防终端断开，env RUN_ID供stop脚本核验，python -u关闭解释器缓冲。
 # stdout追加日志、stderr并入stdout、stdin断开；没有传scale_rates且train_busi.py会强制禁用多尺度。
-# 原周期保存参数已停用：--save_every "${SAVE_EVERY}"
 nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_busi.py \
   --data_root "${DATA_ROOT}" \
   --dataset_name "${DATASET_NAME}" \
   --output_dir "${OUTPUT_DIR}" \
+  --run_dir "${RUN_DIR}" \
   --run_name "${RUN_ID}" \
   --encoder "${ENCODER}" \
-  --kernel_sizes 1 3 5 \
+  --kernel_sizes "${KERNEL_SIZES[@]}" \
   --expansion_factor "${EXPANSION_FACTOR}" \
   --lgag_ks "${LGAG_KS}" \
   --activation_mscb "${ACTIVATION_MSCB}" \
@@ -208,4 +201,4 @@ echo "${PID}" > "${PID_FILE}"
 echo "[INFO] PID=${PID}"
 echo "[INFO] PID_FILE=${PID_FILE}"
 echo "[INFO] LOG_FILE=${LOG_FILE}"
-echo "[INFO] RUN_OUTPUT=${OUTPUT_DIR}/BUSI/${RUN_ID}"
+echo "[INFO] RUN_OUTPUT=${RUN_DIR}"

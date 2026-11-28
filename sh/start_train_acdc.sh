@@ -4,40 +4,31 @@ set -euo pipefail
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
 RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
-
-
 #205
 #CONDA_BASE="/home/elham/anaconda3"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
+#209服务器
+#CONDA_BASE="${CONDA_BASE:-/home/mlf/anaconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/home/mlf/anaconda3/envs/sld_emcad}"
 
-
-
-#212服务器
-#CONDA_BASE="/home/zym/anaconda3"
-#CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 #210服务器
-#CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
-#CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
-
-#并行3个月
-# CONDA_BASE="/base/mambaforge"
-# CONDA_ENV_PREFIX="/root/shared-nvme/lzq_conda/envs/sld_emcad"
+CONDA_BASE="/home/lzq/lzqEnvs/miniconda3"
+CONDA_ENV_PREFIX="/home/lzq/lzqEnvs/miniconda3/envs/sld_emcad"
 
 
-#206
-#CONDA_BASE="/home/elham/anaconda3"
-#CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
 
 
-#209服务器
-CONDA_BASE="/home/mlf/anaconda3"
-CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
+
 
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
-
+export PYTHONNOUSERSITE=1
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 
 # 解析脚本所在目录为项目绝对路径，并切换过去，使后续相对路径和PID文件位置稳定。
@@ -45,12 +36,6 @@ conda activate "${CONDA_ENV_PREFIX}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${PROJECT_DIR}"
-
-
-# 所有后台输出集中写入项目 logs 目录。
-LOG_DIR="${PROJECT_DIR}/logs"
-mkdir -p "${LOG_DIR}" "${PROJECT_DIR}/model_pth"
-
 
 
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -69,16 +54,21 @@ DATASET="ACDC"
 BASE_LR="${BASE_LR:-1e-4}"
 SUPERVISION="${SUPERVISION:-mutation}"
 NUM_WORKERS="${NUM_WORKERS:-8}"
+ENCODER="pvt_v2_b2"
+EXPANSION_FACTOR="2"
+LGAG_KS="3"
+ACTIVATION_MSCB="relu6"
+KERNEL_SIZES=(1 3 5)
+KERNEL_SIZES_DISPLAY="${KERNEL_SIZES[*]}"
 
 
 DETERMINISTIC="${DETERMINISTIC:-1}"
 
 
 # 数据根目录包含 train/valid/test；列表目录保存各划分病例名；模型输出固定写入 model_pth/ACDC。
-LIST_DIR="${PROJECT_DIR}/../../../../data/ACDC/lists_ACDC"
-ROOT_PATH="${PROJECT_DIR}/../../../../data/ACDC"
-OUTPUT_DIR="${PROJECT_DIR}/model_pth/ACDC"
-mkdir -p "${OUTPUT_DIR}"
+ROOT_PATH="${ROOT_PATH:-${PROJECT_DIR}/../../../../data/ACDC}"
+LIST_DIR="${LIST_DIR:-${ROOT_PATH}/lists_ACDC}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/model_pth/ACDC}"
 PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 
 # 启动前逐项验证训练/验证目录、列表和PVTv2-B2预训练权重；失败统一返回退出码1。
@@ -95,22 +85,30 @@ test -f "${PRETRAINED_DIR}/pvt_v2_b2.pth" || {
 # 秒级时间戳加随机十六进制后缀组成唯一运行标识，避免并发启动相互覆盖日志/PID文件。
 TS="$(date +%F_%H%M%S)"
 RAND="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-# 日志名记录关键训练规模，RUN_ID额外记录GPU和随机种子。
-LOG_FILE="${LOG_DIR}/train_${DATASET}_imgSize_${IMG_SIZE}_batchSize_${BATCH_SIZE}_lr_${BASE_LR}_max_epochs_${MAX_EPOCHS}_${TS}.log"
 RUN_ID="train_${DATASET}_${TS}_gpu_${CUDA_VISIBLE_DEVICES}_SEED_${SEED}_RAND_${RAND}"
-# 脚本已cd到项目根，因此相对PID文件位于项目根目录。
-PID_FILE="${RUN_ID}.pid"
-
-
-
 
 
 # tee -a把配置写入日志；RUN_ID同时打印到终端，供stop_train_acdc.sh作为参数使用。
 echo "[INFO] RUN_ID=${RUN_ID}"
 
-PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICES SEED IMG_SIZE BATCH_SIZE MAX_EPOCHS DATASET BASE_LR SUPERVISION NUM_WORKERS N_GPU DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR TS RAND LOG_FILE RUN_ID PID_FILE)
+RUN_DIR="$("${PYTHON_BIN}" -m lib.experiment_paths \
+  "${OUTPUT_DIR}" "${DATASET}" "${DATASET}" "${ENCODER}" "${IMG_SIZE}" \
+  "${BATCH_SIZE}" "${MAX_EPOCHS}" "${SUPERVISION}" "${BASE_LR}" "${EXPANSION_FACTOR}" \
+  "${LGAG_KS}" "${ACTIVATION_MSCB}" "${SEED}" "${KERNEL_SIZES[@]}")"
+LOG_FILE="${RUN_DIR}/launcher.log"
+PID_FILE="${RUN_DIR}/${RUN_ID}.pid"
+
+PARAM_NAMES=(
+  CONDA_BASE CONDA_ENV_PREFIX PYTHON_BIN PYTHONNOUSERSITE
+  PROJECT_DIR CUDA_VISIBLE_DEVICES
+  DATASET TS RAND RUN_ID RUN_DIR
+  LOG_FILE PID_FILE SEED IMG_SIZE BATCH_SIZE
+  MAX_EPOCHS BASE_LR SUPERVISION NUM_WORKERS N_GPU
+  DETERMINISTIC LIST_DIR ROOT_PATH OUTPUT_DIR PRETRAINED_DIR
+  ENCODER EXPANSION_FACTOR LGAG_KS ACTIVATION_MSCB RUN_PURPOSE
+  KERNEL_SIZES_DISPLAY
+)
 {
-  printf '[INFO] RUN_PURPOSE=%s\n' "${RUN_PURPOSE}"
   echo "[INFO] parameters:"
   for name in "${PARAM_NAMES[@]}"; do
     printf '[INFO] %-24s=%s\n' "$name" "${!name}"
@@ -120,17 +118,18 @@ PARAM_NAMES=(CONDA_BASE CONDA_ENV_PREFIX PROJECT_DIR LOG_DIR CUDA_VISIBLE_DEVICE
 
 # 整个反斜杠块是一条后台命令：nohup抵抗终端断开，env注入RUN_ID用于停止时核验进程身份。
 # -u和PYTHONUNBUFFERED共同减少日志缓冲；stdout追加到日志，stderr合并，stdin断开，&立即返回控制权。
-nohup env RUN_ID="${RUN_ID}" python -u train_acdc.py \
+nohup env RUN_ID="${RUN_ID}" "${PYTHON_BIN}" -u train_acdc.py \
   --root_path "${ROOT_PATH}" \
   --list_dir "${LIST_DIR}" \
   --output_dir "${OUTPUT_DIR}" \
+  --run_dir "${RUN_DIR}" \
   --run_name "${RUN_ID}" \
-  --encoder pvt_v2_b2 \
+  --encoder "${ENCODER}" \
   --pretrained_dir "${PRETRAINED_DIR}" \
-  --kernel_sizes 1 3 5 \
-  --expansion_factor 2 \
-  --lgag_ks 3 \
-  --activation_mscb relu6 \
+  --kernel_sizes "${KERNEL_SIZES[@]}" \
+  --expansion_factor "${EXPANSION_FACTOR}" \
+  --lgag_ks "${LGAG_KS}" \
+  --activation_mscb "${ACTIVATION_MSCB}" \
   --supervision "${SUPERVISION}" \
   --img_size "${IMG_SIZE}" \
   --batch_size "${BATCH_SIZE}" \
@@ -149,3 +148,4 @@ echo "${PID}" > "${PID_FILE}"
 # 输出PID文件和日志位置，方便监控及后续停止。
 echo "[INFO] PID_FILE=${PID_FILE}"
 echo "[INFO] LOG_FILE=${LOG_FILE}"
+echo "[INFO] RUN_OUTPUT=${RUN_DIR}"

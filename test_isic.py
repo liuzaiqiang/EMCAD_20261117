@@ -10,6 +10,7 @@ from lib.test_output_paths import checkpoint_output_dir
 
 # ISIC 测试复用 test_polyp 的模型构建、检查点加载、推理和指标逻辑。
 import test_polyp as _base
+from lib.project_paths import DEFAULT_DATA_DIR
 # 导入 ISIC 文件扩展名约束和专用加载器。
 from utils.dataloader_isic import (
     # 允许的输入图像后缀集合。
@@ -97,7 +98,7 @@ def _parse_args():
     # 未指定数据根时使用 ISIC 目录。
     if not _option_was_given("--data_root"):
         # 设置默认路径。
-        args.data_root = "../../../../data/isic/target"
+        args.data_root = str(DEFAULT_DATA_DIR / 'isic/target')
 
     # 把检查点转换成绝对 Path。
     checkpoint = Path(

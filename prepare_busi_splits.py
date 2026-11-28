@@ -1,4 +1,5 @@
 # argparse 解析原始BUSI目录、输出目录和固定随机种子。
+from lib.project_paths import DEFAULT_DATA_DIR
 import argparse
 # csv 写出逐样本manifest。
 import csv
@@ -1272,7 +1273,7 @@ def parse_args():
     parser.add_argument(
         "--output_root",
         default=(
-            "../../../../data/busi/target/BUSI"
+            str(DEFAULT_DATA_DIR / 'busi/target/BUSI')
         ),
     )
     # seed必须解析为整数，用于重复组的确定性伪随机排序。

@@ -66,7 +66,7 @@ def inference(args, model, best_performance, validation_csv=None, epoch=None):
                               list_dir=args.list_dir, nclass=args.num_classes)
     # batch_size=1 表示每次评估一个病例；不打乱才能保持列表与日志顺序稳定。
     testloader = DataLoader(db_test, batch_size=1,
-                            shuffle=False, num_workers=1)
+                            shuffle=False, num_workers=min(getattr(args, "num_workers", 1), 1))
     # 记录本轮需要处理的病例数，即 DataLoader 的迭代次数。
     logging.info("{} test iterations per epoch".format(len(testloader)))
     # 切换到eval模式，冻结 BatchNorm 运行统计并关闭 Dropout 的随机行为。
@@ -126,7 +126,8 @@ def evaluate_full_validation_metrics(args, model):
     """
     dataset = Synapse_dataset(base_dir=args.volume_path, split="test_vol",
                               list_dir=args.list_dir, nclass=args.num_classes)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False,
+                        num_workers=min(getattr(args, "num_workers", 1), 1))
     if not len(dataset):
         raise ValueError("Synapse validation list is empty")
     model.eval()
@@ -265,12 +266,9 @@ def trainer_synapse(args, model, snapshot_path):
     # trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True,worker_init_fn=worker_init_fn)
     # 选择设备；虽然这里有 CPU 回退，入口 train_synapse.py 在此之前已经 model.cuda()，所以整体仍要求 CUDA。
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # 只有机器可见GPU数大于1 且用户要求 n_gpu>1 时，才包裹数据并行。
-    if torch.cuda.device_count() > 1 and args.n_gpu > 1:
-        # 打印的是全部可见 GPU 数，不一定等于 args.n_gpu。
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        # DataParallel 默认使用所有可见设备，并在 batch 维切分输入、在主卡汇总四级输出。
-        model = nn.DataParallel(model)
+    if args.n_gpu > 1:
+        model = nn.DataParallel(model, device_ids=list(range(args.n_gpu)))
+    checkpoint_model = model.module if isinstance(model, nn.DataParallel) else model
     # 确保模型最终位于选择的设备；对 DataParallel 而言主模块位于默认 CUDA 设备。
     model.to(device)
 
@@ -438,16 +436,6 @@ def trainer_synapse(args, model, snapshot_path):
         logging.info('iteration %d, epoch %d : loss : %f, lr: %f' %
                      (iter_num, epoch_num, loss.item(), lr_))
 
-        # 中间 checkpoint 已停用；候选权重在完整验证指标计算后保存。
-        # 固定使用last.pth 文件名，所以每个 epoch 都覆盖为最新模型状态。注意，这一步只是拼接路径
-        # save_mode_path = os.path.join(snapshot_path, 'last.pth')
-        # 这里只保存 state_dict，不含优化器状态、epoch 和随机数状态，不能完整无缝恢复训练。
-        # 多 GPU 时 model.state_dict() 的键通常带 module.前缀；单GPU测试加载时需注意格式一致性。
-        # 写入模型参数 将模型当前的 state_dict（即所有可学习参数的字典）序列化并写入上述路径。
-        # 若启用固定 last.pth 名称，每轮会覆盖旧文件；目前未启用。
-        # 非完整快照：这里仅保存了模型参数，未包含优化器状态、epoch 编号或随机数状态，因此无法用于无缝恢复中断的训练流程。
-        # torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
-
         # 在完整体数据上计算宏平均 Dice；函数内部会执行 model.eval()。
         performance, basic_elapsed = timed_call(
             lambda: inference(args, model, best_performance,
@@ -464,7 +452,7 @@ def trainer_synapse(args, model, snapshot_path):
             if is_new_best_dice(performance, best_performance):
                 best_performance = performance
                 best_path = os.path.join(snapshot_path, "best.pth")
-                torch.save(without_profiling_stats(model.state_dict()), best_path)
+                torch.save(without_profiling_stats(checkpoint_model.state_dict()), best_path)
                 logging.info("Saved Synapse best checkpoint: %s", best_path)
             continue
 
@@ -488,7 +476,7 @@ def trainer_synapse(args, model, snapshot_path):
             filename = candidate_checkpoint_name(
                 epoch_num + 1, metrics["mean_dice"], metrics["mean_hd95"])
             checkpoint_path = os.path.join(snapshot_path, filename)
-            torch.save(without_profiling_stats(model.state_dict()), checkpoint_path)
+            torch.save(without_profiling_stats(checkpoint_model.state_dict()), checkpoint_path)
             row = {
                 "epoch": epoch_num + 1,
                 "rank_dice": float(performance),
@@ -524,38 +512,8 @@ def trainer_synapse(args, model, snapshot_path):
                 os.remove(removed_path)
                 logging.info("Removed displaced Synapse top-K checkpoint: %s", removed_path)
             logging.info("Saved Synapse top-K checkpoint: %s", checkpoint_path)
-        # Each epoch begins with model.train(); validation may leave the model in eval mode.
-
-        # 每 100 个 epoch 另存一个阶段性 checkpoint（已停用，保留原代码供审核）。
-        # save_interval = 100
-
-        # 开启动态前 N 时仍维护历史最高 Dice 供每轮日志显示。
         if is_new_best_dice(performance, best_performance):
             best_performance = performance
-
-        # epoch_num 从 0 开始，但判断用 epoch_num+1，所以第 50、100、150...轮触发。
-        """
-        if (epoch_num + 1) % save_interval == 0:
-            # 文件名使用一基轮次，因此第 50 轮保存为 epoch_50.pth。
-            save_mode_path = os.path.join(
-                snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
-            # 写入阶段性模型权重。
-            torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
-            # 记录阶段性文件位置。
-            logging.info("save model to {}".format(save_mode_path))
-        """
-        # 最终 epoch_N.pth 保存已停用，保留原代码供审核。
-        # if epoch_num >= max_epoch - 1:
-        #     # 最终文件名同样采用一基编号，例如 epoch_300.pth。
-        #     save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num + 1) + '.pth')
-        #     # 保存最终状态；若刚好也命中 save_interval，可能对同一文件写两次。
-        #     torch.save(without_profiling_stats(model.state_dict()), save_mode_path)
-        #     # 写入最终保存日志。
-        #     logging.info("save model to {}".format(save_mode_path))
-        #     # 主动关闭 tqdm 进度条，避免终端残留未结束状态。
-        #     iterator.close()
-        #     # 跳出 epoch 循环；在最后一轮此操作与自然结束等价。
-        #     break
 
     logging.info(
         "SYNAPSE_EVALUATION_SUMMARY epochs=%d dice_only_count=%d "

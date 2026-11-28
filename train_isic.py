@@ -1,17 +1,15 @@
 # json 读取固定数据划分的 split_summary.json。
 import json
-# shutil.copy2 把数据划分清单复制到每次实验目录，保留元数据。
-import shutil
 # sys.argv 用于判断某个命令行选项是否由用户显式给出。
 import sys
 # datetime 为未指定 run_name 的实验生成时间戳。
 from datetime import datetime
 # Path 构造数据集、清单和运行目录。
 from pathlib import Path
-from lib.experiment_paths import make_experiment_dir
 
 # ISIC 训练复用 train_polyp 的模型、损失、优化器和完整训练循环。
 import train_polyp as _base
+from lib.project_paths import DEFAULT_DATA_DIR
 # 只替换为 ISIC 严格图像/掩膜配对加载器。
 from utils.dataloader_isic import get_loader
 
@@ -60,8 +58,8 @@ def _parse_args():
 
     # 用户未显式指定数据根时使用 ISIC 准备目录。
     if not _option_was_given("--data_root"):
-        # 相对路径从通常项目根工作目录解析。
-        args.data_root = "../../../../data/isic/target"
+        # 默认数据根由项目位置解析。
+        args.data_root = str(DEFAULT_DATA_DIR / 'isic/target')
 
     # 用户未指定版本时默认训练 ISIC2018。
     if not _option_was_given("--dataset_name"):
@@ -194,23 +192,7 @@ def _parse_args():
             )
         )
 
-    # 统一输出层级并自动避让同一秒内的重复目录。
-    run_dir = Path(make_experiment_dir(args, "ISIC"))
-
-    # 把实际划分 CSV 复制进实验目录，实现训练结果与样本名单绑定。
-    shutil.copy2(
-        # 来源清单。
-        manifest_path,
-        # 实验内固定名称。
-        run_dir / "data_split_manifest.csv",
-    )
-    # 同样复制协议/统计摘要。
-    shutil.copy2(
-        # 来源摘要。
-        summary_path,
-        # 实验内固定名称。
-        run_dir / "data_split_summary.json",
-    )
+    args.split_metadata = (manifest_path, summary_path)
 
     # 返回增强后的 Namespace 给通用训练主函数。
     return args

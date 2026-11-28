@@ -5,8 +5,10 @@ from decimal import Decimal
 
 
 def validate_topk_config(enabled, topk, threshold_percent):
-    if enabled not in (0, 1):
+    if isinstance(enabled, bool) or enabled not in (0, 1):
         raise ValueError("synapse_topk_enabled must be 0 or 1")
+    if enabled == 0:
+        return
     if isinstance(topk, bool) or not isinstance(topk, int) or topk < 1:
         raise ValueError("synapse_topk_size must be a positive integer")
     if not math.isfinite(threshold_percent) or not 0 <= threshold_percent <= 100:

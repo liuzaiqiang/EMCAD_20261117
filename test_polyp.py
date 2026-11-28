@@ -21,6 +21,7 @@ from lib.benchmarking import (InferenceBenchmark, benchmark_repeated_forward,
                               peak_memory_mb, synchronize)
 from lib.test_output_paths import prepare_test_output
 from lib.pretrained_paths import DEFAULT_PVT_DIR
+from lib.project_paths import DEFAULT_DATA_DIR
 
 # 数据加载器同时暴露支持扩展名集合，供划分泄漏检查复用同一文件口径。
 from utils.dataloader_polyp import (
@@ -67,7 +68,7 @@ def parse_args():
         # 选项名。
         "--data_root",
         # 目录下预期包含 ClinicDB、Kvasir 等数据集子目录。
-        default="../../../../data/polyp/target",
+        default=str(DEFAULT_DATA_DIR / 'polyp/target'),
     )
     # 当前要评估的数据集子目录名。
     parser.add_argument(
