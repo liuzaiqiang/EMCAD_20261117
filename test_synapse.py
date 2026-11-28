@@ -129,6 +129,9 @@ parser.add_argument('--deterministic', type=int, default=1, help='whether use de
 parser.add_argument('--seed', type=int, default=2222, help='random seed')
 # 解析命令行并生成全局 args。
 args = parser.parse_args()
+from lib.research_261129 import checkpoint_flags
+if not args.train_config:
+    args.train_config = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), 'config.json')
 
 # 训练入口会在每个实验目录保存完整 config.json；测试时优先读取这些已落盘的真实参数。
 # 只覆盖模型结构与推理相关参数，不覆盖测试 checkpoint、测试数据路径或数据集选择。
@@ -137,6 +140,7 @@ if args.train_config:
         raise FileNotFoundError('Training config not found: {}'.format(args.train_config))
     with open(args.train_config, 'r', encoding='utf-8') as config_stream:
         training_config = json.load(config_stream)
+    args.research_flags = checkpoint_flags(training_config)
     if training_config.get('dataset', 'Synapse') != 'Synapse':
         raise ValueError('The selected training config is not for Synapse: {}'.format(args.train_config))
     config_keys_to_restore = (
@@ -310,7 +314,7 @@ if __name__ == "__main__":
     model = EMCADNet(num_classes=args.num_classes, kernel_sizes=args.kernel_sizes,
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
-                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir)
+                     encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir, research_flags=args.research_flags)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

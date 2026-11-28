@@ -270,6 +270,14 @@ if __name__ == '__main__':
     # 把数据集目录接到 test_path；test() 稍后再追加 split。
     opt.test_path = f'{opt.test_path}/{opt.dataset_name}/'
 
+    import json
+    from lib.research_261129 import checkpoint_flags
+    research_config = os.path.join(os.path.dirname(model_path), 'research_config.json')
+    if os.path.isfile(research_config):
+        with open(research_config, encoding='utf-8') as stream:
+            research_flags = checkpoint_flags(json.load(stream))
+    else:
+        research_flags = checkpoint_flags({})
     # --- Model Loading ---
     # 按训练结构重建一通道二分类 EMCAD。
     model = EMCADNet(
@@ -290,13 +298,14 @@ if __name__ == '__main__':
         # 编码器名称。
         encoder=opt.encoder,
         # 推理直接加载完整 checkpoint，不预先加载 ImageNet 权重。
-        pretrain=False  # Always False for inference
+        pretrain=False,  # Always False for inference
+        research_flags=research_flags,
         # 构造后立即移到默认 CUDA；没有 CPU 回退。
     ).cuda()
 
     # 加载权重：无 map_location；strict=False 会忽略不匹配/缺失键，可能掩盖结构配置错误。
     state_dict = without_profiling_stats(torch.load(model_path), model.state_dict().keys())
-    model.load_state_dict(state_dict, strict=False)
+    model.load_state_dict(state_dict, strict=any(research_flags.values()))
     # 明确切换 eval；test() 内还会再次调用。
     model.eval()
 

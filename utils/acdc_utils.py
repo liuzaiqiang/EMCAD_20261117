@@ -69,6 +69,7 @@ def build_model(args, pretrain):
         pretrain=pretrain,
         # 本地 PVT 权重目录。
         pretrained_dir=args.pretrained_dir,
+        research_flags=getattr(args, 'research_flags', None),
     )
 
 
