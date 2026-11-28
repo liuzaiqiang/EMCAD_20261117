@@ -62,7 +62,7 @@ class EMCADNet(nn.Module):
     # --------------------------------------------------------------------------
     # num_classes 决定每个输出头的通道；其余参数控制 EMCAD 消融配置和编码器选择。
     def __init__(self, num_classes=1, kernel_sizes=[1, 3, 5], expansion_factor=2, dw_parallel=True, add=True, lgag_ks=3,
-                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR):
+                 activation='relu', encoder='pvt_v2_b2', pretrain=True, pretrained_dir=DEFAULT_PVT_DIR, research_flags=None):
         # 初始化 nn.Module，使后续赋值的子模块和参数被 PyTorch 正确注册。
         super(EMCADNet, self).__init__()
         # conv block to convert single channel to 3 channels
@@ -216,6 +216,10 @@ class EMCADNet(nn.Module):
         self.out_head2 = nn.Conv2d(channels[2], num_classes, 1)
         # 最高分辨率 d1 输出头：channels[3] -> K。
         self.out_head1 = nn.Conv2d(channels[3], num_classes, 1)
+        from lib.research_261129 import ResearchPair, validate_flags
+        self.research_flags = validate_flags(research_flags)
+        if any(self.research_flags.values()):
+            self.research_pair = ResearchPair(channels, num_classes, self.research_flags)
 
     # ------------------------------ forward 契约 ------------------------------
     # 输入：四维 PyTorch 图像张量 x=[B,C,H,W]。代码专门适配 C=1，骨干原生适配 C=3。
@@ -225,7 +229,8 @@ class EMCADNet(nn.Module):
     # 调用 model.eval()、torch.no_grad() 以及选择最终预测头，仍由测试脚本负责。
     # -------------------------------------------------------------------------
     # 输入 x 约定为 (B,C,H,W)；mode 当前不改变返回值，训练策略由外部 trainer 决定。
-    def forward(self, x, mode='test'):
+    def forward(self, x, mode='test', return_research_aux=False):
+        research_image = x
         # 只在 C=1 时使用可学习适配器；已经是 RGB/C=3 时直接送入编码器。
         if x.size()[1] == 1:
             # (B,1,H,W) -> (B,3,H,W)，空间尺寸保持不变。
@@ -242,7 +247,8 @@ class EMCADNet(nn.Module):
         # x4 进入上采样主路，skip 按深到浅排列为 [x3,x2,x1]。
         # 返回 dec_outs=[d4,d3,d2,d1]，默认通道依次为 [512,320,128,64]。
         # 列表顺序不能改成 [x1,x2,x3]：EMCAD 第一次上采样后空间是 H/16，只能先与同为 H/16 的 x3 对齐融合。
-        dec_outs = self.decoder(x4, [x3, x2, x1])
+        dec_outs = (self.research_pair.decode(self.decoder, x4, [x3, x2, x1])
+                    if hasattr(self, 'research_pair') else self.decoder(x4, [x3, x2, x1]))
 
         # prediction heads  
         # d4 位于 H/32，先产生最深尺度 logits p4，形状 (B,K,H/32,W/32)。
@@ -253,6 +259,7 @@ class EMCADNet(nn.Module):
         p2 = self.out_head2(dec_outs[2])
         # d1 位于 H/4，产生代码命名的 p1；它是实际推理采用的最高分辨率解码头。
         p1 = self.out_head1(dec_outs[3])
+        native = [p4, p3, p2, p1]
 
         # 这里使用 scale_factor 而非显式 size=x.shape[-2:]，所以代码假设输入尺寸经过四次下采样后能被这些倍率精确还原。
         # 352 可被 32 整除，四个输出都会严格回到 352x352；若 H/W 不是 32 的合适倍数，卷积取整可能使放大后尺寸偏离原图。
@@ -268,13 +275,12 @@ class EMCADNet(nn.Module):
         p1 = F.interpolate(p1, scale_factor=4, mode='bilinear')
 
         # 论文第5页 Sec.3.3 把最后解码阶段称为 p4；本代码按反方向编号，外部推理实际取返回列表 P[-1]，即这里的 p1。
-        if mode == 'test':
-            # return 返回的是列表本身，不会复制四个张量；张量仍保留其 autograd 关系，除非外层使用 no_grad 或 detach。
-            # 测试模式仍返回全部四个 logits，不在模型内部执行 sigmoid、softmax 或多头求和。
-            return [p4, p3, p2, p1]
+        outputs = [p4, p3, p2, p1]
+        aux = {}
+        if hasattr(self, 'research_pair'):
+            outputs, aux = self.research_pair.refine(research_image, dec_outs, native, outputs)
+        return (outputs, aux) if return_research_aux else outputs
 
-        # 非 test 模式返回完全相同的列表；mutation/deep supervision/last-layer 由训练器选择。
-        return [p4, p3, p2, p1]
 
 # 直接运行本文件时执行一个 GPU 形状检查；被训练脚本 import 时不会进入该分支。
 if __name__ == '__main__':
