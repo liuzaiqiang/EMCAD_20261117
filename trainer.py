@@ -320,7 +320,8 @@ def trainer_synapse(args, model, snapshot_path):
             # 训练模式前向：EMCADNet 返回由粗到细的四个全分辨率 logits，均为 [B,9,224,224]。
             # 论文第 3.2/3.3 节把它们记作多阶段分割输出；这里变量名P表示 prediction list。
             # 注意，mode='train' 只是你这个 EMCAD forward() 的参数，不能替代 PyTorch 的 model.train()。真正决定 BatchNorm、Dropout 是否处于训练状态的是模型的 training 属性。
-            P = model(image_batch, mode='train')
+            from lib.research_261129 import train_forward, add_auxiliary_loss
+            P, research_aux = train_forward(model, image_batch)
             # 兼容只返回单张量的其他模型：统一包装为列表，后续监督代码只处理 list。
             # 如果模型只返回一个 Tensor，就把它包装为只有一个元素的列表。这样后面统一使用 P[index]，不用为单输出模型和多输出模型各写一套逻辑。
             if not isinstance(P, list):
@@ -380,6 +381,7 @@ def trainer_synapse(args, model, snapshot_path):
                 loss += (w_ce * loss_ce + w_dice * loss_dice)
 
             # 清除上一个 batch 残留梯度；默认把梯度张量写成 0。
+            loss = add_auxiliary_loss(loss, research_aux, label_batch)
             optimizer.zero_grad()
             # 从总损失沿 15/4/1 条监督路径反向传播，梯度最终汇合到共享编码器和解码器参数。同一个输出若出现在多个组合中，会收到多个路径的梯度贡献；
             loss.backward()
