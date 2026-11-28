@@ -104,6 +104,8 @@ parser.add_argument('--checkpoint', type=str, required=True,
 # 当显式传入训练配置文件时，按其中记录的模型参数创建网络，避免测试结构与 checkpoint 不匹配。
 parser.add_argument('--train_config', type=str, default='',
                     help='training config.json next to the checkpoint; model settings are loaded from it')
+parser.add_argument('--area_aware_refinement', type=int, choices=[0, 1], default=0,
+                    help='0: disabled, 1: area-aware refinement')
 
 # max_iterations 在这里不控制任何循环，只参与复刻训练目录名。
 parser.add_argument('--max_iterations', type=int, default=30000, help='maximum epoch number to train')
@@ -141,7 +143,7 @@ if args.train_config:
     config_keys_to_restore = (
         'num_classes', 'encoder', 'expansion_factor', 'kernel_sizes', 'lgag_ks',
         'activation_mscb', 'no_dw_parallel', 'concatenation', 'no_pretrain',
-        'pretrained_dir', 'supervision', 'pointrend_enabled',
+        'pretrained_dir', 'supervision', 'area_aware_refinement',
         'max_iterations', 'max_epochs', 'batch_size', 'base_lr', 'img_size', 'seed',
     )
     for config_key in config_keys_to_restore:
@@ -379,7 +381,7 @@ if __name__ == "__main__":
                      expansion_factor=args.expansion_factor, dw_parallel=not args.no_dw_parallel,
                      add=not args.concatenation, lgag_ks=args.lgag_ks, activation=args.activation_mscb,
                      encoder=args.encoder, pretrain=False, pretrained_dir=args.pretrained_dir,
-                     pointrend_enabled=bool(getattr(args, 'pointrend_enabled', 0)))
+                     area_aware_refinement=args.area_aware_refinement)
     # 把模型移到默认 GPU；本测试入口没有 CPU 回退。
     model.cuda()
 

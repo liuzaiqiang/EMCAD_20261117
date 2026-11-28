@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # 本次实验要验证的目的；也可在启动命令前用 RUN_PURPOSE=... 覆盖。
-RUN_PURPOSE="${RUN_PURPOSE:-全套验证：小器官感知的困难区域监督+点细化头}"
+RUN_PURPOSE="${RUN_PURPOSE:-全套验证(261128第一次修改，避免重复)：小器官感知的困难区域监督+点细化头}"
 
 # 默认使用 GPU 0；连续队列也可通过 CUDA_DEVICE 覆盖，供启动器之间统一选卡。
 export CUDA_VISIBLE_DEVICES="${CUDA_DEVICE:-0}"
@@ -28,11 +28,17 @@ CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
 
 
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
+
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${CONDA_ENV_PREFIX}"
 
 SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
-POINTREND_ENABLED="${POINTREND_ENABLED:-1}"
+AREA_AWARE_REFINEMENT="${AREA_AWARE_REFINEMENT:-1}"
 
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,7 +47,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Synapse 动态前 N：0 使用原有 best.pth 保存；1 计算入榜轮次的完整指标。
 SYNAPSE_TOPK_ENABLED="${SYNAPSE_TOPK_ENABLED:-1}"
 SYNAPSE_TOPK_SIZE="${SYNAPSE_TOPK_SIZE:-6}"
-SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.00}"
+SYNAPSE_TOPK_DICE_THRESHOLD="${SYNAPSE_TOPK_DICE_THRESHOLD:-84.10}"
 
 
 cd "${PROJECT_DIR}"
@@ -125,7 +131,7 @@ RUN_ID="$(basename "${LOG_FILE}" .log)"
 PID_FILE="${LOG_DIR}/${RUN_ID}.pid"
 
 
-[[ "${POINTREND_ENABLED}" == "0" || "${POINTREND_ENABLED}" == "1" ]] || { echo "[ERROR] POINTREND_ENABLED must be 0 or 1" >&2; exit 1; }
+[[ "${AREA_AWARE_REFINEMENT}" =~ ^[01]$ ]] || { echo "[ERROR] AREA_AWARE_REFINEMENT must be 0 or 1" >&2; exit 1; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;
   *) echo "[ERROR] SMALL_TARGET_HARD_SUPERVISION must be 0 or 1" >&2; exit 1 ;;
@@ -173,8 +179,10 @@ PARAM_NAMES=(
   RUN_ID
   PID_FILE
   NUM_WORKERS
+  
   SMALL_TARGET_HARD_SUPERVISION
-  POINTREND_ENABLED
+  AREA_AWARE_REFINEMENT
+
   SYNAPSE_TOPK_ENABLED
   SYNAPSE_TOPK_SIZE
   SYNAPSE_TOPK_DICE_THRESHOLD
@@ -212,7 +220,7 @@ nohup env RUN_ID="${RUN_ID}" python -u train_synapse.py \
   --n_gpu "${N_GPU}" \
   --deterministic "${DETERMINISTIC}" \
   --small_target_hard_supervision "${SMALL_TARGET_HARD_SUPERVISION}" \
-  --pointrend_enabled "${POINTREND_ENABLED}" \
+  --area_aware_refinement "${AREA_AWARE_REFINEMENT}" \
   --synapse_topk_enabled "${SYNAPSE_TOPK_ENABLED}" \
   --synapse_topk_size "${SYNAPSE_TOPK_SIZE}" \
   --synapse_topk_dice_threshold "${SYNAPSE_TOPK_DICE_THRESHOLD}" \

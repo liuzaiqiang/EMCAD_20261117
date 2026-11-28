@@ -95,7 +95,7 @@ def build_model(args, pretrain):
         lgag_ks=args.lgag_ks,
         # 该激活参数主要传给 MSCB；EUCB 和 LGAG 各自仍使用其构造函数默认激活。
         activation=args.activation_mscb,
-        pointrend_enabled=bool(getattr(args, 'pointrend_enabled', 0)),
+        area_aware_refinement=getattr(args, 'area_aware_refinement', 0),
         # 编码器可选 PVTv2 或仓库扩展的 ResNet；论文正式实验使用 PVTv2-B0/B2。
         encoder=args.encoder,
         # 是否加载 ImageNet 预训练编码器权重，与编码器结构选择相互独立。
@@ -110,7 +110,7 @@ def build_model(args, pretrain):
 # 四个分割头的结果已经在 lib/networks.py 中分别上采样 32/16/8/4 倍到输入尺寸。
 # 这里得到的仍然是未经过 Sigmoid 的 logits，不是概率图。
 def model_outputs(model, images, mode="test"):
-    # mode 原样传给模型；当前 EMCADNet 的 train/test 分支返回内容相同，但保留该接口便于兼容其他模型。
+    # mode 原样传给模型，测试模式可细化最后一级 logits。
     outputs = model(images, mode=mode)
 
     # EMCAD 的四输出 list/tuple 被复制成普通 list，避免下游依赖具体容器类型。

@@ -114,7 +114,8 @@ def parse_args():
     # PVT 预训练权重所在目录。
     parser.add_argument("--pretrained_dir", default=DEFAULT_PVT_DIR)
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
-    parser.add_argument("--pointrend_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--area_aware_refinement", type=int, choices=[0, 1], default=0,
+                        help="0: disabled, 1: area-aware refinement")
     parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
     parser.add_argument("--topn_size", type=int, default=10)
 
@@ -465,7 +466,7 @@ def main():
             # 进入自动混合精度上下文；scaler 未启用时等同普通前向。
             with autocast(enabled=scaler.is_enabled()):
                 # EMCAD 训练前向并统一转成 list；典型 4 个输出均为 [B,4,224,224] logits。
-                if args.pointrend_enabled:
+                if args.area_aware_refinement:
                     outputs, point_logits, point_coords = model(images, mode="train_point")
                 else:
                     outputs = model_outputs(model, images, mode="train")
@@ -485,8 +486,8 @@ def main():
                                         if args.small_target_hard_supervision else None),
                     # 损失调用结束，loss 为带梯度的标量 Tensor。
                 )
-                if args.pointrend_enabled:
-                    from lib.point_rend import point_loss
+                if args.area_aware_refinement:
+                    from lib.area_aware_refinement import point_loss
                     loss = loss + point_loss(point_logits, point_coords, labels)
             # AMP 时先按缩放因子放大 loss 再反向，降低 float16 梯度下溢风险；普通模式不缩放。
             scaler.scale(loss).backward()

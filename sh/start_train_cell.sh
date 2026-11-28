@@ -24,6 +24,11 @@ export RUN_PURPOSE="${RUN_PURPOSE:-未填写（请设置 RUN_PURPOSE）}"
 #CONDA_ENV_PREFIX="/home/mlf/anaconda3/envs/sld_emcad"
 
 
+#autoDL
+#CONDA_BASE="${CONDA_BASE:-/root/miniconda3}"
+#CONDA_ENV_PREFIX="${CONDA_ENV_PREFIX:-/root/miniconda3/envs/sld_emcad}"
+
+
 #212服务器
 #CONDA_BASE="/home/zym/anaconda3"
 #CONDA_ENV_PREFIX="/home/zym/anaconda3/envs/sld_emcad"
@@ -77,10 +82,10 @@ export INPUT_CHANNELS="${INPUT_CHANNELS:-3}"
 export N_GPU="${N_GPU:-1}"
 
 export SMALL_TARGET_HARD_SUPERVISION="${SMALL_TARGET_HARD_SUPERVISION:-1}"
-export POINTREND_ENABLED="${POINTREND_ENABLED:-0}"
+export AREA_AWARE_REFINEMENT="${AREA_AWARE_REFINEMENT:-0}"
 export TOPN_ENABLED="${TOPN_ENABLED:-0}"
 export TOPN_SIZE="${TOPN_SIZE:-10}"
-[[ "${POINTREND_ENABLED}" == "0" || "${POINTREND_ENABLED}" == "1" ]] || { echo "[ERROR] POINTREND_ENABLED must be 0 or 1" >&2; exit 2; }
+[[ "${AREA_AWARE_REFINEMENT}" =~ ^[01]$ ]] || { echo "[ERROR] AREA_AWARE_REFINEMENT must be 0 or 1" >&2; exit 2; }
 [[ "${TOPN_ENABLED}" == "0" || "${TOPN_ENABLED}" == "1" ]] || { echo "[ERROR] TOPN_ENABLED must be 0 or 1" >&2; exit 2; }
 case "${SMALL_TARGET_HARD_SUPERVISION}" in
   0|1) ;;

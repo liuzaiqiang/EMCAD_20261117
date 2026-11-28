@@ -175,7 +175,8 @@ def parse_args():
         default=DEFAULT_PVT_DIR,
     )
     parser.add_argument("--small_target_hard_supervision", type=int, choices=[0, 1], default=1)
-    parser.add_argument("--pointrend_enabled", type=int, choices=[0, 1], default=0)
+    parser.add_argument("--area_aware_refinement", type=int, choices=[0, 1], default=0,
+                        help="0: disabled, 1: area-aware refinement")
     parser.add_argument("--topn_enabled", type=int, choices=[0, 1], default=0)
     parser.add_argument("--topn_size", type=int, default=10)
     # DSB18 可用该开关把每张图像目录下的多个细胞实例掩膜并为前景。
@@ -962,7 +963,7 @@ def main():
                 with autocast(
                         enabled=scaler.is_enabled()
                 ):
-                    if args.pointrend_enabled:
+                    if args.area_aware_refinement:
                         outputs, point_logits, point_coords = model(scaled_images, mode="train_point")
                     else:
                         outputs = model_outputs(
@@ -978,8 +979,8 @@ def main():
                         hard_positive_loss=(small_target_hard_positive_loss
                                             if args.small_target_hard_supervision else None),
                     )
-                    if args.pointrend_enabled:
-                        from lib.point_rend import point_loss
+                    if args.area_aware_refinement:
+                        from lib.area_aware_refinement import point_loss
                         loss = loss + point_loss(point_logits, point_coords, scaled_masks)
 
                 scaler.scale(loss).backward()

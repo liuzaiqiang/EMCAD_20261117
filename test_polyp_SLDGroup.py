@@ -270,6 +270,8 @@ if __name__ == '__main__':
     opt.test_path = f'{opt.test_path}/{opt.dataset_name}/'
 
     # --- Model Loading ---
+    state_dict = torch.load(model_path, map_location='cpu')
+    area_aware_refinement = int('area_aware_refiner.correction.0.weight' in state_dict)
     # 按训练结构重建一通道二分类 EMCAD。
     model = EMCADNet(
         # 1 个前景 logit 通道，背景为隐式互补概率。
@@ -289,13 +291,13 @@ if __name__ == '__main__':
         # 编码器名称。
         encoder=opt.encoder,
         # 推理直接加载完整 checkpoint，不预先加载 ImageNet 权重。
-        pretrain=False  # Always False for inference
+        pretrain=False,
+        area_aware_refinement=area_aware_refinement,
         # 构造后立即移到默认 CUDA；没有 CPU 回退。
     ).cuda()
 
-    # 加载权重：无 map_location；strict=False 会忽略不匹配/缺失键，可能掩盖结构配置错误。
-    state_dict = without_profiling_stats(torch.load(model_path), model.state_dict().keys())
-    model.load_state_dict(state_dict, strict=False)
+    state_dict = without_profiling_stats(state_dict, model.state_dict().keys())
+    model.load_state_dict(state_dict, strict=True)
     # 明确切换 eval；test() 内还会再次调用。
     model.eval()
 
