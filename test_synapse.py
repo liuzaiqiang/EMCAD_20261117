@@ -90,7 +90,7 @@ parser.add_argument('--concatenation', action='store_true',
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # 构造模型时 PVT 预训练文件目录；随后完整 checkpoint 会覆盖模型参数。
-parser.add_argument('--pretrained_dir', type=str, default='../../../pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default='../../../../pretrained_pth/pvt/',
                     help='path to pretrained encoder dir')
 # 监督策略不参与测试前向，却参与 checkpoint 目录名，因此仍需匹配训练命令。
 parser.add_argument('--supervision', type=str,
@@ -148,10 +148,10 @@ if args.train_config:
     for config_key in config_keys_to_restore:
         if config_key in training_config:
             setattr(args, config_key, training_config[config_key])
-    # Older configs may retain a project-local or four-level relative path.
+    # Migrate the relative defaults saved by earlier training runs.
     if args.pretrained_dir in ('./pretrained_pth/pvt/', './pretrained_pth/pvt',
-                               '../../../../pretrained_pth/pvt/', '../../../../pretrained_pth/pvt'):
-        args.pretrained_dir = '../../../pretrained_pth/pvt/'
+                               '../../../pretrained_pth/pvt/', '../../../pretrained_pth/pvt'):
+        args.pretrained_dir = '../../../../pretrained_pth/pvt/'
     print('[INFO] Restored model/test settings from training config:', args.train_config)
 
 # 若总类别数为 14，则准备 13 个前景类别名称；背景仍隐含为索引 0。

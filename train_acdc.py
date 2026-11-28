@@ -110,7 +110,7 @@ def parse_args():
     # 出现该旗标后不加载 ImageNet 编码器预训练权重。
     parser.add_argument("--no_pretrain", action="store_true")
     # PVT 预训练权重所在目录。
-    parser.add_argument("--pretrained_dir", default="../../../pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default="../../../../pretrained_pth/pvt/")
     parser.add_argument("--phase_upsampling", type=int, choices=[0, 1], default=0)
     parser.add_argument("--phase_residual_scale", type=float, default=0.1)
     parser.add_argument("--stage_adaptive_kernels", type=int, choices=[0, 1], default=0)

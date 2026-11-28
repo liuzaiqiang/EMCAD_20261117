@@ -92,7 +92,7 @@ def parse_args():
     # 出现该旗标表示用 concat 聚合多尺度特征；默认 add。
     parser.add_argument("--concatenation", action="store_true")
     # 预训练目录仍是 build_model 所需属性，但测试构造时 pretrain=False，不会加载它。
-    parser.add_argument("--pretrained_dir", default="../../../pretrained_pth/pvt/")
+    parser.add_argument("--pretrained_dir", default="../../../../pretrained_pth/pvt/")
     parser.add_argument("--phase_upsampling", type=int, choices=[0, 1], default=0)
     parser.add_argument("--phase_residual_scale", type=float, default=0.1)
     parser.add_argument("--stage_adaptive_kernels", type=int, choices=[0, 1], default=0)

@@ -71,7 +71,7 @@ parser.add_argument('--concatenation', action='store_true', default=False,
 parser.add_argument('--no_pretrain', action='store_true', default=False,
                     help='use this flag to turn off loading pretrained enocder weights')
 # PVT 预训练权重目录；EMCADNet 会按 encoder 名称拼接具体 .pth 文件名。
-parser.add_argument('--pretrained_dir', type=str, default='../../../pretrained_pth/pvt/',
+parser.add_argument('--pretrained_dir', type=str, default='../../../../pretrained_pth/pvt/',
                     help='path to pretrained encoder dir')
 # 四输出监督策略：mutation=非空输出组合；deep_supervision=各输出单独；其余走最终输出。
 parser.add_argument('--supervision', type=str, default='mutation',

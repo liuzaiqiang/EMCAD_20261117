@@ -156,7 +156,7 @@ def parse_args():
         # 选项名。
         "--pretrained_dir",
         # 默认目录。
-        default="../../../pretrained_pth/pvt/",
+        default="../../../../pretrained_pth/pvt/",
     )
 
     parser.add_argument("--phase_upsampling", type=int, choices=[0, 1], default=0)

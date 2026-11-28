@@ -359,7 +359,7 @@ if __name__ == '__main__':
                         default=False, help='use this flag to turn off loading pretrained enocder weights')
     # PVT 预训练文件目录。
     parser.add_argument('--pretrained_dir', type=str,
-                        default='../../../pretrained_pth/pvt/', help='path to pretrained encoder dir')
+                        default='../../../../pretrained_pth/pvt/', help='path to pretrained encoder dir')
     # 该参数参与 run_id，但 train() 当前固定使用“五路 paper 风格损失”，没有读取 opt.supervision 分支。
     parser.add_argument('--supervision', type=str,
                         default='mutation', help='loss supervision: mutation, deep_supervision or last_layer')

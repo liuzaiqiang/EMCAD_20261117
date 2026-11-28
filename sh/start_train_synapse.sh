@@ -89,7 +89,7 @@ esac
 # 1 表示加载编码器预训练权重，0 表示随机初始化；结构选择与权重选择是两件事。
 # PVTv2 权重从 PRETRAINED_DIR/<ENCODER>.pth 读取；ResNet 由其实现使用 PyTorch 缓存/下载。
 USE_PRETRAIN="${USE_PRETRAIN:-1}"
-PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../pretrained_pth/pvt}"
+PRETRAINED_DIR="${PRETRAINED_DIR:-${PROJECT_DIR}/../../../../pretrained_pth/pvt}"
 if [[ "${USE_PRETRAIN}" == "1" && "${ENCODER}" == pvt_v2_* ]]; then
   test -f "${PRETRAINED_DIR}/${ENCODER}.pth" || {
     echo "[ERROR] pretrained model not found: ${PRETRAINED_DIR}/${ENCODER}.pth" >&2
