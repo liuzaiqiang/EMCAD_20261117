@@ -241,7 +241,8 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
             # 并不会自动恢复原始 opt.img_size；这里只说明真实执行顺序，不改逻辑。
 
             # 前向得到四级 logits 列表。
-            P = model(images)
+            from lib.research_261129 import train_forward, add_auxiliary_loss
+            P, research_aux = train_forward(model, images)
             # 兼容单输出模型，但下面固定访问 P[0]..P[3]，因此实际仍要求至少 4 个输出。
             if not isinstance(P, list):
                 # 单 Tensor 包装成列表。
@@ -264,6 +265,7 @@ def train(train_loader, model, optimizer, epoch, opt, model_name):
                 4] * loss_p1234
 
             # 对共享编码器、EMCAD 解码器和四个分割头反向传播。
+            loss = add_auxiliary_loss(loss, research_aux, gts)
             loss.backward()
             # 将每个参数梯度原地截断到 [-clip,+clip]，抑制梯度爆炸。
             clip_gradient(optimizer, opt.clip)
@@ -394,6 +396,8 @@ if __name__ == '__main__':
     parser.add_argument('--train_save', type=str, default='')
     # 解析全部参数。
     opt = parser.parse_args()
+    from lib.research_261129 import capture_training_flags
+    capture_training_flags(opt)
 
     # 保存 val/test 每轮 Dice 序列。
     dict_plot = {'val': [], 'test': []}
@@ -436,6 +440,9 @@ if __name__ == '__main__':
         run_id = f'{dataset_name}_{opt.encoder}_{timestamp}'
     opt.train_save = opt.train_save or f'./model_pth/{run_id}/'
     os.makedirs(opt.train_save, exist_ok=True)
+    import json
+    with open(os.path.join(opt.train_save, 'research_config.json'), 'w', encoding='utf-8') as stream:
+        json.dump({'research_flags': opt.research_flags}, stream)
     logging.basicConfig(filename=os.path.join(opt.train_save, "train.log"),
                         level=logging.INFO, format='[%(asctime)s] %(message)s')
 
@@ -446,7 +453,7 @@ if __name__ == '__main__':
     model = EMCADNet(num_classes=1, kernel_sizes=opt.kernel_sizes, expansion_factor=opt.expansion_factor,
                      dw_parallel=not opt.no_dw_parallel, add=not opt.concatenation, lgag_ks=opt.lgag_ks,
                      activation=opt.activation_mscb, encoder=opt.encoder, pretrain=not opt.no_pretrain,
-                     pretrained_dir=opt.pretrained_dir)
+                     pretrained_dir=opt.pretrained_dir, research_flags=opt.research_flags)
 
     # 设备变量表面支持 CPU 回退。
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

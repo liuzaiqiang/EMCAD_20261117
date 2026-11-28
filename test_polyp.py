@@ -276,6 +276,8 @@ def restore_checkpoint_model_options(args):
         )
     with config_path.open("r", encoding="utf-8") as stream:
         config = json.load(stream)
+    from lib.research_261129 import checkpoint_flags
+    args.research_flags = checkpoint_flags(config)
 
     options = {
         "encoder": "--encoder",
